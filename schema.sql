@@ -28,6 +28,29 @@ CREATE TABLE IF NOT EXISTS wallets (
     created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Kategori pengeluaran dan pemasukan yang bisa ditambah keluarga sendiri.
+-- transactions.category tetap menyimpan namanya sebagai teks, bukan foreign key:
+-- dengan begitu tabel ini murni sumber daftar pilihan, dan transaksi lama tetap
+-- terbaca apa adanya kalau sebuah kategori dihapus. Konsekuensinya, mengganti
+-- nama kategori harus ikut memperbarui transaksinya — lihat RenameCategory.
+CREATE TABLE IF NOT EXISTS categories (
+    id         BIGSERIAL PRIMARY KEY,
+    kind       TEXT NOT NULL CHECK (kind IN ('expense', 'income')),
+    name       TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (kind, name)
+);
+
+-- Kategori bawaan, sama dengan yang ada di mockup fase 1. Hanya terpasang saat
+-- tabel masih kosong, sehingga keluarga yang sudah merapikan daftarnya sendiri
+-- tidak kebanjiran kategori bawaan lagi setiap kali aplikasi start.
+INSERT INTO categories (kind, name)
+SELECT 'expense', name FROM unnest(ARRAY['Belanja', 'Tagihan', 'Transportasi', 'Makanan', 'Kesehatan', 'Lainnya']) AS name
+WHERE NOT EXISTS (SELECT 1 FROM categories)
+UNION ALL
+SELECT 'income', name FROM unnest(ARRAY['Gaji', 'Bonus', 'Hadiah', 'Investasi', 'Lainnya']) AS name
+WHERE NOT EXISTS (SELECT 1 FROM categories);
+
 CREATE TABLE IF NOT EXISTS transactions (
     id              BIGSERIAL PRIMARY KEY,
     kind            TEXT NOT NULL CHECK (kind IN ('expense', 'income', 'transfer')),

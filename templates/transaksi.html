@@ -8,9 +8,30 @@
   <nav class="seg">
     {{range $.Filters}}
       <a class="seg-opt{{if eq $.Filter .Value}} on{{end}}"
-         href="/transaksi{{if .Value}}?jenis={{.Value}}{{end}}">{{.Label}}</a>
+         href="/transaksi?jenis={{.Value}}{{if $.Kategori}}&kategori={{$.Kategori}}{{end}}">{{.Label}}</a>
     {{end}}
   </nav>
+
+  {{/* Tanpa JavaScript, select biasa tidak menavigasi. Formnya GET dan tombolnya
+       hanya muncul kalau skrip mati — itu yang membuat filter tetap bisa dipakai. */}}
+  <form method="get" action="/transaksi" class="filter-row" data-auto-submit>
+    <input type="hidden" name="jenis" value="{{.Filter}}">
+    <label for="kategori" class="text-muted small">Kategori</label>
+    <select class="input" id="kategori" name="kategori">
+      <option value="">Semua kategori</option>
+      {{range $.Categories}}
+        <option value="{{.Name}}" {{if eq $.Kategori .Name}}selected{{end}}>
+          {{.Name}} · {{if eq .Kind "income"}}masuk{{else}}keluar{{end}}
+        </option>
+      {{end}}
+    </select>
+    <noscript><button type="submit" class="btn">Terapkan</button></noscript>
+  </form>
+
+  {{if .Kategori}}
+    <p class="note">Menampilkan kategori <strong>{{.Kategori}}</strong>.
+      <a href="/transaksi{{if .Filter}}?jenis={{.Filter}}{{end}}">Hapus filter</a></p>
+  {{end}}
 
   {{if .Groups}}
     {{range .Groups}}

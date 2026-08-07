@@ -1,7 +1,10 @@
 # Rukun — Keuangan Keluarga
 
 Pencatatan keuangan keluarga yang bisa diakses beberapa anggota ke data yang sama.
+
 Fase 1: Dashboard, Dompet, dan Transaksi (pengeluaran, pemasukan, transfer lintas mata uang).
+Fase 2: kategori kustom, ringkasan per kategori, filter transaksi per kategori, dan
+kurs otomatis dari API.
 
 Satu binary Go: server, template HTML, dan seluruh aset statis ikut ter-embed.
 Tidak ada build frontend, tidak ada `node_modules`, tidak ada framework JS.
@@ -60,6 +63,7 @@ sungguhan, naikkan keduanya ke paket berbayar termurah di `render.yaml`
 | `BASE_CURRENCY` | tidak | Mata uang total di dashboard. Default `IDR`. |
 | `APP_TZ` | tidak | Zona waktu untuk "Hari ini". Default `Asia/Jakarta`. |
 | `PORT` | tidak | Default `8080`. Diisi otomatis oleh Render. |
+| `RATES_URL` | tidak | Sumber kurs. Default open.er-api.com; isi `off` untuk mematikan. |
 
 ## PWA
 
@@ -102,8 +106,27 @@ bisa dilacak balik. Jumlah desimal per mata uang mengikuti ISO 4217 (`money.go`)
 angka ber-skala membuat arah IDR→USD hanya punya 3 digit signifikan, dan konversi
 bolak-balik menggeser nominal. Yang disimpan adalah nominal keluar, nominal diterima,
 dan biaya admin — ketiganya `int64` eksak. Kurs yang ditampilkan diturunkan dari
-ketiganya (`EffectiveRate`), dan kurs default di form transfer diambil dari transfer
-terakhir pasangan mata uang yang sama. Tidak ada API kurs eksternal.
+ketiganya (`EffectiveRate`).
+
+**Kurs pasar diminta dengan base USD, tidak pernah base IDR.** Dengan base IDR, API
+membulatkan ke enam desimal sehingga 1 IDR = 0,000056 USD — dua digit signifikan, dan
+kursnya meleset belasan persen. Dari base USD (1 USD = 17.936,304774 IDR) semua
+pasangan lain diturunkan lewat USD. Kalau API tidak bisa dihubungi, aplikasi tetap
+jalan memakai kurs dari transfer yang sudah tercatat.
+
+**Nominal diterima dibulatkan ke bawah, dan selisih sesen dimaafkan.** Rp15.500.000
+dibagi kursnya jatuh di $864,1697, sementara yang bisa benar-benar diterima hanya
+kelipatan sen. Membulatkan ke atas menghasilkan nominal yang nilainya melebihi uang
+yang keluar, jadi skrip form selalu membulatkan ke bawah. Di sisi server, biaya admin
+negatif yang besarnya di bawah nilai satu satuan terkecil mata uang tujuan dianggap
+sisa pembulatan dan dinolkan; di atas itu tetap ditolak.
+
+**Kategori disimpan sebagai teks di transaksi, bukan foreign key.** Tabel `categories`
+hanya sumber daftar pilihan. Dengan begitu menghapus kategori tidak bisa membuat
+transaksi lama menggantung, dan tidak perlu join tambahan di setiap query. Harganya:
+mengganti nama kategori harus ikut memperbarui transaksinya — itu dilakukan dalam satu
+transaksi database di `RenameCategory`, dan menghapus kategori yang masih dipakai
+ditolak.
 
 **Saldo dompet tidak disimpan.** Selalu dihitung dari `initial_balance_minor` ditambah
 transaksinya (`walletSelect` di `store.go`). Tidak ada kolom yang bisa melenceng dari
@@ -127,6 +150,7 @@ main.go        wiring, rute, bootstrap skema, sidik jari aset
 handlers.go    handler HTTP dan validasi form
 store.go       akses database (pgx)
 money.go       nominal int64, kurs sebagai rasio, format Indonesia
+rates.go       kurs pasar dari API, cache di memori, gabung dengan kurs transfer
 view.go        view model dan pelabelan tanggal
 auth.go        sesi cookie, bcrypt, kode undangan
 schema.sql     skema, dijalankan saat start
@@ -136,9 +160,9 @@ static/        CSS design system Classical, app.css, app.js, ikon, manifest
 
 ## Yang sengaja belum ada
 
-Realtime sync, mode offline, kategori custom, laporan dan grafik, ekspor,
-API kurs otomatis, peran/izin per anggota, dan tool migrasi. Semuanya ditambahkan
-kalau memang terasa kurang setelah dipakai, bukan sebelumnya.
+Realtime sync, mode offline, laporan dan grafik lintas bulan, ekspor, anggaran per
+kategori, peran/izin per anggota, dan tool migrasi. Semuanya ditambahkan kalau memang
+terasa kurang setelah dipakai, bukan sebelumnya.
 
 Satu hal yang perlu diganti begitu skema berubah setelah rilis: `schema.sql`
 sekarang hanya `CREATE ... IF NOT EXISTS`, jadi ia tidak bisa mengubah tabel yang

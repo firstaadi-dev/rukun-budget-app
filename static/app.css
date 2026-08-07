@@ -37,7 +37,7 @@ a { color: var(--color-accent-700); }
   position: fixed;
   inset: auto 0 0 0;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   background: var(--color-surface);
   border-top: 1px solid var(--color-divider);
   padding-bottom: env(safe-area-inset-bottom);
@@ -238,6 +238,40 @@ a { color: var(--color-accent-700); }
 .mini-name { font-size: 12.5px; }
 .mini-amt { font-size: 13.5px; }
 
+/* Bilah per kategori: latar berwarna menunjukkan porsi terhadap kategori
+   terbesar, teksnya tetap di atasnya supaya tidak perlu legenda terpisah. */
+.cat-cols { display: flex; flex-direction: column; gap: var(--space-4); }
+@media (min-width: 900px) {
+  .cat-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); align-items: start; }
+}
+.cat-col-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12.5px;
+  margin-bottom: var(--space-2);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--color-divider);
+}
+.cat-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 34px;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: 13px;
+}
+.cat-bar-fill { position: absolute; inset: 0 auto 0 0; border-radius: var(--radius-md); }
+.cat-bar-name, .cat-bar-amt { position: relative; }
+.cat-bar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-bar-amt { flex-shrink: 0; }
+
 /* ---------- baris transaksi ---------- */
 
 .rows { display: flex; flex-direction: column; }
@@ -271,6 +305,9 @@ a { color: var(--color-accent-700); }
 .row-sub { font-size: 11px; }
 .row-amt { font-size: 13.5px; flex-shrink: 0; }
 
+.cat-item { flex-direction: row; align-items: center; gap: 12px; }
+.cat-item form { display: flex; }
+
 .wallet-item { flex-direction: row; align-items: center; gap: 12px; }
 .wallet-amt { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 14px; }
 .wallet-item form { display: flex; }
@@ -286,6 +323,14 @@ a.seg-opt {
   color: var(--color-text);
 }
 a.seg-opt.on { background: var(--color-accent-100); color: var(--color-accent-700); }
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.filter-row select { flex: 1; min-width: 160px; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip input { position: absolute; opacity: 0; pointer-events: none; }

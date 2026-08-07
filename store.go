@@ -189,12 +189,15 @@ func scanTxs(rows pgx.Rows) ([]Tx, error) {
 	return out, rows.Err()
 }
 
-// Transactions: kind kosong berarti semua. limit 0 berarti tanpa batas.
-func (s *Store) Transactions(ctx context.Context, kind string, limit int) ([]Tx, error) {
-	q := txSelect + ` WHERE ($1 = '' OR t.kind = $1) ORDER BY t.occurred_on DESC, t.id DESC`
-	args := []any{kind}
+// Transactions: kind dan category kosong berarti semua. limit 0 berarti tanpa
+// batas. Transfer tidak punya kategori, jadi menyaring per kategori dengan
+// sendirinya menyisakan pengeluaran dan pemasukan saja.
+func (s *Store) Transactions(ctx context.Context, kind, category string, limit int) ([]Tx, error) {
+	q := txSelect + ` WHERE ($1 = '' OR t.kind = $1) AND ($2 = '' OR t.category = $2)
+	                  ORDER BY t.occurred_on DESC, t.id DESC`
+	args := []any{kind, category}
 	if limit > 0 {
-		q += " LIMIT $2"
+		q += " LIMIT $3"
 		args = append(args, limit)
 	}
 	rows, err := s.db.Query(ctx, q, args...)
@@ -252,6 +255,153 @@ func (s *Store) DeleteTx(ctx context.Context, id int64) error {
 		return ErrNotFound
 	}
 	return err
+}
+
+// ---------- Kategori ----------
+
+type Category struct {
+	ID    int64
+	Kind  string // expense | income
+	Name  string
+	Usage int // jumlah transaksi yang memakainya
+}
+
+// Categories mengembalikan kategori beserta jumlah pemakaiannya. kind kosong
+// berarti semua jenis.
+func (s *Store) Categories(ctx context.Context, kind string) ([]Category, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT c.id, c.kind, c.name,
+		       (SELECT count(*) FROM transactions t
+		         WHERE t.kind = c.kind AND t.category = c.name)
+		FROM categories c
+		WHERE ($1 = '' OR c.kind = $1)
+		ORDER BY c.kind, c.name`, kind)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []Category
+	for rows.Next() {
+		var c Category
+		if err := rows.Scan(&c.ID, &c.Kind, &c.Name, &c.Usage); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// CategoryNames: nama saja, untuk mengisi pilihan di form transaksi.
+func (s *Store) CategoryNames(ctx context.Context, kind string) ([]string, error) {
+	cats, err := s.Categories(ctx, kind)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, len(cats))
+	for i, c := range cats {
+		out[i] = c.Name
+	}
+	return out, nil
+}
+
+func (s *Store) Category(ctx context.Context, id int64) (Category, error) {
+	var c Category
+	err := s.db.QueryRow(ctx,
+		`SELECT id, kind, name FROM categories WHERE id = $1`, id).Scan(&c.ID, &c.Kind, &c.Name)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Category{}, ErrNotFound
+	}
+	return c, err
+}
+
+func (s *Store) CreateCategory(ctx context.Context, kind, name string) error {
+	_, err := s.db.Exec(ctx,
+		`INSERT INTO categories (kind, name) VALUES ($1, $2)`, kind, name)
+	return err
+}
+
+// RenameCategory mengganti nama kategori sekaligus semua transaksi yang
+// memakainya, dalam satu transaksi database. Kalau hanya salah satu yang
+// berubah, transaksi lama akan menggantung tanpa kategori yang cocok.
+func (s *Store) RenameCategory(ctx context.Context, id int64, name string) error {
+	old, err := s.Category(ctx, id)
+	if err != nil {
+		return err
+	}
+	if old.Name == name {
+		return nil
+	}
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE categories SET name = $1 WHERE id = $2`, name, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE transactions SET category = $1 WHERE kind = $2 AND category = $3`,
+		name, old.Kind, old.Name); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// DeleteCategory menolak menghapus kategori yang masih dipakai: transaksinya
+// akan kehilangan label tanpa jejak, dan ringkasan per kategori ikut pincang.
+func (s *Store) DeleteCategory(ctx context.Context, id int64) error {
+	c, err := s.Category(ctx, id)
+	if err != nil {
+		return err
+	}
+	var n int
+	if err := s.db.QueryRow(ctx,
+		`SELECT count(*) FROM transactions WHERE kind = $1 AND category = $2`,
+		c.Kind, c.Name).Scan(&n); err != nil {
+		return err
+	}
+	if n > 0 {
+		return fmt.Errorf("kategori %q masih dipakai %d transaksi, ubah kategori transaksinya dulu", c.Name, n)
+	}
+	_, err = s.db.Exec(ctx, `DELETE FROM categories WHERE id = $1`, id)
+	return err
+}
+
+// CategorySpend menjumlahkan pengeluaran dan pemasukan per kategori dalam satu
+// rentang tanggal. Nominalnya dikembalikan per mata uang dompet, karena
+// konversi ke mata uang dasar butuh kurs yang bukan urusan lapisan ini.
+type CategorySpend struct {
+	Kind     string
+	Category string
+	Currency string
+	Minor    int64
+}
+
+func (s *Store) CategorySpending(ctx context.Context, from, to time.Time) ([]CategorySpend, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT t.kind, t.category, w.currency, SUM(t.amount_minor)
+		FROM transactions t
+		JOIN wallets w ON w.id = t.wallet_id
+		WHERE t.kind IN ('expense', 'income')
+		  AND t.occurred_on >= $1 AND t.occurred_on < $2
+		GROUP BY t.kind, t.category, w.currency`, from, to)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []CategorySpend
+	for rows.Next() {
+		var c CategorySpend
+		if err := rows.Scan(&c.Kind, &c.Category, &c.Currency, &c.Minor); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
 }
 
 // ---------- Kurs ----------

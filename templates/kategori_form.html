@@ -1,0 +1,32 @@
+{{define "content"}}
+<form method="post" action="{{.Action}}" class="stack">
+
+  <div class="field">
+    <label>Jenis</label>
+    <div class="seg">
+      {{range $.Kinds}}
+        <label class="seg-opt">
+          <input type="radio" name="jenis" value="{{.Value}}"
+                 {{if eq $.Form.jenis .Value}}checked{{end}}
+                 {{if $.ID}}disabled{{end}}>{{.Label}}
+        </label>
+      {{end}}
+    </div>
+    {{if .ID}}
+      {{/* Jenis dikunci saat mengubah: transaksi lama dicocokkan lewat pasangan
+           jenis dan nama, jadi memindahkannya akan memutus kaitan itu. */}}
+      <input type="hidden" name="jenis" value="{{.Form.jenis}}">
+      <p class="hint">Jenis kategori tidak bisa diubah. Hapus lalu buat baru kalau perlu.</p>
+    {{end}}
+  </div>
+
+  <div class="field">
+    <label for="nama">Nama Kategori</label>
+    <input class="input" id="nama" name="nama" required autofocus
+           value="{{.Form.nama}}" placeholder="Pendidikan Anak">
+    {{if .ID}}<p class="hint">Mengubah nama ikut memperbarui semua transaksi yang memakainya.</p>{{end}}
+  </div>
+
+  <button type="submit" class="btn btn-primary btn-block">Simpan Kategori</button>
+</form>
+{{end}}
