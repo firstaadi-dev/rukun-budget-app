@@ -332,6 +332,9 @@ a.seg-opt.on { background: var(--color-accent-100); color: var(--color-accent-70
 }
 .filter-row select { flex: 1; min-width: 160px; }
 
+/* Pemilih jenis berdiri sendiri di atas form, bukan bagian dari .stack-nya. */
+.seg + form { margin-top: var(--space-4); }
+
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip input { position: absolute; opacity: 0; pointer-events: none; }
 .chip .tag {

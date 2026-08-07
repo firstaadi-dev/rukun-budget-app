@@ -1,4 +1,5 @@
 {{define "content"}}
+{{template "tx-kind-switch" .}}
 <form method="post" action="{{.Action}}" class="stack" id="transfer-form"
       data-rates="{{.RatesJSON}}" data-base="{{.Base}}" data-rate-updated="{{.RateUpdated}}">
 
