@@ -89,6 +89,19 @@
   {{else}}{{template "icon-transfer"}}{{end}}
 {{end}}
 
+{{/* Pemilih jenis di atas form pencatatan. Hanya muncul saat membuat baru:
+     jenis transaksi yang sudah tersimpan tidak bisa diubah, karena kolom yang
+     dipakai pengeluaran, pemasukan, dan transfer berbeda-beda. */}}
+{{define "tx-kind-switch"}}
+{{if not .ID}}
+<nav class="seg" aria-label="Jenis transaksi">
+  <a class="seg-opt{{if eq .Kind "expense"}} on{{end}}" href="/transaksi/baru?jenis=expense">Pengeluaran</a>
+  <a class="seg-opt{{if eq .Kind "income"}} on{{end}}" href="/transaksi/baru?jenis=income">Pemasukan</a>
+  <a class="seg-opt{{if eq .Kind "transfer"}} on{{end}}" href="/transaksi/baru?jenis=transfer">Transfer</a>
+</nav>
+{{end}}
+{{end}}
+
 {{/* Satu baris transaksi, dipakai di dashboard dan daftar transaksi. */}}
 {{define "tx-row"}}
 <a class="row" href="/transaksi/{{.ID}}">
