@@ -50,29 +50,81 @@ const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 const curOf = (sel) => sel.selectedOptions[0]?.dataset.currency || 'IDR';
 const symOf = (sel) => sel.selectedOptions[0]?.dataset.symbol || '';
 
-// ---------- kolom nominal hanya menerima angka ----------
+// ---------- kolom nominal: hanya angka, dengan pemisah ribuan ----------
 
 // inputmode="decimal" cuma memberi saran keyboard di ponsel; di desktop huruf
 // tetap bisa diketik dan salahnya baru ketahuan setelah menekan Simpan.
-// Atribut pattern menjaga saat skrip mati, penyaring ini menjaga saat hidup.
+// Atribut pattern menjaga saat skrip mati, penyaring ini menjaga saat hidup —
+// sekaligus menyisipkan pemisah ribuan supaya nominal besar bisa dibaca sambil
+// diketik, bukan cuma setelah disimpan.
+
 function bersihkanAngka(s) {
   const negatif = s.startsWith('-'); // saldo awal kartu kredit boleh minus
   return (negatif ? '-' : '') + s.replace(/[^\d.,]/g, '');
 }
 
+// pisahRibuan memformat ulang isian mengikuti konvensi Indonesia: koma milik
+// user sebagai pemisah desimal, titik disisipkan sendiri sebagai pemisah
+// ribuan. Titik yang diketik user diserap, bukan diartikan desimal — kalau
+// tidak, mengetik "1." pada "1.234" akan berubah jadi "1," di tengah jalan.
+function pisahRibuan(s) {
+  const negatif = s.startsWith('-');
+  const isi = negatif ? s.slice(1) : s;
+
+  let bulat = isi, desimal = null;
+  const koma = isi.indexOf(',');
+  if (koma >= 0) {
+    bulat = isi.slice(0, koma);
+    desimal = isi.slice(koma + 1).replace(/[.,]/g, '').slice(0, 2);
+  }
+  bulat = bulat.replace(/[.,]/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+  return (negatif ? '-' : '') + bulat + (desimal === null ? '' : ',' + desimal);
+}
+
+// Kursor dijaga lewat jumlah karakter bermakna sebelumnya — digit, koma, dan
+// tanda minus — bukan lewat indeks mentah. Pemisah ribuan muncul dan hilang
+// sendiri saat angkanya tumbuh, jadi indeks mentah akan meleset.
+const PENTING = /[\d,-]/;
+
+function hitungPenting(s) {
+  let n = 0;
+  for (const ch of s) if (PENTING.test(ch)) n++;
+  return n;
+}
+
+function posisiSetelah(s, jumlah) {
+  if (jumlah <= 0) return 0;
+  let n = 0;
+  for (let i = 0; i < s.length; i++) {
+    if (PENTING.test(s[i])) n++;
+    if (n >= jumlah) return i + 1;
+  }
+  return s.length;
+}
+
 $$('input[inputmode="decimal"]').forEach((el) => {
+  // Menghapus mundur tepat di belakang pemisah ribuan seharusnya menghapus
+  // angkanya, bukan pemisahnya: pemisah itu kita yang menaruh, dan
+  // menghilangkannya sendirian membuat tombol backspace terasa tidak berfungsi.
+  el.addEventListener('beforeinput', (e) => {
+    if (e.inputType !== 'deleteContentBackward') return;
+    const p = el.selectionStart;
+    if (p === null || p !== el.selectionEnd || p < 2 || el.value[p - 1] !== '.') return;
+    e.preventDefault();
+    el.value = el.value.slice(0, p - 2) + el.value.slice(p);
+    el.setSelectionRange(p - 2, p - 2);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+
   el.addEventListener('input', () => {
     const asli = el.value;
-    const bersih = bersihkanAngka(asli);
-    if (bersih === asli) return;
-
-    // Kursor harus tetap di tempatnya. Tanpa ini, mengetik satu huruf di tengah
-    // angka melemparkan kursor ke ujung dan angka berikutnya masuk ke posisi
-    // yang salah.
-    const pos = el.selectionStart;
-    const dibuang = pos - bersihkanAngka(asli.slice(0, pos)).length;
-    el.value = bersih;
-    el.setSelectionRange(pos - dibuang, pos - dibuang);
+    const hasil = pisahRibuan(bersihkanAngka(asli));
+    if (hasil === asli) return;
+    const pos = el.selectionStart ?? asli.length;
+    const penting = hitungPenting(asli.slice(0, pos));
+    el.value = hasil;
+    el.setSelectionRange(posisiSetelah(hasil, penting), posisiSetelah(hasil, penting));
   });
 });
 
