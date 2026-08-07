@@ -176,14 +176,14 @@ menebak pagunya lebih berbahaya daripada diam.
 | | Artinya |
 |---|---|
 | **Tagihan** | Yang sudah tercetak di lembar tagihan terakhir dan harus dibayar sebelum jatuh tempo, dikurangi pembayaran yang masuk sesudahnya. |
-| **Sisa pemakaian** | Seluruh yang terpakai sampai hari ini, termasuk belanja yang belum masuk tagihan mana pun. |
+| **Terpakai** | Seluruh yang terpakai sampai hari ini, termasuk belanja yang belum masuk tagihan mana pun. Dijumlahkan dengan sisa limit, hasilnya pas limitnya. |
 
 Membayar sebesar sisa pemakaian tidak salah, tapi membayar sebesar tagihan sudah cukup
 untuk menghindari bunga — karena itu keduanya ditampilkan berdampingan.
 
 Tanggal di atas jumlah hari suatu bulan dijepit ke hari terakhir bulan itu, jadi tanggal
 cetak 31 tetap masuk akal di Februari. Akun tanpa siklus tetap ditampilkan beserta limit
-dan sisa pemakaiannya — hanya bagian tagihannya yang disembunyikan, karena tanpa tanggal
+dan nominal terpakainya — hanya bagian tagihannya yang disembunyikan, karena tanpa tanggal
 cetak "tagihan" tidak punya arti.
 
 **Pembayaran kartu dicatat sebagai transfer, bukan pengeluaran.** Belanjanya sudah
