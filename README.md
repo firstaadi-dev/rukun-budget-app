@@ -34,24 +34,33 @@ go test ./...
 
 ## Deploy ke Render
 
+Databasenya di **Neon**, bukan Postgres bawaan Render.
+
 1. Push repo ini ke GitHub.
-2. Render Dashboard → **New** → **Blueprint** → pilih repo ini. `render.yaml` membuat
-   web service dan Postgres sekaligus, keduanya di region Singapore.
-3. Setelah deploy selesai, buka tab **Environment** pada service `rukun`, salin nilai
-   `SIGNUP_CODE` yang dibuat otomatis, lalu bagikan ke anggota keluarga untuk mendaftar.
-4. Kalau semua anggota sudah punya akun, ganti `SIGNUP_CODE` ke nilai acak baru untuk
+2. Di Neon, salin connection string proyek Anda. Ambil yang **tanpa `-pooler`** di nama
+   host: aplikasi ini sudah punya pool sendiri lewat pgxpool, dan pooler Neon berjalan
+   dalam mode transaksi yang bisa berbenturan dengan prepared statement pgx.
+3. Render Dashboard → **New** → **Blueprint** → pilih repo ini. Render akan menanyakan
+   `DATABASE_URL`; tempel connection string tadi. Nilainya disimpan di dashboard, tidak
+   pernah masuk git.
+4. Setelah deploy selesai, buka tab **Environment**, salin `SIGNUP_CODE` yang dibuat
+   otomatis, lalu bagikan ke anggota keluarga untuk mendaftar.
+5. Kalau semua anggota sudah punya akun, ganti `SIGNUP_CODE` ke nilai acak baru untuk
    menutup pendaftaran.
+
+Pilih region **Singapore** untuk web service-nya, sama dengan region proyek Neon
+(`ap-southeast`). Query yang menyeberang region menambah puluhan milidetik pada setiap
+permintaan halaman.
 
 Nama keluarga sudah tertulis di `render.yaml` (`APP_FAMILY`), jadi Render tidak
 menanyakannya. Ubah di sana kalau perlu diganti.
 
 Skema database dibuat otomatis saat aplikasi start; tidak ada langkah migrasi terpisah.
 
-Dua hal tentang paket gratis Render yang perlu diketahui sejak awal:
-Postgres gratis **dihapus setelah 30 hari**, dan web service gratis tidur setelah
-15 menit menganggur sehingga request pertama butuh ~50 detik. Untuk dipakai
-sungguhan, naikkan keduanya ke paket berbayar termurah di `render.yaml`
-(`plan: basic-256mb` untuk database, `plan: starter` untuk web service).
+Soal paket gratis: web service Render tidur setelah 15 menit menganggur, dan compute
+Neon juga menyusut ke nol saat tidak dipakai. Efeknya request pertama setelah lama
+menganggur bisa memakan hampir satu menit. Untuk dipakai sungguhan, naikkan web
+service ke `plan: starter` di `render.yaml`.
 
 ### Variabel lingkungan
 
