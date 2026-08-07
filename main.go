@@ -30,13 +30,14 @@ var templateFS embed.FS
 var staticFS embed.FS
 
 type App struct {
-	store  *Store
-	pages  map[string]*template.Template
-	ver    string // sidik jari aset statis, dipakai sebagai penanda versi di URL
-	loc    *time.Location
-	family string
-	base   string // mata uang dasar untuk total di dashboard
-	code   string // kode pendaftaran anggota keluarga
+	store   *Store
+	pages   map[string]*template.Template
+	ver     string      // sidik jari aset statis, dipakai sebagai penanda versi di URL
+	rateSrc *rateSource // kurs pasar dari API, boleh kosong kalau dimatikan
+	loc     *time.Location
+	family  string
+	base    string // mata uang dasar untuk total di dashboard
+	code    string // kode pendaftaran anggota keluarga
 }
 
 // parsePages menggabungkan layout dengan tiap halaman secara terpisah, supaya
@@ -108,6 +109,16 @@ func main() {
 		code:   code,
 	}
 
+	// "off" mematikan pengambilan kurs; aplikasi lalu hanya memakai kurs dari
+	// transfer yang sudah tercatat.
+	if u := env("RATES_URL", defaultRatesURL); u != "off" {
+		app.rateSrc = newRateSource(u)
+		go app.rateSrc.keep(ctx)
+	} else {
+		app.rateSrc = newRateSource("")
+		log.Print("pengambilan kurs dimatikan (RATES_URL=off)")
+	}
+
 	go app.purgeSessionsDaily(ctx)
 
 	addr := ":" + env("PORT", "8080")
@@ -166,6 +177,13 @@ func (a *App) routes() http.Handler {
 	auth("POST /dompet/{id}/ubah", a.walletUpdate)
 	auth("POST /dompet/{id}/hapus", a.walletDelete)
 
+	auth("GET /kategori", a.categoryList)
+	auth("GET /kategori/baru", a.categoryForm)
+	auth("POST /kategori/baru", a.categoryCreate)
+	auth("GET /kategori/{id}/ubah", a.categoryForm)
+	auth("POST /kategori/{id}/ubah", a.categoryUpdate)
+	auth("POST /kategori/{id}/hapus", a.categoryDelete)
+
 	auth("GET /transaksi", a.txList)
 	auth("GET /transaksi/baru", a.txForm)
 	auth("POST /transaksi/baru", a.txCreate)
@@ -219,6 +237,16 @@ func staticHandler() http.Handler {
 
 var tmplFuncs = template.FuncMap{
 	"symbol": Symbol,
-	"iso":    func(t time.Time) string { return t.Format("2006-01-02") },
-	"waktu":  func(t time.Time) string { return t.Format("15:04") },
+	"lower":  strings.ToLower,
+	// dict merakit map untuk mengoper beberapa nilai ke satu blok template.
+	"dict": func(kv ...any) map[string]any {
+		m := make(map[string]any, len(kv)/2)
+		for i := 0; i+1 < len(kv); i += 2 {
+			key, _ := kv[i].(string)
+			m[key] = kv[i+1]
+		}
+		return m
+	},
+	"iso":   func(t time.Time) string { return t.Format("2006-01-02") },
+	"waktu": func(t time.Time) string { return t.Format("15:04") },
 }

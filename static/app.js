@@ -24,6 +24,15 @@ function parseNum(s) {
   return Number.isFinite(v) ? (neg ? -v : v) : null;
 }
 
+// floorTo membulatkan ke bawah pada satuan terkecil mata uang. Nominal diterima
+// tidak boleh dibulatkan ke atas: uang yang keluar tidak cukup membeli sen
+// tambahan itu, dan server akan menolaknya sebagai "diterima melebihi keluar".
+// Epsilon-nya menutup galat biner, bukan kelebihan yang sungguhan.
+function floorTo(v, cur) {
+  const p = Math.pow(10, exp(cur));
+  return Math.floor(v * p + 1e-6) / p;
+}
+
 // fmtPlain mencerminkan FormatPlain di money.go.
 function fmtPlain(v, cur) {
   if (v === null || !Number.isFinite(v)) return '';
@@ -101,14 +110,21 @@ const symOf = (sel) => sel.selectedOptions[0]?.dataset.symbol || '';
   const rateField = $('[data-rate-field]', form);
   const crossEl = $('[data-cross]', form);
   const customTag = $('[data-rate-custom]', form);
+  const hintEl = $('[data-rate-default]', form);
 
-  // "fromMinor:toMinor:powFrom:powTo" -> nilai major per 1 unit sumber
+  // Kolom mana yang diturunkan dari kolom lain. Defaultnya nominal diterima:
+  // user mengetik nominal keluar, kurs mengisi sisanya, biaya admin nol.
+  // Begitu user mengetik sendiri di nominal diterima, dialah yang dipegang dan
+  // biaya admin yang menyesuaikan — itu memang arti selisihnya.
+  let derive = 'in';
+
+  // "fromMinor:toMinor:powFrom:powTo:sumber"
   function known(a, b) {
     const s = raw[a + '>' + b];
     if (!s) return null;
-    const [fm, tm, pf, pt] = s.split(':').map(Number);
-    if (!fm || !tm) return null;
-    return { fromMajor: fm / pf, toMajor: tm / pt };
+    const [fm, tm, pf, pt, src] = s.split(':');
+    if (!Number(fm) || !Number(tm)) return null;
+    return { fromMajor: Number(fm) / Number(pf), toMajor: Number(tm) / Number(pt), src };
   }
 
   // Arah kutipan kurs harus sama persis dengan quoteDirection di handlers.go,
@@ -127,25 +143,44 @@ const symOf = (sel) => sel.selectedOptions[0]?.dataset.symbol || '';
 
   let priceCur = '', perCur = '', defFactor = null;
 
-  // faktor konversi sumber -> tujuan, dari angka kurs yang tampil
+  const outCur = () => curOf(from);
+  const inCur = () => curOf(to);
+
+  // Faktor konversi sumber -> tujuan. Sesama mata uang selalu 1, sehingga
+  // seluruh perhitungan di bawah tidak perlu cabang khusus.
   function factor() {
+    if (outCur() === inCur()) return 1;
     const v = parseNum(rateEl.value);
     if (v === null || v <= 0) return defFactor;
-    const a = curOf(from), b = curOf(to);
-    if (perCur === a && priceCur === b) return v;
-    if (perCur === b && priceCur === a) return 1 / v;
+    if (perCur === outCur() && priceCur === inCur()) return v;
+    if (perCur === inCur() && priceCur === outCur()) return 1 / v;
     return defFactor;
   }
 
   function setRateFromFactor(f) {
     if (!f) { rateEl.value = ''; return; }
-    const a = curOf(from);
-    const price = perCur === a ? f : 1 / f;
-    rateEl.value = fmtPlain(price, priceCur);
+    rateEl.value = fmtPlain(perCur === outCur() ? f : 1 / f, priceCur);
+  }
+
+  // Satu-satunya tempat yang menulis angka: arah penurunannya ditentukan
+  // `derive`, jadi dua kolom tidak pernah saling menimpa.
+  function recalc() {
+    const out = parseNum(outEl.value);
+    const f = factor();
+    if (out === null || !f) return;
+
+    if (derive === 'in') {
+      const fee = parseNum(feeEl.value) || 0;
+      inEl.value = fmtPlain(floorTo(Math.max(0, (out - fee) * f), inCur()), inCur());
+      return;
+    }
+    const got = parseNum(inEl.value);
+    if (got === null) return;
+    feeEl.value = fmtPlain(out - got / f, outCur());
   }
 
   function syncPair() {
-    const a = curOf(from), b = curOf(to);
+    const a = outCur(), b = inCur();
     const cross = a !== b;
 
     $$('[data-sym-from]', form).forEach((el) => (el.textContent = symOf(from)));
@@ -160,7 +195,7 @@ const symOf = (sel) => sel.selectedOptions[0]?.dataset.symbol || '';
       return;
     }
 
-    crossEl.textContent = `Transfer lintas mata uang: ${a} → ${b}`;
+    crossEl.textContent = `Transfer lintas mata uang: ${a} \u2192 ${b}`;
     [priceCur, perCur] = quoteDir(a, b);
     defFactor = defaultFactor(a, b);
 
@@ -169,13 +204,16 @@ const symOf = (sel) => sel.selectedOptions[0]?.dataset.symbol || '';
     });
     $$('[data-rate-per]', form).forEach((el) => (el.textContent = `1 ${perCur} =`));
 
-    const hint = $('[data-rate-default]', form);
     if (defFactor) {
-      const price = perCur === a ? defFactor : 1 / defFactor;
-      hint.textContent = `· kurs terakhir: ${fmtPlain(price, priceCur)}`;
+      const price = fmtPlain(perCur === a ? defFactor : 1 / defFactor, priceCur);
+      const info = known(a, b);
+      const asal = info && info.src === 'pasar'
+        ? `kurs pasar${form.dataset.rateUpdated ? ' ' + form.dataset.rateUpdated : ''}`
+        : 'kurs transfer terakhir';
+      hintEl.textContent = `\u00b7 ${asal}: ${price}`;
       if (!rateEl.value) setRateFromFactor(defFactor);
     } else {
-      hint.textContent = '· belum ada catatan kurs, isi manual';
+      hintEl.textContent = '\u00b7 belum ada kurs acuan, isi manual';
     }
     markCustom();
   }
@@ -186,59 +224,35 @@ const symOf = (sel) => sel.selectedOptions[0]?.dataset.symbol || '';
     customTag.hidden = !defFactor || !f || Math.abs(f - defFactor) < defFactor * 1e-9;
   }
 
-  const outCur = () => curOf(from);
-  const inCur = () => curOf(to);
-
-  // Biaya admin adalah variabel penyeimbang: ia yang menyerap selisih, kecuali
-  // saat user memang sedang mengetik di kolom biaya admin.
-  function recalcFromFee() {
-    const out = parseNum(outEl.value), fee = parseNum(feeEl.value) || 0, f = factor();
-    if (out === null || !f) return;
-    inEl.value = fmtPlain(Math.max(0, (out - fee) * f), inCur());
-  }
-  function recalcFee() {
-    const out = parseNum(outEl.value), got = parseNum(inEl.value), f = factor();
-    if (out === null || got === null || !f) return;
-    feeEl.value = fmtPlain(out - got / f, outCur());
-  }
-  function sameCurrencyFee() {
-    const out = parseNum(outEl.value), got = parseNum(inEl.value);
-    if (out === null || got === null) return;
-    feeEl.value = fmtPlain(out - got, outCur());
-  }
-
-  function onOut() {
-    if (outCur() === inCur()) {
-      if (!inEl.value) { inEl.value = outEl.value; feeEl.value = ''; return; }
-      sameCurrencyFee();
-      return;
-    }
-    if (!inEl.value) recalcFromFee();
-    else recalcFee();
-  }
-  function onIn() {
-    if (outCur() === inCur()) sameCurrencyFee();
-    else recalcFee();
-  }
-
   // Ganti dompet berarti mata uangnya bisa berubah. Nominal diterima dan biaya
   // admin yang lama sudah tidak punya arti di mata uang baru, jadi dikosongkan
-  // dulu — kalau tidak, biaya admin akan terhitung dari dua mata uang berbeda.
+  // dan penurunan dikembalikan ke keadaan awal.
   function onPairChange() {
+    derive = 'in';
     inEl.value = '';
     feeEl.value = '';
     syncPair();
-    onOut();
+    recalc();
   }
+
   from.addEventListener('change', onPairChange);
   to.addEventListener('change', onPairChange);
-  outEl.addEventListener('input', onOut);
-  inEl.addEventListener('input', onIn);
-  feeEl.addEventListener('input', recalcFromFee);
-  rateEl.addEventListener('input', () => { markCustom(); recalcFromFee(); });
+  outEl.addEventListener('input', recalc);
+  rateEl.addEventListener('input', () => { markCustom(); recalc(); });
+  inEl.addEventListener('input', () => { derive = 'fee'; recalc(); });
+  feeEl.addEventListener('input', () => { derive = 'in'; recalc(); });
 
+  // Saat mengubah transfer lama, nominal diterima sudah tersimpan apa adanya:
+  // jangan dihitung ulang, biarkan biaya admin yang menyesuaikan.
+  if (inEl.value) derive = 'fee';
   syncPair();
 })();
+
+// ---------- filter yang mengirim sendiri saat pilihannya berubah ----------
+
+$$('[data-auto-submit] select').forEach((sel) => {
+  sel.addEventListener('change', () => sel.form.submit());
+});
 
 // ---------- PWA ----------
 

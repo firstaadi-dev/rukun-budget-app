@@ -49,7 +49,13 @@ func TestPagesRender(t *testing.T) {
 			"Title": "Dashboard", "Nav": "dashboard", "Today": tanggalPanjang(today),
 			"Summary": summarize(wallets, rates, "IDR"),
 			"Wallets": viewWallets(wallets), "Recent": views,
-		}, "Total Dimiliki"},
+			"Breakdown": breakdown([]CategorySpend{
+				{Kind: "expense", Category: "Belanja", Currency: "IDR", Minor: 45_000_000},
+				{Kind: "expense", Category: "Tagihan", Currency: "IDR", Minor: 35_000_000},
+				{Kind: "expense", Category: "Sekolah", Currency: "USD", Minor: 20000},
+				{Kind: "income", Category: "Gaji", Currency: "IDR", Minor: 1_500_000_000},
+			}, rates, "IDR", "Agustus 2026"),
+		}, "Per Kategori"},
 
 		{"dompet.html", map[string]any{
 			"Title": "Dompet", "Nav": "dompet", "Wallets": viewWallets(wallets),
@@ -63,20 +69,22 @@ func TestPagesRender(t *testing.T) {
 
 		{"transaksi.html", map[string]any{
 			"Title": "Transaksi", "Nav": "transaksi", "Filter": "", "Filters": txFilters,
+			"Kategori": "", "Categories": []Category{{ID: 1, Kind: "expense", Name: "Belanja"}},
 			"Groups": groupTxs(views),
 		}, "Hari ini"},
 
 		{"transaksi_form.html", map[string]any{
 			"Title": "Catat Pengeluaran", "Nav": "transaksi", "Back": "/transaksi",
 			"Action": "/transaksi/baru?jenis=expense", "Kind": "expense", "KindLabel": "Pengeluaran",
-			"Form": form, "Wallets": viewWallets(wallets), "Categories": categories["expense"],
+			"Form": form, "Wallets": viewWallets(wallets),
+			"Categories": []string{"Belanja", "Tagihan", "Transportasi"},
 		}, "Transportasi"},
 
 		{"transfer_form.html", map[string]any{
 			"Title": "Transfer Antar Dompet", "Nav": "transaksi", "Back": "/transaksi",
 			"Action": "/transaksi/baru?jenis=transfer", "Kind": "transfer", "KindLabel": "Transfer",
 			"Form": form, "Wallets": viewWallets(wallets),
-			"RatesJSON": jsonAttr(ratesForJS(rates)), "Base": "IDR",
+			"RatesJSON": jsonAttr(ratesForJS(nil, rates)), "Base": "IDR",
 		}, "Biaya Admin"},
 
 		{"detail.html", map[string]any{
@@ -86,6 +94,20 @@ func TestPagesRender(t *testing.T) {
 			"AmountIn": Format(transfer.AmountInMino, "USD"), "Fee": Format(transfer.AdminFee, "IDR"),
 			"RateCustom": true,
 		}, "1 USD = Rp15.500"},
+
+		{"kategori.html", map[string]any{
+			"Title": "Kategori", "Nav": "kategori",
+			"Expense": []Category{{ID: 1, Kind: "expense", Name: "Belanja", Usage: 3},
+				{ID: 2, Kind: "expense", Name: "Pendidikan Anak"}},
+			"Income": []Category{{ID: 9, Kind: "income", Name: "Gaji", Usage: 1}},
+		}, "Pendidikan Anak"},
+
+		{"kategori_form.html", map[string]any{
+			"Title": "Ubah Kategori", "Nav": "kategori", "Back": "/kategori",
+			"Action": "/kategori/1/ubah", "ID": int64(1),
+			"Form":  map[string]string{"jenis": "expense", "nama": "Belanja"},
+			"Kinds": []struct{ Value, Label string }{{"expense", "Pengeluaran"}, {"income", "Pemasukan"}},
+		}, "Simpan Kategori"},
 
 		{"masuk.html", map[string]any{"NoChrome": true, "Family": "Keluarga Santoso", "Kosong": true}, "Masuk"},
 		{"daftar.html", map[string]any{"NoChrome": true, "Family": "Keluarga Santoso",

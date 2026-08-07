@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"time"
 )
 
@@ -40,6 +41,15 @@ func labelTanggal(d, today time.Time) string {
 func hari(t time.Time) time.Time {
 	y, m, d := t.Date()
 	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
+}
+
+func awalBulan(t time.Time) time.Time {
+	y, m, _ := t.Date()
+	return time.Date(y, m, 1, 0, 0, 0, 0, t.Location())
+}
+
+func namaBulan(t time.Time) string {
+	return fmt.Sprintf("%s %d", bulanID[int(t.Month())], t.Year())
 }
 
 // ---------- view model ----------
@@ -143,6 +153,90 @@ type Summary struct {
 	// Unconverted: mata uang yang saldonya tidak bisa ikut dijumlahkan karena
 	// belum pernah ada transfer yang menetapkan kursnya.
 	Unconverted []string
+}
+
+// ---------- ringkasan per kategori ----------
+
+type CategoryRow struct {
+	Name    string
+	Amount  string
+	Percent int // porsi terhadap kategori terbesar, untuk panjang bilah
+}
+
+type CategoryBreakdown struct {
+	Periode     string
+	Expense     []CategoryRow
+	Income      []CategoryRow
+	TotalOut    string
+	TotalIn     string
+	Unconverted []string
+}
+
+// breakdown mengelompokkan pengeluaran dan pemasukan per kategori, dikonversi
+// ke mata uang dasar. Sama seperti total dompet, kategori yang kursnya belum
+// diketahui dilewati dan mata uangnya dilaporkan, bukan diam-diam dianggap nol.
+func breakdown(spend []CategorySpend, rates map[string]Rate, base, periode string) CategoryBreakdown {
+	out := map[string]int64{}
+	in := map[string]int64{}
+	seen := map[string]bool{}
+	var missing []string
+
+	for _, s := range spend {
+		amount := s.Minor
+		if s.Currency != base {
+			r, ok := rates[s.Currency+">"+base]
+			if !ok || !r.Valid() {
+				if !seen[s.Currency] {
+					seen[s.Currency] = true
+					missing = append(missing, s.Currency)
+				}
+				continue
+			}
+			amount = r.Convert(amount)
+		}
+		if s.Kind == "income" {
+			in[s.Category] += amount
+		} else {
+			out[s.Category] += amount
+		}
+	}
+
+	expenseRows, totalOut := categoryRows(out, base)
+	incomeRows, totalIn := categoryRows(in, base)
+	return CategoryBreakdown{
+		Periode:     periode,
+		Expense:     expenseRows,
+		Income:      incomeRows,
+		TotalOut:    Format(totalOut, base),
+		TotalIn:     Format(totalIn, base),
+		Unconverted: missing,
+	}
+}
+
+// categoryRows mengurutkan dari nominal terbesar dan menghitung porsi tiap
+// kategori terhadap yang terbesar, supaya bilahnya bisa dibandingkan sekilas.
+func categoryRows(sums map[string]int64, base string) ([]CategoryRow, int64) {
+	rows := make([]CategoryRow, 0, len(sums))
+	var total, max int64
+	for name, amount := range sums {
+		rows = append(rows, CategoryRow{Name: name, Amount: Format(amount, base)})
+		total += amount
+		if amount > max {
+			max = amount
+		}
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		if sums[rows[i].Name] != sums[rows[j].Name] {
+			return sums[rows[i].Name] > sums[rows[j].Name]
+		}
+		return rows[i].Name < rows[j].Name
+	})
+	if max > 0 {
+		for i := range rows {
+			rows[i].Percent = int(sums[rows[i].Name] * 100 / max)
+		}
+	}
+	return rows, total
 }
 
 // summarize menjumlahkan semua dompet ke mata uang dasar. Dompet bermata uang

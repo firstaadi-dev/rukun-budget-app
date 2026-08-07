@@ -79,6 +79,42 @@ func TestTransferHandoffScenario(t *testing.T) {
 	}
 }
 
+// Nominal diterima hanya bisa dicatat sampai satuan terkecil mata uangnya,
+// jadi hasil bagi yang tidak bulat selalu menyisakan selisih. Test ini mengunci
+// besarnya: di bawah nilai satu sen tujuan, dan bertanda positif kalau nominal
+// diterima dibulatkan ke bawah seperti yang dilakukan skrip form.
+func TestPembulatanNominalDiterima(t *testing.T) {
+	out, _ := ParseAmount("15.500.000", "IDR")
+	rate, err := ParseUnitRate("17.936,31", "IDR", "USD", "IDR", "USD")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Rp15.500.000 / 17.936,31 = $864,1697…
+	pas := rate.Convert(out)
+	if got := Format(pas, "USD"); got != "$864,17" {
+		t.Fatalf("konversi langsung = %s, mau $864,17 (pembulatan terdekat)", got)
+	}
+
+	// Dibulatkan ke bawah ke sen terdekat: biaya admin wajib tidak negatif.
+	bawah, _ := ParseAmount("864,16", "USD")
+	if fee := AdminFee(out, bawah, "IDR", "USD", rate); fee < 0 {
+		t.Fatalf("pembulatan ke bawah menghasilkan biaya admin negatif: %d", fee)
+	}
+
+	// Dibulatkan ke atas: sedikit negatif, tapi harus tetap di dalam toleransi
+	// sebesar nilai satu sen tujuan — inilah yang dinolkan oleh readTx.
+	atas, _ := ParseAmount("864,17", "USD")
+	fee := AdminFee(out, atas, "IDR", "USD", rate)
+	slack := rate.Invert().Convert(1)
+	if fee >= 0 {
+		t.Fatalf("pembulatan ke atas seharusnya sedikit negatif, dapat %d", fee)
+	}
+	if -fee > slack {
+		t.Fatalf("selisih %d melebihi nilai satu sen (%d)", -fee, slack)
+	}
+}
+
 func TestRateSameCurrencyAndFee(t *testing.T) {
 	// Transfer sesama IDR: admin = selisih murni. Rp100.000 - Rp99.000.
 	if fee := AdminFee(10_000_000, 9_900_000, "IDR", "IDR", Rate{}); fee != 100_000 {

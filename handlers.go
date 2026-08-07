@@ -62,23 +62,35 @@ func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
-	rates, err := a.store.Rates(ctx)
+	rates, err := a.rates(ctx)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	txs, err := a.store.Transactions(ctx, "", 5)
+	txs, err := a.store.Transactions(ctx, "", "", 5)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
+
+	// Ringkasan per kategori dibatasi bulan berjalan: itu rentang yang dipakai
+	// keluarga saat menilai "bulan ini boros di mana", dan membuat angkanya
+	// bisa dibandingkan antar bulan.
+	awal := awalBulan(a.today())
+	spend, err := a.store.CategorySpending(ctx, awal, awal.AddDate(0, 1, 0))
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+
 	a.render(w, r, "dashboard.html", map[string]any{
-		"Title":   "Dashboard",
-		"Nav":     "dashboard",
-		"Today":   tanggalPanjang(a.today()),
-		"Summary": summarize(wallets, rates, a.base),
-		"Wallets": viewWallets(wallets),
-		"Recent":  viewTxs(txs, a.today()),
+		"Title":     "Dashboard",
+		"Nav":       "dashboard",
+		"Today":     tanggalPanjang(a.today()),
+		"Summary":   summarize(wallets, rates, a.base),
+		"Wallets":   viewWallets(wallets),
+		"Recent":    viewTxs(txs, a.today()),
+		"Breakdown": breakdown(spend, rates, a.base, namaBulan(awal)),
 	})
 }
 
@@ -218,7 +230,7 @@ func (a *App) walletUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if old.Currency != wl.Currency {
-		txs, err := a.store.Transactions(r.Context(), "", 0)
+		txs, err := a.store.Transactions(r.Context(), "", "", 0)
 		if err != nil {
 			a.fail(w, r, err)
 			return
@@ -263,11 +275,6 @@ func (a *App) walletDelete(w http.ResponseWriter, r *http.Request) {
 
 // ---------- transaksi ----------
 
-var categories = map[string][]string{
-	"expense": {"Belanja", "Tagihan", "Transportasi", "Makanan", "Kesehatan", "Lainnya"},
-	"income":  {"Gaji", "Bonus", "Hadiah", "Investasi", "Lainnya"},
-}
-
 var kindLabel = map[string]string{
 	"expense": "Pengeluaran", "income": "Pemasukan", "transfer": "Transfer",
 }
@@ -277,11 +284,25 @@ var txFilters = []struct{ Value, Label string }{
 }
 
 func (a *App) txList(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	filter := r.URL.Query().Get("jenis")
 	if _, ok := kindLabel[filter]; !ok {
 		filter = ""
 	}
-	txs, err := a.store.Transactions(r.Context(), filter, 200)
+	kategori := r.URL.Query().Get("kategori")
+
+	// Transfer tidak punya kategori: menyaring keduanya sekaligus selalu kosong,
+	// jadi memilih kategori otomatis melepas filter jenis "Transfer".
+	if kategori != "" && filter == "transfer" {
+		filter = ""
+	}
+
+	txs, err := a.store.Transactions(ctx, filter, kategori, 200)
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	cats, err := a.store.Categories(ctx, "")
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -289,6 +310,7 @@ func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 	a.render(w, r, "transaksi.html", map[string]any{
 		"Title": "Transaksi", "Nav": "transaksi",
 		"Filter": filter, "Filters": txFilters,
+		"Kategori": kategori, "Categories": cats,
 		"Groups": groupTxs(viewTxs(txs, a.today())),
 	})
 }
@@ -311,17 +333,21 @@ func (a *App) txDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if t.IsCrossCur() {
-		rates, err := a.store.Rates(r.Context())
+		rates, err := a.rates(r.Context())
 		if err != nil {
 			a.fail(w, r, err)
 			return
 		}
 		data["Fee"] = Format(t.AdminFee, t.WalletCur)
 		data["AmountIn"] = Format(t.AmountInMino, t.ToWalletCur)
-		// "Kustom" kalau kurs transaksi ini beda dari kurs terakhir pasangan
-		// mata uang yang sama.
-		if last, ok := rates[t.WalletCur+">"+t.ToWalletCur]; ok && !last.SameAs(t.Rate()) {
-			data["RateCustom"] = true
+		// "Kustom" kalau kurs transaksi ini beda dari kurs acuan. Perbandingannya
+		// lewat nominal yang diterima, bukan rasio kurs: membandingkan rasio
+		// secara eksak akan menandai hampir semua transfer sebagai kustom, karena
+		// nominal diterima selalu dibulatkan ke sen terdekat lebih dulu.
+		if ref, ok := rates[t.WalletCur+">"+t.ToWalletCur]; ok && ref.Valid() {
+			if diff := ref.Convert(t.NetOutMinor()) - t.AmountInMino; diff > 1 || diff < -1 {
+				data["RateCustom"] = true
+			}
 		}
 	} else if t.IsTransfer() {
 		data["Fee"] = Format(t.AdminFee, t.WalletCur)
@@ -400,18 +426,46 @@ func (a *App) renderTxForm(w http.ResponseWriter, r *http.Request, kind string, 
 		"Title": title, "Nav": "transaksi", "Back": "/transaksi",
 		"Action": action, "Kind": kind, "KindLabel": kindLabel[kind], "ID": id,
 		"Form": f, "Error": errMsg,
-		"Wallets": viewWallets(wallets), "Categories": categories[kind],
+		"Wallets": viewWallets(wallets),
 	}
 	page := "transaksi_form.html"
 
-	if kind == "transfer" {
-		rates, err := a.store.Rates(ctx)
+	if kind != "transfer" {
+		cats, err := a.store.CategoryNames(ctx, kind)
 		if err != nil {
 			a.fail(w, r, err)
 			return
 		}
-		data["RatesJSON"] = jsonAttr(ratesForJS(rates))
+		data["Categories"] = cats
+	}
+
+	if kind == "transfer" {
+		if len(wallets) < 2 {
+			http.Redirect(w, r, "/dompet/baru", http.StatusSeeOther)
+			return
+		}
+		// Tanpa nilai awal, kedua dropdown akan menunjuk dompet pertama dan form
+		// terbuka dalam keadaan tidak valid (transfer ke diri sendiri). Lebih
+		// buruk lagi, skrip akan menganggapnya transfer sesama mata uang dan
+		// menyalin nominal keluar ke nominal diterima.
+		if f["dompet"] == "" {
+			f["dompet"] = strconv.FormatInt(wallets[0].ID, 10)
+		}
+		if f["ke_dompet"] == "" || f["ke_dompet"] == f["dompet"] {
+			f["ke_dompet"] = strconv.FormatInt(firstOtherWallet(wallets, f["dompet"]), 10)
+		}
+
+		storeRates, err := a.store.Rates(ctx)
+		if err != nil {
+			a.fail(w, r, err)
+			return
+		}
+		apiRates := a.rateSrc.pairs(currencyCodes())
+		data["RatesJSON"] = jsonAttr(ratesForJS(apiRates, storeRates))
 		data["Base"] = a.base
+		if fetched, _ := a.rateSrc.status(); !fetched.IsZero() {
+			data["RateUpdated"] = tanggalPendek(fetched.In(a.loc))
+		}
 		page = "transfer_form.html"
 	}
 	if errMsg != "" {
@@ -420,19 +474,59 @@ func (a *App) renderTxForm(w http.ResponseWriter, r *http.Request, kind string, 
 	a.render(w, r, page, data)
 }
 
-// ratesForJS meratakan kurs jadi bentuk yang enak dibaca skrip form transfer:
-// "IDR>USD" -> berapa unit USD per 1 IDR, sebagai string desimal.
-func ratesForJS(rates map[string]Rate) map[string]string {
-	out := make(map[string]string, len(rates))
-	for k, r := range rates {
-		if !r.Valid() {
+// firstOtherWallet memilih dompet mana pun selain yang sudah jadi sumber,
+// diutamakan yang mata uangnya berbeda supaya form transfer lintas mata uang
+// langsung menampilkan kolom kurs.
+func firstOtherWallet(wallets []Wallet, fromID string) int64 {
+	var fallback int64
+	var fromCur string
+	for _, w := range wallets {
+		if strconv.FormatInt(w.ID, 10) == fromID {
+			fromCur = w.Currency
+			break
+		}
+	}
+	for _, w := range wallets {
+		if strconv.FormatInt(w.ID, 10) == fromID {
 			continue
 		}
-		// Kirim rasio mentah; skrip yang membaginya, jadi tidak ada presisi
-		// yang hilang di sisi Go.
-		out[k] = strconv.FormatInt(r.FromMinor, 10) + ":" + strconv.FormatInt(r.ToMinor, 10) +
-			":" + strconv.FormatInt(pow10(Exp(r.From)), 10) + ":" + strconv.FormatInt(pow10(Exp(r.To)), 10)
+		if fallback == 0 {
+			fallback = w.ID
+		}
+		if w.Currency != fromCur {
+			return w.ID
+		}
 	}
+	return fallback
+}
+
+func currencyCodes() []string {
+	out := make([]string, 0, len(Currencies))
+	for _, c := range Currencies {
+		out = append(out, c.Code)
+	}
+	return out
+}
+
+// ratesForJS meratakan kurs jadi bentuk yang dibaca skrip form transfer:
+// "IDR>USD" -> "fromMinor:toMinor:powFrom:powTo:sumber".
+// Rasionya dikirim mentah supaya pembagiannya terjadi di skrip dan tidak ada
+// presisi yang hilang dua kali. Kurs pasar menimpa kurs transfer terakhir
+// karena lebih baru, tapi asalnya ikut dikirim agar bisa disebut ke user.
+func ratesForJS(api, store map[string]Rate) map[string]string {
+	out := make(map[string]string, len(api)+len(store))
+	add := func(rates map[string]Rate, source string) {
+		for k, r := range rates {
+			if !r.Valid() {
+				continue
+			}
+			out[k] = strconv.FormatInt(r.FromMinor, 10) + ":" + strconv.FormatInt(r.ToMinor, 10) +
+				":" + strconv.FormatInt(pow10(Exp(r.From)), 10) + ":" + strconv.FormatInt(pow10(Exp(r.To)), 10) +
+				":" + source
+		}
+	}
+	add(store, "catatan")
+	add(api, "pasar")
 	return out
 }
 
@@ -478,7 +572,11 @@ func (a *App) readTx(r *http.Request, kind string) (Tx, map[string]string, error
 	t.WalletCur = from.Currency
 
 	if kind != "transfer" {
-		if !slicesContains(categories[kind], t.Category) {
+		known, err := a.store.CategoryNames(ctx, kind)
+		if err != nil {
+			return t, f, errors.New("Gagal membaca daftar kategori.")
+		}
+		if !slicesContains(known, t.Category) {
 			return t, f, errors.New("Kategori belum dipilih.")
 		}
 		amount, err := ParseAmount(f["nominal"], from.Currency)
@@ -515,6 +613,7 @@ func (a *App) readTx(r *http.Request, kind string) (Tx, map[string]string, error
 	t.AmountInMino = in
 
 	// Biaya admin: pakai isian user kalau ada, kalau kosong hitung dari kurs.
+	var rate Rate
 	if strings.TrimSpace(f["biaya_admin"]) != "" {
 		fee, err := ParseAmount(f["biaya_admin"], from.Currency)
 		if err != nil {
@@ -525,13 +624,23 @@ func (a *App) readTx(r *http.Request, kind string) (Tx, map[string]string, error
 		t.AdminFee = out - in
 	} else if s := strings.TrimSpace(f["kurs"]); s != "" {
 		priceCur, perCur := a.quoteDirection(ctx, from.Currency, to.Currency)
-		rate, err := ParseUnitRate(s, priceCur, perCur, from.Currency, to.Currency)
+		rate, err = ParseUnitRate(s, priceCur, perCur, from.Currency, to.Currency)
 		if err != nil {
 			return t, f, errors.New("Kurs tidak valid.")
 		}
 		t.AdminFee = AdminFee(out, in, from.Currency, to.Currency, rate)
 	}
 
+	// Nominal diterima hanya bisa dicatat sampai satuan terkecil mata uangnya:
+	// Rp15.500.000 dibagi kurs jatuh di $864,1697, dan sen terdekat yang bisa
+	// benar-benar diterima nilainya berbeda beberapa rupiah dari yang keluar.
+	// Selisih sekecil itu adalah sisa pembulatan, bukan input yang keliru, jadi
+	// biaya adminnya dinolkan. Di atas itu tetap ditolak.
+	if t.AdminFee < 0 && rate.Valid() {
+		if slack := rate.Invert().Convert(1); slack > 0 && -t.AdminFee <= slack {
+			t.AdminFee = 0
+		}
+	}
 	if t.AdminFee < 0 {
 		return t, f, errors.New("Nominal diterima lebih besar dari nilai yang keluar. Periksa kurs atau nominalnya.")
 	}
@@ -545,7 +654,7 @@ func (a *App) readTx(r *http.Request, kind string) (Tx, map[string]string, error
 // "1 USD = Rp15.500", bukan "1 IDR = $0,000064".
 // Mengembalikan (mata uang harga, mata uang yang dihargai).
 func (a *App) quoteDirection(ctx context.Context, from, to string) (string, string) {
-	if rates, err := a.store.Rates(ctx); err == nil {
+	if rates, err := a.rates(ctx); err == nil {
 		if r, ok := rates[from+">"+to]; ok && r.Valid() {
 			_, priceCur, perCur := r.Unit()
 			return priceCur, perCur
@@ -649,4 +758,139 @@ func (a *App) txDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/transaksi", http.StatusSeeOther)
+}
+
+// ---------- kategori ----------
+
+func (a *App) categoryList(w http.ResponseWriter, r *http.Request) {
+	a.renderCategories(w, r, "", 0)
+}
+
+// renderCategories menampilkan daftar kategori. errMsg kosong berarti tidak ada
+// masalah; status dipakai supaya kegagalan hapus tidak dijawab 200.
+func (a *App) renderCategories(w http.ResponseWriter, r *http.Request, errMsg string, status int) {
+	cats, err := a.store.Categories(r.Context(), "")
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	var expense, income []Category
+	for _, c := range cats {
+		if c.Kind == "income" {
+			income = append(income, c)
+		} else {
+			expense = append(expense, c)
+		}
+	}
+	if status != 0 {
+		w.WriteHeader(status)
+	}
+	a.render(w, r, "kategori.html", map[string]any{
+		"Title": "Kategori", "Nav": "kategori",
+		"Expense": expense, "Income": income, "Error": errMsg,
+	})
+}
+
+func (a *App) categoryForm(w http.ResponseWriter, r *http.Request) {
+	f := map[string]string{"jenis": r.URL.Query().Get("jenis")}
+	if _, ok := kindLabel[f["jenis"]]; !ok || f["jenis"] == "transfer" {
+		f["jenis"] = "expense"
+	}
+	var id int64
+
+	if r.PathValue("id") != "" {
+		id = pathID(r)
+		c, err := a.store.Category(r.Context(), id)
+		if errors.Is(err, ErrNotFound) {
+			a.notFound(w)
+			return
+		} else if err != nil {
+			a.fail(w, r, err)
+			return
+		}
+		f["jenis"], f["nama"] = c.Kind, c.Name
+	}
+	a.renderCategoryForm(w, r, id, f, "")
+}
+
+func (a *App) renderCategoryForm(w http.ResponseWriter, r *http.Request, id int64, f map[string]string, errMsg string) {
+	action, title := "/kategori/baru", "Kategori Baru"
+	if id != 0 {
+		action = "/kategori/" + strconv.FormatInt(id, 10) + "/ubah"
+		title = "Ubah Kategori"
+	}
+	if errMsg != "" {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+	}
+	a.render(w, r, "kategori_form.html", map[string]any{
+		"Title": title, "Nav": "kategori", "Back": "/kategori",
+		"Action": action, "ID": id, "Form": f, "Error": errMsg,
+		"Kinds": []struct{ Value, Label string }{
+			{"expense", "Pengeluaran"}, {"income", "Pemasukan"},
+		},
+	})
+}
+
+func readCategory(r *http.Request) (kind, name string, f map[string]string, err error) {
+	f = map[string]string{
+		"jenis": r.FormValue("jenis"),
+		"nama":  strings.TrimSpace(r.FormValue("nama")),
+	}
+	if f["jenis"] != "expense" && f["jenis"] != "income" {
+		return "", "", f, errors.New("Jenis kategori tidak dikenal.")
+	}
+	if len(f["nama"]) < 2 {
+		return "", "", f, errors.New("Nama kategori minimal 2 karakter.")
+	}
+	if len(f["nama"]) > 40 {
+		return "", "", f, errors.New("Nama kategori terlalu panjang.")
+	}
+	return f["jenis"], f["nama"], f, nil
+}
+
+func (a *App) categoryCreate(w http.ResponseWriter, r *http.Request) {
+	kind, name, f, err := readCategory(r)
+	if err != nil {
+		a.renderCategoryForm(w, r, 0, f, err.Error())
+		return
+	}
+	if err := a.store.CreateCategory(r.Context(), kind, name); err != nil {
+		// Satu-satunya kegagalan yang wajar di sini adalah nama kembar.
+		a.renderCategoryForm(w, r, 0, f, "Kategori dengan nama itu sudah ada.")
+		return
+	}
+	http.Redirect(w, r, "/kategori", http.StatusSeeOther)
+}
+
+func (a *App) categoryUpdate(w http.ResponseWriter, r *http.Request) {
+	id := pathID(r)
+	_, name, f, err := readCategory(r)
+	if err != nil {
+		a.renderCategoryForm(w, r, id, f, err.Error())
+		return
+	}
+	// Jenis kategori tidak bisa diubah: transaksi lama dicocokkan lewat pasangan
+	// jenis dan nama, jadi memindahkan kategori antar jenis akan memutus
+	// kaitannya dengan transaksi yang sudah ada.
+	if err := a.store.RenameCategory(r.Context(), id, name); errors.Is(err, ErrNotFound) {
+		a.notFound(w)
+		return
+	} else if err != nil {
+		a.renderCategoryForm(w, r, id, f, "Kategori dengan nama itu sudah ada.")
+		return
+	}
+	http.Redirect(w, r, "/kategori", http.StatusSeeOther)
+}
+
+func (a *App) categoryDelete(w http.ResponseWriter, r *http.Request) {
+	err := a.store.DeleteCategory(r.Context(), pathID(r))
+	if errors.Is(err, ErrNotFound) {
+		a.notFound(w)
+		return
+	}
+	if err != nil {
+		a.renderCategories(w, r, err.Error(), http.StatusConflict)
+		return
+	}
+	http.Redirect(w, r, "/kategori", http.StatusSeeOther)
 }

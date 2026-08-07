@@ -35,6 +35,25 @@
     <a href="/transaksi/baru?jenis=transfer"><span class="q-ic m-accent">{{template "icon-transfer"}}</span>Transfer</a>
   </div>
 
+  {{with .Breakdown}}
+    {{if or .Expense .Income}}
+      <section>
+        <div class="sec-head">
+          <h6>Per Kategori</h6>
+          <span class="text-muted small">{{.Periode}}</span>
+        </div>
+        <div class="cat-cols">
+          {{template "cat-breakdown" dict "Judul" "Pengeluaran" "Tone" "out" "Jenis" "expense" "Rows" .Expense "Total" .TotalOut}}
+          {{template "cat-breakdown" dict "Judul" "Pemasukan" "Tone" "in" "Jenis" "income" "Rows" .Income "Total" .TotalIn}}
+        </div>
+        {{with .Unconverted}}
+          <p class="note">Transaksi bermata uang {{range $i, $c := .}}{{if $i}}, {{end}}{{$c}}{{end}}
+            belum ikut dihitung — kursnya belum diketahui.</p>
+        {{end}}
+      </section>
+    {{end}}
+  {{end}}
+
   <div class="dash-cols">
   <section>
     <div class="sec-head">
@@ -69,5 +88,27 @@
   </section>
   </div>
 
+</div>
+{{end}}
+
+{{define "cat-breakdown"}}
+<div class="cat-col">
+  <div class="cat-col-head">
+    <span class="m-{{.Tone}}">{{.Judul}}</span>
+    <span class="m-{{.Tone}}">{{.Total}}</span>
+  </div>
+  {{if .Rows}}
+    <div class="stack-sm">
+      {{range .Rows}}
+        <a class="cat-bar" href="/transaksi?kategori={{.Name}}">
+          <span class="cat-bar-fill t-{{$.Tone}}" style="width:{{.Percent}}%"></span>
+          <span class="cat-bar-name">{{.Name}}</span>
+          <span class="cat-bar-amt">{{.Amount}}</span>
+        </a>
+      {{end}}
+    </div>
+  {{else}}
+    <p class="empty">Belum ada {{.Judul | lower}} bulan ini.</p>
+  {{end}}
 </div>
 {{end}}
