@@ -29,9 +29,10 @@ services:
       # Render; lihat nilainya di tab Environment lalu bagikan ke keluarga.
       - key: SIGNUP_CODE
         generateValue: true
-      # Nama yang muncul di sapaan dashboard, mis. "Keluarga Santoso".
+      # Nama di sapaan dashboard. Hanya label tampilan — pemisahan data antar
+      # keluarga terjadi di level deployment, bukan di sini. Lihat README.
       - key: APP_FAMILY
-        sync: false
+        value: Keluarga Firsta
       - key: BASE_CURRENCY
         value: IDR
       - key: APP_TZ

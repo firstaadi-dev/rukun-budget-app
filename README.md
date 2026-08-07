@@ -15,8 +15,11 @@ docker compose up -d db
 ```
 
 ```bash
-cp .env.example .env && export $(grep -v '^#' .env | xargs) && go run .
+cp .env.example .env && set -a && . ./.env && set +a && go run .
 ```
+
+Pakai `set -a` + `source`, bukan `export $(... | xargs)`: `APP_FAMILY` berisi spasi
+dan akan terpotong oleh cara yang kedua.
 
 Buka http://localhost:8080, lalu daftar memakai `SIGNUP_CODE` dari `.env`.
 
@@ -31,9 +34,13 @@ go test ./...
 1. Push repo ini ke GitHub.
 2. Render Dashboard → **New** → **Blueprint** → pilih repo ini. `render.yaml` membuat
    web service dan Postgres sekaligus, keduanya di region Singapore.
-3. Isi `APP_FAMILY` saat diminta, mis. `Keluarga Santoso`.
-4. Setelah deploy selesai, buka tab **Environment** pada service `rukun`, salin nilai
+3. Setelah deploy selesai, buka tab **Environment** pada service `rukun`, salin nilai
    `SIGNUP_CODE` yang dibuat otomatis, lalu bagikan ke anggota keluarga untuk mendaftar.
+4. Kalau semua anggota sudah punya akun, ganti `SIGNUP_CODE` ke nilai acak baru untuk
+   menutup pendaftaran.
+
+Nama keluarga sudah tertulis di `render.yaml` (`APP_FAMILY`), jadi Render tidak
+menanyakannya. Ubah di sana kalau perlu diganti.
 
 Skema database dibuat otomatis saat aplikasi start; tidak ada langkah migrasi terpisah.
 
@@ -62,6 +69,28 @@ ke Layar Utama**. Distribusinya cukup dengan membagikan satu URL — tanpa app s
 Service worker-nya sengaja tidak menyimpan apa pun. Data keuangan bisa diubah anggota
 keluarga lain kapan saja, dan saldo basi lebih menyesatkan daripada layar kosong.
 Aplikasi ini butuh koneksi; itu keputusan sadar, bukan kekurangan yang belum digarap.
+
+## Satu deployment = satu keluarga
+
+Aplikasi ini **single-tenant**. Tidak ada tabel `families` dan tidak ada kolom pemilik
+di `wallets` atau `transactions`: setiap orang yang berhasil login melihat seluruh data
+di database itu. Pemisahan antar keluarga terjadi di level infrastruktur — keluarga lain
+menjalankan instance dan database sendiri.
+
+Konsekuensinya, dua hal ini yang benar-benar menjaga data:
+
+- **`SIGNUP_CODE` adalah rahasia keluarga.** Siapa pun yang memilikinya bisa mendaftar
+  dan langsung melihat semua saldo dan transaksi. Bagikan lewat jalur pribadi, jangan
+  ditulis di grup atau catatan bersama.
+- **Tutup pendaftaran setelah semua anggota masuk.** Ganti `SIGNUP_CODE` di Render ke
+  nilai acak yang tidak diberitahukan ke siapa pun. Anggota yang sudah punya akun tidak
+  terpengaruh — kode itu hanya dipakai saat mendaftar, bukan saat login.
+
+`APP_FAMILY` murni label di sapaan dashboard. Mengubahnya tidak memisahkan apa pun,
+dan mengganti namanya pada database yang sudah berisi data tidak menghapus data lama.
+
+Setiap pendaftaran baru dicatat di log aplikasi (`anggota baru terdaftar: ...`). Kalau
+muncul nama yang tidak Anda kenal, kode undangan sudah bocor — segera ganti.
 
 ## Keputusan yang penting dipahami sebelum mengubah kode
 
