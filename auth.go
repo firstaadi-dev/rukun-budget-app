@@ -125,6 +125,10 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 		fail("Gagal mendaftar, coba nama lain.")
 		return
 	}
+	// Satu deployment melayani satu keluarga, jadi pendaftaran baru adalah
+	// kejadian yang jarang dan layak terlihat di log: kalau ada nama yang tidak
+	// dikenal muncul, berarti kode undangan sudah bocor dan harus diganti.
+	log.Printf("anggota baru terdaftar: %q (id %d)", name, id)
 	a.startSession(w, r, id)
 }
 
