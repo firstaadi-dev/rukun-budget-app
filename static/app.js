@@ -50,6 +50,32 @@ const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 const curOf = (sel) => sel.selectedOptions[0]?.dataset.currency || 'IDR';
 const symOf = (sel) => sel.selectedOptions[0]?.dataset.symbol || '';
 
+// ---------- kolom nominal hanya menerima angka ----------
+
+// inputmode="decimal" cuma memberi saran keyboard di ponsel; di desktop huruf
+// tetap bisa diketik dan salahnya baru ketahuan setelah menekan Simpan.
+// Atribut pattern menjaga saat skrip mati, penyaring ini menjaga saat hidup.
+function bersihkanAngka(s) {
+  const negatif = s.startsWith('-'); // saldo awal kartu kredit boleh minus
+  return (negatif ? '-' : '') + s.replace(/[^\d.,]/g, '');
+}
+
+$$('input[inputmode="decimal"]').forEach((el) => {
+  el.addEventListener('input', () => {
+    const asli = el.value;
+    const bersih = bersihkanAngka(asli);
+    if (bersih === asli) return;
+
+    // Kursor harus tetap di tempatnya. Tanpa ini, mengetik satu huruf di tengah
+    // angka melemparkan kursor ke ujung dan angka berikutnya masuk ke posisi
+    // yang salah.
+    const pos = el.selectionStart;
+    const dibuang = pos - bersihkanAngka(asli.slice(0, pos)).length;
+    el.value = bersih;
+    el.setSelectionRange(pos - dibuang, pos - dibuang);
+  });
+});
+
 // ---------- form dompet: daftar penyedia mengikuti jenis ----------
 
 (function walletForm() {

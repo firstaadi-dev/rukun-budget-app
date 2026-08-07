@@ -29,7 +29,8 @@
     <label for="nominal_keluar">Nominal Keluar <span class="text-muted">· didebit dari dompet sumber</span></label>
     <div class="input-affix">
       <span class="affix" data-sym-from></span>
-      <input class="input" id="nominal_keluar" name="nominal_keluar" inputmode="decimal" required
+      <input class="input" id="nominal_keluar" name="nominal_keluar" inputmode="decimal" pattern="-?[0-9.,]*"
+             title="Hanya angka, titik, dan koma" required
              value="{{.Form.nominal_keluar}}" placeholder="0">
     </div>
   </div>
@@ -40,7 +41,8 @@
       <span class="small" data-rate-per></span>
       <div class="input-affix">
         <span class="affix" data-sym-price></span>
-        <input class="input" id="kurs" name="kurs" inputmode="decimal" value="{{.Form.kurs}}">
+        <input class="input" id="kurs" name="kurs" inputmode="decimal" pattern="-?[0-9.,]*"
+               title="Hanya angka, titik, dan koma" value="{{.Form.kurs}}">
       </div>
       <span class="tag tag-outline tiny" data-rate-custom hidden>Kustom</span>
     </div>
@@ -50,7 +52,8 @@
     <label for="nominal_diterima">Nominal Diterima <span class="text-muted">· masuk ke dompet tujuan</span></label>
     <div class="input-affix">
       <span class="affix" data-sym-to></span>
-      <input class="input" id="nominal_diterima" name="nominal_diterima" inputmode="decimal" required
+      <input class="input" id="nominal_diterima" name="nominal_diterima" inputmode="decimal" pattern="-?[0-9.,]*"
+             title="Hanya angka, titik, dan koma" required
              value="{{.Form.nominal_diterima}}" placeholder="0">
     </div>
   </div>
@@ -59,7 +62,8 @@
     <label for="biaya_admin">Biaya Admin</label>
     <div class="input-affix">
       <span class="affix" data-sym-from></span>
-      <input class="input" id="biaya_admin" name="biaya_admin" inputmode="decimal"
+      <input class="input" id="biaya_admin" name="biaya_admin" inputmode="decimal" pattern="-?[0-9.,]*"
+             title="Hanya angka, titik, dan koma"
              value="{{.Form.biaya_admin}}" placeholder="0">
     </div>
     <p class="hint">Dihitung otomatis dari selisih nominal keluar dan nilai nominal diterima. Bisa diedit manual.</p>

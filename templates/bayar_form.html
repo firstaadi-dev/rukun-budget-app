@@ -44,7 +44,8 @@
     <label for="nominal">Nominal</label>
     <div class="input-affix">
       <span class="affix" data-currency-symbol></span>
-      <input class="input" id="nominal" name="nominal" inputmode="decimal" required
+      <input class="input" id="nominal" name="nominal" inputmode="decimal" pattern="-?[0-9.,]*"
+             title="Hanya angka, titik, dan koma" required
              value="{{.Form.nominal}}" placeholder="0">
     </div>
     <p class="hint">Sudah terisi sisa penuh. Kurangi kalau membayar sebagian.</p>

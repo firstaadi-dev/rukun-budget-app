@@ -60,7 +60,8 @@
     <label for="saldo_awal">Saldo Awal</label>
     <div class="input-affix">
       <span class="affix" data-currency-symbol>{{symbol .Form.mata_uang}}</span>
-      <input class="input" id="saldo_awal" name="saldo_awal" inputmode="decimal"
+      <input class="input" id="saldo_awal" name="saldo_awal" inputmode="decimal" pattern="-?[0-9.,]*"
+             title="Hanya angka, titik, dan koma"
              value="{{.Form.saldo_awal}}">
     </div>
     <p class="hint">Untuk kartu kredit, isi tagihan berjalan sebagai angka negatif.</p>
