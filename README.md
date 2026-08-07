@@ -158,23 +158,42 @@ diperlakukan sebagai rahasia keluarga:
 Setiap pendaftaran baru dicatat di log (`anggota baru terdaftar: ... di keluarga ...`).
 Kalau muncul nama yang tidak dikenal, kode keluarga itu sudah bocor.
 
-## Kartu kredit
+## Kartu kredit dan PayLater
 
-Dompet bertipe kartu kredit bisa diberi **tanggal cetak** dan **tanggal bayar**. Dari
-keduanya aplikasi membedakan dua angka yang sering tertukar:
+Keduanya jenis dompet yang berbeda hanya pada nama dan daftar penyedianya; di seluruh
+aplikasi perilakunya sama — saldonya bergerak negatif saat dipakai dan dilunasi
+belakangan. `Wallet.IsCredit()` yang menentukan, dan semua yang di bawah berlaku untuk
+keduanya.
+
+**Limit** menentukan berapa lagi yang boleh dipakai. Transaksi yang menembusnya ditolak
+dengan menyebut sisa limitnya, dan bilah pemakaian berubah merah saat menyentuh 90% —
+transaksi yang ditolak di kasir lebih merepotkan daripada peringatan yang muncul
+kecepatan. Tanpa limit terisi, tidak ada yang bisa dijaga dan pemakaian dibiarkan;
+menebak pagunya lebih berbahaya daripada diam.
+
+**Tanggal cetak** dan **tanggal bayar** membedakan dua angka yang sering tertukar:
 
 | | Artinya |
 |---|---|
 | **Tagihan** | Yang sudah tercetak di lembar tagihan terakhir dan harus dibayar sebelum jatuh tempo, dikurangi pembayaran yang masuk sesudahnya. |
-| **Sisa pemakaian** | Seluruh yang terpakai sampai hari ini, termasuk belanja yang belum masuk tagihan mana pun. |
+| **Terpakai** | Seluruh yang terpakai sampai hari ini, termasuk belanja yang belum masuk tagihan mana pun. |
+
+Tagihan adalah **bagian di dalam** nominal terpakai, bukan angka terpisah, jadi selisih
+keduanya ikut ditulis sebagai "termasuk sekian belum ditagih". Ketiga angka di kartu bisa
+dicek silang tanpa berhitung: tagihan ditambah yang belum ditagih sama dengan terpakai,
+dan terpakai ditambah sisa limit sama dengan limitnya.
+
+Nominal terpakai sengaja memakai total, bukan hanya yang belum ditagih: limit dimakan
+oleh totalnya, dan bank menolak transaksi berdasarkan angka itu. Menampilkan yang belum
+ditagih saja akan membuat kartunya bertentangan sendiri dengan sisa limit di bawahnya.
 
 Membayar sebesar sisa pemakaian tidak salah, tapi membayar sebesar tagihan sudah cukup
 untuk menghindari bunga — karena itu keduanya ditampilkan berdampingan.
 
 Tanggal di atas jumlah hari suatu bulan dijepit ke hari terakhir bulan itu, jadi tanggal
-cetak 31 tetap masuk akal di Februari. Kartu tanpa siklus tetap berfungsi sebagai dompet
-biasa; tanpa tanggal cetak, "tagihan" tidak punya arti dan menebaknya lebih menyesatkan
-daripada diam.
+cetak 31 tetap masuk akal di Februari. Akun tanpa siklus tetap ditampilkan beserta limit
+dan nominal terpakainya — hanya bagian tagihannya yang disembunyikan, karena tanpa tanggal
+cetak "tagihan" tidak punya arti.
 
 **Pembayaran kartu dicatat sebagai transfer, bukan pengeluaran.** Belanjanya sudah
 tercatat sebagai pengeluaran waktu kartu dipakai; mencatat pembayarannya sebagai

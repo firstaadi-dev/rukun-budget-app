@@ -74,32 +74,55 @@
 {{define "icon-hutang"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>{{end}}
 {{define "icon-kartu"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>{{end}}
 
-{{/* Kartu ringkas satu kartu kredit: tagihan yang harus dibayar, sisa
-     pemakaian, dan jatuh temponya. */}}
+{{/* Kartu ringkas satu akun kredit: tagihan yang harus dibayar, sisa
+     pemakaian, limit, dan jatuh temponya. Bagian tagihan hanya muncul kalau
+     siklusnya sudah diisi; bagian limit hanya kalau limitnya sudah diisi. */}}
 {{define "kartu-kredit"}}
-<div class="card elev-sm kk{{if .Telat}} kk-telat{{else if .Segera}} kk-segera{{end}}">
+<div class="card elev-sm kk{{if .Telat}} kk-telat{{else if or .Segera .LimitTipis}} kk-segera{{end}}">
   <div class="kk-head">
     <span class="kk-nama">{{template "icon-kartu"}} {{.Name}}</span>
     <span class="tag tag-neutral tiny">{{.Currency}}</span>
   </div>
+
   <div class="kk-angka">
+    {{if .HasCycle}}
+      <div>
+        <div class="card-kicker">Tagihan</div>
+        <div class="kk-utama{{if not .Lunas}} m-out{{end}}">{{.Payable}}</div>
+      </div>
+    {{end}}
     <div>
-      <div class="card-kicker">Tagihan</div>
-      <div class="kk-utama{{if not .Lunas}} m-out{{end}}">{{.Payable}}</div>
-    </div>
-    <div>
-      <div class="card-kicker">Sisa Pemakaian</div>
-      <div class="kk-sisa">{{.Outstanding}}</div>
+      <div class="card-kicker">Terpakai</div>
+      <div class="{{if .HasCycle}}kk-sisa{{else}}kk-utama m-out{{end}}">{{.Outstanding}}</div>
+      {{with .BelumDitagih}}<div class="text-muted tiny">termasuk {{.}} belum ditagih</div>{{end}}
     </div>
   </div>
-  <div class="kk-kaki small text-muted">
-    Tercetak {{.Settlement}} · jatuh tempo {{.Due}}
-    {{if .Lunas}}<span class="tag tag-neutral tiny">lunas</span>
-    {{else if .Telat}}<span class="tag tag-outline tiny m-out">telat {{neg .HariLagi}} hari</span>
-    {{else if .Segera}}<span class="tag tag-outline tiny">{{.HariLagi}} hari lagi</span>{{end}}
-  </div>
-  {{if not .Lunas}}
-    <a class="btn btn-primary btn-block" href="/transaksi/baru?jenis=transfer&ke={{.ID}}&nominal={{.PayablePlain}}">Bayar Tagihan</a>
+
+  {{if .HasLimit}}
+    <div class="kk-limit">
+      <div class="kk-bar"><span class="kk-bar-isi{{if .LimitTipis}} kk-bar-tipis{{end}}"
+                                style="width:{{.TerpakaiPersen}}%"></span></div>
+      <div class="kk-kaki small text-muted">
+        Sisa limit <span class="{{if .LimitTipis}}m-out{{end}}">{{.SisaLimit}}</span>
+        dari {{.Limit}}
+        {{if .LimitTipis}}<span class="tag tag-outline tiny m-out">limit menipis</span>{{end}}
+      </div>
+    </div>
+  {{end}}
+
+  {{if .HasCycle}}
+    <div class="kk-kaki small text-muted">
+      Tercetak {{.Settlement}} · jatuh tempo {{.Due}}
+      {{if .Lunas}}<span class="tag tag-neutral tiny">lunas</span>
+      {{else if .Telat}}<span class="tag tag-outline tiny m-out">telat {{neg .HariLagi}} hari</span>
+      {{else if .Segera}}<span class="tag tag-outline tiny">{{.HariLagi}} hari lagi</span>{{end}}
+    </div>
+    {{if not .Lunas}}
+      <a class="btn btn-primary btn-block" href="/transaksi/baru?jenis=transfer&ke={{.ID}}&nominal={{.PayablePlain}}">Bayar Tagihan</a>
+    {{end}}
+  {{else}}
+    <p class="hint">Siklus tagihan belum diisi.
+      <a href="/dompet/{{.ID}}/ubah">Isi tanggal cetak dan bayar</a> untuk melihat tagihannya.</p>
   {{end}}
 </div>
 {{end}}

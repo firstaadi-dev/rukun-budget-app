@@ -311,7 +311,8 @@ func summarize(ws []Wallet, rates map[string]Rate, base string) Summary {
 
 type CardView struct {
 	Wallet
-	Payable string
+	HasCycle bool
+	Payable  string
 	// PayablePlain: nominal tagihan tanpa simbol mata uang, untuk mengisi
 	// otomatis kolom nominal di form pembayaran.
 	PayablePlain string
@@ -321,22 +322,53 @@ type CardView struct {
 	// HariLagi: sisa hari menuju jatuh tempo. Negatif berarti sudah lewat.
 	HariLagi int
 	Lunas    bool
+	// BelumDitagih: bagian dari nominal terpakai yang belum masuk tagihan mana
+	// pun. Ditampilkan sebagai rincian, supaya jelas bahwa tagihan bukan angka
+	// terpisah dari terpakai melainkan bagian di dalamnya.
+	BelumDitagih string
+
+	Limit     string
+	SisaLimit string
+	// TerpakaiPersen: porsi limit yang sudah terpakai, untuk panjang bilah.
+	TerpakaiPersen int
 }
 
-func (c CardView) Telat() bool  { return !c.Lunas && c.HariLagi < 0 }
-func (c CardView) Segera() bool { return !c.Lunas && c.HariLagi >= 0 && c.HariLagi <= 5 }
+func (c CardView) Telat() bool  { return c.HasCycle && !c.Lunas && c.HariLagi < 0 }
+func (c CardView) Segera() bool { return c.HasCycle && !c.Lunas && c.HariLagi >= 0 && c.HariLagi <= 5 }
+
+// LimitTipis: pemakaian sudah menyentuh 90% limit. Ditandai sebelum benar-benar
+// mentok, karena transaksi yang ditolak di kasir lebih merepotkan daripada
+// peringatan yang muncul kecepatan.
+func (c CardView) LimitTipis() bool { return c.HasLimit() && c.TerpakaiPersen >= 90 }
 
 func viewCard(st CardStatus, today time.Time) CardView {
-	return CardView{
-		Wallet:       st.Wallet,
-		Payable:      Format(st.PayableMinor, st.Wallet.Currency),
-		PayablePlain: FormatPlain(st.PayableMinor, st.Wallet.Currency),
-		Outstanding:  Format(-st.OutstandingMinor, st.Wallet.Currency),
-		Settlement:   tanggalPendek(st.Settlement),
-		Due:          tanggalPendek(st.Due),
-		HariLagi:     int(hari(st.Due).Sub(hari(today)).Hours() / 24),
-		Lunas:        st.PayableMinor == 0,
+	w := st.Wallet
+	v := CardView{
+		Wallet:      w,
+		HasCycle:    st.HasCycle,
+		Outstanding: Format(-st.OutstandingMinor, w.Currency),
 	}
+	if st.HasCycle {
+		v.Payable = Format(st.PayableMinor, w.Currency)
+		v.PayablePlain = FormatPlain(st.PayableMinor, w.Currency)
+		v.Settlement = tanggalPendek(st.Settlement)
+		v.Due = tanggalPendek(st.Due)
+		v.HariLagi = int(hari(st.Due).Sub(hari(today)).Hours() / 24)
+		v.Lunas = st.PayableMinor == 0
+
+		// Tagihan sudah termasuk di dalam nominal terpakai, bukan angka
+		// terpisah. Selisihnya ditampilkan supaya keduanya bisa dicek silang
+		// tanpa berhitung, dan tidak ada yang keliru menjumlahkannya.
+		if sisa := w.TerpakaiMinor() - st.PayableMinor; sisa > 0 {
+			v.BelumDitagih = Format(sisa, w.Currency)
+		}
+	}
+	if w.HasLimit() {
+		v.Limit = Format(w.LimitMinor, w.Currency)
+		v.SisaLimit = Format(w.SisaLimitMinor(), w.Currency)
+		v.TerpakaiPersen = int(min(100, w.TerpakaiMinor()*100/w.LimitMinor))
+	}
+	return v
 }
 
 // ---------- hutang dan piutang ----------

@@ -151,10 +151,14 @@ $$('input[inputmode="decimal"]').forEach((el) => {
     });
   }
 
+  // Limit dan siklus tagihan hanya berarti untuk akun berbasis kredit.
   function syncSiklus() {
     const jenis = $$('[data-jenis]', form).find((r) => r.checked)?.value;
-    const box = $('#siklus-kartu', form);
-    if (box) box.hidden = jenis !== 'credit';
+    const kredit = jenis === 'credit' || jenis === 'paylater';
+    for (const id of ['#siklus-kartu', '#limit-kredit']) {
+      const box = $(id, form);
+      if (box) box.hidden = !kredit;
+    }
   }
 
   $$('[data-jenis]', form).forEach((r) => {

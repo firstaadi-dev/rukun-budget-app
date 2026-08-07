@@ -61,7 +61,7 @@ func TestPagesRender(t *testing.T) {
 		{"dompet.html", map[string]any{
 			"Title": "Dompet", "Nav": "dompet", "Wallets": viewWallets(wallets),
 			"Cards": []CardView{kartuUji(today)},
-		}, "Sisa Pemakaian"},
+		}, "Terpakai"},
 
 		{"dompet_form.html", map[string]any{
 			"Title": "Dompet Baru", "Nav": "dompet", "Back": "/dompet", "Action": "/dompet/baru",

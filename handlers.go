@@ -111,15 +111,20 @@ func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
 // ---------- dompet ----------
 
 var walletProviders = map[string][]string{
-	"bank":    {"BCA", "Bank Mandiri", "BNI", "BRI", "CIMB Niaga", "Bank Permata", "BSI", "Danamon", "Jenius"},
-	"credit":  {"BCA", "Bank Mandiri", "BNI", "BRI", "CIMB Niaga", "Bank Permata", "Citibank"},
-	"ewallet": {"GoPay", "OVO", "DANA", "ShopeePay", "LinkAja", "Jago"},
-	"cash":    {},
+	"bank":     {"BCA", "Bank Mandiri", "BNI", "BRI", "CIMB Niaga", "Bank Permata", "BSI", "Danamon", "Jenius"},
+	"credit":   {"BCA", "Bank Mandiri", "BNI", "BRI", "CIMB Niaga", "Bank Permata", "Citibank"},
+	"ewallet":  {"GoPay", "OVO", "DANA", "ShopeePay", "LinkAja", "Jago"},
+	"paylater": {"GoPayLater", "SPayLater", "Kredivo", "Akulaku", "Traveloka PayLater", "Indodana", "Atome"},
+	"cash":     {},
 }
 
 var walletTypes = []struct{ Value, Label string }{
-	{"cash", "Tunai"}, {"bank", "Bank"}, {"credit", "Kredit"}, {"ewallet", "E-Wallet"},
+	{"cash", "Tunai"}, {"bank", "Bank"}, {"credit", "Kredit"},
+	{"ewallet", "E-Wallet"}, {"paylater", "PayLater"},
 }
+
+// kreditType: jenis dompet yang punya limit dan siklus tagihan.
+func kreditType(t string) bool { return t == "credit" || t == "paylater" }
 
 func (a *App) walletList(w http.ResponseWriter, r *http.Request) {
 	wallets, err := a.store.Wallets(r.Context(), family(r))
@@ -138,27 +143,30 @@ func (a *App) walletList(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// cardStatuses menghitung tagihan dan sisa pemakaian tiap kartu kredit yang
-// siklusnya sudah diisi. Kartu tanpa siklus dilewati: tanpa tanggal cetak,
+// cardStatuses merangkum tiap akun berbasis kredit. Akun yang siklusnya belum
+// diisi tetap ditampilkan — limit dan sisa pemakaiannya sudah berguna sendiri —
+// hanya bagian tagihannya yang disembunyikan, karena tanpa tanggal cetak
 // "tagihan" tidak punya arti dan menebaknya lebih menyesatkan daripada diam.
 func (a *App) cardStatuses(ctx context.Context, familyID int64, wallets []Wallet) ([]CardView, error) {
 	var out []CardView
 	for _, wl := range wallets {
-		if !wl.IsCredit() || !wl.HasCycle() {
+		if !wl.IsCredit() {
 			continue
 		}
-		settlement := SettlementTerakhir(a.today(), wl.SettlementDay, a.loc)
-		atSettlement, creditsSince, err := a.store.CardBalances(ctx, familyID, wl.ID, settlement)
-		if err != nil {
-			return nil, err
+		st := CardStatus{Wallet: wl, OutstandingMinor: wl.BalanceMinor}
+
+		if wl.HasCycle() {
+			settlement := SettlementTerakhir(a.today(), wl.SettlementDay, a.loc)
+			atSettlement, creditsSince, err := a.store.CardBalances(ctx, familyID, wl.ID, settlement)
+			if err != nil {
+				return nil, err
+			}
+			st.HasCycle = true
+			st.PayableMinor = TagihanKartu(atSettlement, creditsSince)
+			st.Settlement = settlement
+			st.Due = JatuhTempo(settlement, wl.PaymentDay, a.loc)
 		}
-		out = append(out, viewCard(CardStatus{
-			Wallet:           wl,
-			PayableMinor:     TagihanKartu(atSettlement, creditsSince),
-			OutstandingMinor: wl.BalanceMinor,
-			Settlement:       settlement,
-			Due:              JatuhTempo(settlement, wl.PaymentDay, a.loc),
-		}, a.today()))
+		out = append(out, viewCard(st, a.today()))
 	}
 	return out, nil
 }
@@ -186,6 +194,9 @@ func (a *App) walletForm(w http.ResponseWriter, r *http.Request) {
 		}
 		if wl.PaymentDay > 0 {
 			f["tanggal_bayar"] = strconv.Itoa(wl.PaymentDay)
+		}
+		if wl.HasLimit() {
+			f["limit"] = FormatPlain(wl.LimitMinor, wl.Currency)
 		}
 	}
 	a.renderWalletForm(w, r, id, f, "")
@@ -218,6 +229,7 @@ func readWallet(r *http.Request) (Wallet, map[string]string, error) {
 		"saldo_awal":    r.FormValue("saldo_awal"),
 		"tanggal_cetak": strings.TrimSpace(r.FormValue("tanggal_cetak")),
 		"tanggal_bayar": strings.TrimSpace(r.FormValue("tanggal_bayar")),
+		"limit":         strings.TrimSpace(r.FormValue("limit")),
 	}
 	wl := Wallet{Type: f["jenis"], Provider: f["penyedia"], Name: f["nama"], Currency: f["mata_uang"]}
 
@@ -239,9 +251,10 @@ func readWallet(r *http.Request) (Wallet, map[string]string, error) {
 	}
 	wl.InitialMinor = saldo
 
-	// Siklus tagihan hanya berarti untuk kartu kredit. Jenis lain yang kebetulan
-	// mengirim kolomnya diabaikan, karena database pun menolaknya.
-	if wl.Type == "credit" {
+	// Limit dan siklus tagihan hanya berarti untuk kartu kredit dan PayLater.
+	// Jenis lain yang kebetulan mengirim kolomnya diabaikan, karena database
+	// pun menolaknya.
+	if kreditType(wl.Type) {
 		cetak, errCetak := hariBulan(f["tanggal_cetak"])
 		bayar, errBayar := hariBulan(f["tanggal_bayar"])
 		if errCetak != nil || errBayar != nil {
@@ -251,8 +264,16 @@ func readWallet(r *http.Request) (Wallet, map[string]string, error) {
 			return wl, f, errors.New("Isi tanggal cetak dan tanggal bayar sekaligus, atau kosongkan keduanya.")
 		}
 		wl.SettlementDay, wl.PaymentDay = cetak, bayar
+
+		if f["limit"] != "" {
+			batas, err := ParseAmount(f["limit"], wl.Currency)
+			if err != nil || batas <= 0 {
+				return wl, f, errors.New("Limit harus angka lebih dari nol, atau dikosongkan.")
+			}
+			wl.LimitMinor = batas
+		}
 	} else {
-		f["tanggal_cetak"], f["tanggal_bayar"] = "", ""
+		f["tanggal_cetak"], f["tanggal_bayar"], f["limit"] = "", "", ""
 	}
 	return wl, f, nil
 }
@@ -788,21 +809,35 @@ func slicesContains(list []string, v string) bool {
 	return false
 }
 
-// checkBalance menolak transaksi yang membuat dompet non-kartu-kredit minus.
-// Kartu kredit memang dirancang bersaldo negatif, jadi dilewati.
+// checkBalance menolak transaksi yang tidak mungkin terjadi: dompet biasa yang
+// jadi minus, atau akun kredit yang menembus limitnya.
+//
+// Akun kredit memang dirancang bersaldo negatif, jadi yang dijaga bukan nol
+// melainkan pagunya. Tanpa limit terisi, tidak ada yang bisa dijaga dan
+// pemakaian dibiarkan — menebak pagunya lebih berbahaya daripada diam.
 func (a *App) checkBalance(r *http.Request, t Tx, excludeTxID int64) error {
 	wl, err := a.store.Wallet(r.Context(), family(r), t.WalletID)
 	if err != nil {
 		return err
 	}
-	if wl.IsCredit() || t.Kind == "income" {
+	if t.Kind == "income" {
 		return nil
 	}
+
 	after := wl.BalanceMinor - t.AmountMinor
 	if excludeTxID != 0 {
 		if old, err := a.store.Transaction(r.Context(), family(r), excludeTxID); err == nil && old.WalletID == wl.ID {
 			after += old.AmountMinor
 		}
+	}
+
+	if wl.IsCredit() {
+		if wl.HasLimit() && -after > wl.LimitMinor {
+			return errors.New("Melebihi limit " + wl.Name + ". Sisa limit " +
+				Format(wl.SisaLimitMinor(), wl.Currency) + " dari " +
+				Format(wl.LimitMinor, wl.Currency) + ".")
+		}
+		return nil
 	}
 	if after < 0 {
 		return errors.New("Saldo " + wl.Name + " tidak cukup. Tersedia " + Format(wl.BalanceMinor, wl.Currency) + ".")

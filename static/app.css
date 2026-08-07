@@ -280,6 +280,10 @@ a { color: var(--color-accent-700); }
 .kk-kaki { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .kk-telat { border-color: var(--money-out); }
 .kk-segera { border-color: var(--color-accent); }
+.kk-limit { display: flex; flex-direction: column; gap: 5px; }
+.kk-bar { height: 6px; border-radius: 999px; background: var(--color-neutral-300); overflow: hidden; }
+.kk-bar-isi { display: block; height: 100%; border-radius: 999px; background: var(--color-accent); }
+.kk-bar-tipis { background: var(--money-out); }
 .kk-strip { display: flex; flex-direction: column; gap: var(--space-3); }
 @media (min-width: 900px) {
   .kk-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }

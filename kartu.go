@@ -9,10 +9,16 @@ import "time"
 //
 //   Tagihan (payable)      apa yang sudah tercetak di lembar tagihan terakhir
 //                          dan harus dibayar sebelum jatuh tempo.
-//   Sisa pemakaian         seluruh yang terpakai sampai hari ini, termasuk
-//   (outstanding)          belanja yang belum masuk tagihan mana pun.
+//   Terpakai (outstanding) seluruh yang terpakai sampai hari ini, termasuk
+//                          belanja yang belum masuk tagihan mana pun.
 //
-// Membayar sebesar sisa pemakaian tidak salah, tapi membayar sebesar tagihan
+// "Terpakai" dipilih supaya berpasangan dengan "sisa limit" di bawahnya:
+// keduanya dijumlahkan pas dengan limitnya, jadi labelnya menjelaskan diri
+// sendiri. Sebutan sebelumnya, "sisa pemakaian", justru bertabrakan — "sisa"
+// di situ berarti sudah dipakai, sementara "sisa limit" berarti masih boleh
+// dipakai.
+//
+// Membayar sebesar nominal terpakai tidak salah, tapi membayar sebesar tagihan
 // sudah cukup untuk menghindari bunga. Itulah kenapa keduanya ditampilkan.
 
 // hariDalamBulan menjepit tanggal ke hari terakhir bulan itu. Kartu dengan
