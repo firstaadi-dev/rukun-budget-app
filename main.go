@@ -20,9 +20,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-//go:embed schema.sql
-var schemaSQL string
-
 //go:embed templates/*.html
 var templateFS embed.FS
 
@@ -35,9 +32,8 @@ type App struct {
 	ver     string      // sidik jari aset statis, dipakai sebagai penanda versi di URL
 	rateSrc *rateSource // kurs pasar dari API, boleh kosong kalau dimatikan
 	loc     *time.Location
-	family  string
 	base    string // mata uang dasar untuk total di dashboard
-	code    string // kode pendaftaran anggota keluarga
+	admin   string // token API admin; kosong berarti API admin mati total
 }
 
 // parsePages menggabungkan layout dengan tiap halaman secara terpisah, supaya
@@ -73,11 +69,6 @@ func main() {
 	if dsn == "" {
 		log.Fatal("DATABASE_URL belum diisi")
 	}
-	code := os.Getenv("SIGNUP_CODE")
-	if code == "" {
-		log.Fatal("SIGNUP_CODE belum diisi — tanpa ini siapa pun bisa mendaftar")
-	}
-
 	loc, err := time.LoadLocation(env("APP_TZ", "Asia/Jakarta"))
 	if err != nil {
 		log.Fatalf("zona waktu tidak dikenal: %v", err)
@@ -95,18 +86,21 @@ func main() {
 	if err := pool.Ping(startCtx); err != nil {
 		log.Fatalf("database tidak merespons: %v", err)
 	}
-	if _, err := pool.Exec(startCtx, schemaSQL); err != nil {
+	if err := migrate(startCtx, pool); err != nil {
 		log.Fatalf("gagal menyiapkan skema: %v", err)
 	}
 
 	app := &App{
-		store:  &Store{db: pool},
-		pages:  parsePages(),
-		ver:    assetVersion(),
-		loc:    loc,
-		family: env("APP_FAMILY", "Keluarga"),
-		base:   env("BASE_CURRENCY", "IDR"),
-		code:   code,
+		store: &Store{db: pool},
+		pages: parsePages(),
+		ver:   assetVersion(),
+		loc:   loc,
+		base:  env("BASE_CURRENCY", "IDR"),
+		admin: os.Getenv("ADMIN_TOKEN"),
+	}
+
+	if app.admin == "" {
+		log.Print("ADMIN_TOKEN kosong: API admin dimatikan, keluarga baru tidak bisa dibuat")
 	}
 
 	// "off" mematikan pengambilan kurs; aplikasi lalu hanya memakai kurs dari
@@ -165,6 +159,12 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /daftar", a.registerForm)
 	mux.HandleFunc("POST /daftar", a.register)
 	mux.HandleFunc("POST /keluar", a.logout)
+
+	// API admin sengaja tidak punya UI: pembuatan keluarga dilakukan developer
+	// lewat curl atau Postman, bukan oleh siapa pun yang membuka aplikasi.
+	mux.Handle("GET /admin/keluarga", a.requireAdmin(a.adminListFamilies))
+	mux.Handle("POST /admin/keluarga", a.requireAdmin(a.adminCreateFamily))
+	mux.Handle("PATCH /admin/keluarga/{id}", a.requireAdmin(a.adminPatchFamily))
 
 	auth := func(pattern string, h http.HandlerFunc) { mux.Handle(pattern, a.requireUser(h)) }
 

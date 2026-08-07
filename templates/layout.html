@@ -30,7 +30,7 @@
         <a href="/kategori" class="{{if eq .Nav "kategori"}}on{{end}}">{{template "icon-tag"}}Kategori</a>
       </nav>
       <form method="post" action="/keluar" class="sidebar-foot">
-        <span class="text-muted">{{.User.Name}}</span>
+        <span class="text-muted">{{.User.Name}} · {{.Family}}</span>
         <button type="submit" class="linkish">Keluar</button>
       </form>
     </aside>

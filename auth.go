@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/rand"
-	"crypto/subtle"
 	"encoding/base64"
 	"log"
 	"net/http"
@@ -15,7 +14,9 @@ import (
 
 const (
 	sessionCookie = "rukun_session"
+	familyCookie  = "rukun_keluarga" // kode keluarga terakhir, agar tidak perlu diketik ulang
 	sessionTTL    = 30 * 24 * time.Hour
+	familyTTL     = 365 * 24 * time.Hour
 )
 
 type ctxKey struct{}
@@ -34,7 +35,7 @@ func (a *App) requireUser(next http.HandlerFunc) http.Handler {
 		}
 		u, err := a.store.SessionUser(r.Context(), c.Value)
 		if err != nil {
-			a.clearCookie(w, r)
+			a.clearCookie(w, r, sessionCookie)
 			http.Redirect(w, r, "/masuk", http.StatusSeeOther)
 			return
 		}
@@ -47,21 +48,21 @@ func https(r *http.Request) bool {
 	return r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
 }
 
-func (a *App) setCookie(w http.ResponseWriter, r *http.Request, token string) {
+func (a *App) setCookie(w http.ResponseWriter, r *http.Request, name, value string, ttl time.Duration) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     sessionCookie,
-		Value:    token,
+		Name:     name,
+		Value:    value,
 		Path:     "/",
-		Expires:  time.Now().Add(sessionTTL),
+		Expires:  time.Now().Add(ttl),
 		HttpOnly: true,
 		Secure:   https(r),
 		SameSite: http.SameSiteLaxMode,
 	})
 }
 
-func (a *App) clearCookie(w http.ResponseWriter, r *http.Request) {
+func (a *App) clearCookie(w http.ResponseWriter, r *http.Request, name string) {
 	http.SetCookie(w, &http.Cookie{
-		Name: sessionCookie, Value: "", Path: "/", MaxAge: -1,
+		Name: name, Value: "", Path: "/", MaxAge: -1,
 		HttpOnly: true, Secure: https(r), SameSite: http.SameSiteLaxMode,
 	})
 }
@@ -72,18 +73,46 @@ func newToken() string {
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
+// kodeKeluarga membaca kode dari form, dan kalau kosong dari cookie kunjungan
+// sebelumnya. Kode itu bukan kredensial login — ia hanya menentukan keluarga
+// mana yang dimaksud, karena nama anggota cuma unik di dalam keluarganya.
+func kodeKeluarga(r *http.Request) string {
+	if v := strings.TrimSpace(r.FormValue("kode")); v != "" {
+		return v
+	}
+	if c, err := r.Cookie(familyCookie); err == nil {
+		return c.Value
+	}
+	return ""
+}
+
 func (a *App) loginForm(w http.ResponseWriter, r *http.Request) {
 	a.renderAuth(w, r, "masuk.html", nil, "")
 }
 
 func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(r.FormValue("nama"))
-	u, hash, err := a.store.UserByName(r.Context(), name)
-	if err != nil || bcrypt.CompareHashAndPassword([]byte(hash), []byte(r.FormValue("sandi"))) != nil {
-		// Pesan sengaja tidak membedakan nama salah dan sandi salah.
-		a.renderAuth(w, r, "masuk.html", map[string]string{"Nama": name}, "Nama atau kata sandi salah.")
+	code := kodeKeluarga(r)
+	form := map[string]string{"Nama": name, "Kode": code}
+
+	// Satu pesan untuk semua kegagalan. Kode keluarga yang salah tidak boleh
+	// bisa dibedakan dari sandi yang salah, kalau tidak kode keluarga orang
+	// lain bisa ditebak satu per satu lewat halaman login.
+	fail := func() {
+		a.renderAuth(w, r, "masuk.html", form, "Kode keluarga, nama, atau kata sandi salah.")
+	}
+
+	family, err := a.store.FamilyByCode(r.Context(), code)
+	if err != nil {
+		fail()
 		return
 	}
+	u, hash, err := a.store.UserByName(r.Context(), family.ID, name)
+	if err != nil || bcrypt.CompareHashAndPassword([]byte(hash), []byte(r.FormValue("sandi"))) != nil {
+		fail()
+		return
+	}
+	a.setCookie(w, r, familyCookie, family.SignupCode, familyTTL)
 	a.startSession(w, r, u.ID)
 }
 
@@ -94,12 +123,14 @@ func (a *App) registerForm(w http.ResponseWriter, r *http.Request) {
 func (a *App) register(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(r.FormValue("nama"))
 	sandi := r.FormValue("sandi")
-	form := map[string]string{"Nama": name}
+	code := strings.TrimSpace(r.FormValue("kode"))
+	form := map[string]string{"Nama": name, "Kode": code}
 
 	fail := func(msg string) { a.renderAuth(w, r, "daftar.html", form, msg) }
 
-	if subtle.ConstantTimeCompare([]byte(r.FormValue("kode")), []byte(a.code)) != 1 {
-		fail("Kode undangan tidak cocok.")
+	family, err := a.store.FamilyByCode(r.Context(), code)
+	if err != nil {
+		fail("Kode undangan tidak cocok dengan keluarga mana pun.")
 		return
 	}
 	if len(name) < 2 {
@@ -110,8 +141,8 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 		fail("Kata sandi minimal 8 karakter.")
 		return
 	}
-	if _, _, err := a.store.UserByName(r.Context(), name); err == nil {
-		fail("Nama itu sudah dipakai anggota lain.")
+	if _, _, err := a.store.UserByName(r.Context(), family.ID, name); err == nil {
+		fail("Nama itu sudah dipakai anggota lain di keluarga ini.")
 		return
 	}
 
@@ -120,15 +151,17 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
-	id, err := a.store.CreateUser(r.Context(), name, string(hash))
+	id, err := a.store.CreateUser(r.Context(), family.ID, name, string(hash))
 	if err != nil {
 		fail("Gagal mendaftar, coba nama lain.")
 		return
 	}
-	// Satu deployment melayani satu keluarga, jadi pendaftaran baru adalah
-	// kejadian yang jarang dan layak terlihat di log: kalau ada nama yang tidak
-	// dikenal muncul, berarti kode undangan sudah bocor dan harus diganti.
-	log.Printf("anggota baru terdaftar: %q (id %d)", name, id)
+	// Pendaftaran baru jarang terjadi dan layak terlihat di log: kalau ada nama
+	// tak dikenal muncul, kode undangan keluarga itu sudah bocor.
+	log.Printf("anggota baru terdaftar: %q (id %d) di keluarga %q (id %d)",
+		name, id, family.Name, family.ID)
+
+	a.setCookie(w, r, familyCookie, family.SignupCode, familyTTL)
 	a.startSession(w, r, id)
 }
 
@@ -138,7 +171,7 @@ func (a *App) startSession(w http.ResponseWriter, r *http.Request, userID int64)
 		a.fail(w, r, err)
 		return
 	}
-	a.setCookie(w, r, token)
+	a.setCookie(w, r, sessionCookie, token, sessionTTL)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -148,7 +181,9 @@ func (a *App) logout(w http.ResponseWriter, r *http.Request) {
 			log.Printf("hapus sesi: %v", err)
 		}
 	}
-	a.clearCookie(w, r)
+	// Cookie kode keluarga sengaja dibiarkan: itu bukan kredensial, dan
+	// menyimpannya membuat anggota tidak perlu mengetik ulang kodenya.
+	a.clearCookie(w, r, sessionCookie)
 	http.Redirect(w, r, "/masuk", http.StatusSeeOther)
 }
 
@@ -159,19 +194,20 @@ func (a *App) renderAuth(w http.ResponseWriter, r *http.Request, page string, fo
 			return
 		}
 	}
-	n, err := a.store.UserCount(r.Context())
-	if err != nil {
-		a.fail(w, r, err)
-		return
+	if form == nil {
+		form = map[string]string{}
+	}
+	if form["Kode"] == "" {
+		if c, err := r.Cookie(familyCookie); err == nil {
+			form["Kode"] = c.Value
+		}
 	}
 	if errMsg != "" {
 		w.WriteHeader(http.StatusUnauthorized)
 	}
 	a.render(w, r, page, map[string]any{
-		"Family":   a.family,
 		"Form":     form,
 		"Error":    errMsg,
-		"Kosong":   n == 0, // pendaftar pertama: tampilkan ajakan buat akun
 		"NoChrome": true,
 	})
 }

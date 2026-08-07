@@ -25,14 +25,11 @@ services:
       # mode transaksi yang bisa berbenturan dengan prepared statement pgx.
       - key: DATABASE_URL
         sync: false
-      # Kode undangan untuk mendaftarkan anggota keluarga. Dibuat acak oleh
-      # Render; lihat nilainya di tab Environment lalu bagikan ke keluarga.
-      - key: SIGNUP_CODE
+      # Token API admin, dipakai untuk membuat keluarga baru lewat curl.
+      # Dibuat acak oleh Render; lihat nilainya di tab Environment.
+      # Kalau dikosongkan, endpoint /admin/* mati total.
+      - key: ADMIN_TOKEN
         generateValue: true
-      # Nama di sapaan dashboard. Hanya label tampilan — pemisahan data antar
-      # keluarga terjadi di level deployment, bukan di sini. Lihat README.
-      - key: APP_FAMILY
-        value: Keluarga Firsta
       - key: BASE_CURRENCY
         value: IDR
       - key: APP_TZ

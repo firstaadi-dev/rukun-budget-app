@@ -22,8 +22,9 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, page string, data m
 	if data == nil {
 		data = map[string]any{}
 	}
-	data["User"] = userFrom(r.Context())
-	data["Family"] = a.family
+	u := userFrom(r.Context())
+	data["User"] = u
+	data["Family"] = u.FamilyName
 	data["Path"] = r.URL.Path
 	data["V"] = a.ver
 
@@ -48,6 +49,12 @@ func (a *App) today() time.Time {
 	return time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, a.loc)
 }
 
+// family mengambil id keluarga dari sesi. Ini satu-satunya sumbernya: tidak
+// pernah dari parameter URL atau isian form, yang bisa dikarang siapa saja.
+func family(r *http.Request) int64 {
+	return userFrom(r.Context()).FamilyID
+}
+
 func pathID(r *http.Request) int64 {
 	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	return id
@@ -57,17 +64,17 @@ func pathID(r *http.Request) int64 {
 
 func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	wallets, err := a.store.Wallets(ctx)
+	wallets, err := a.store.Wallets(ctx, family(r))
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	rates, err := a.rates(ctx)
+	rates, err := a.rates(ctx, family(r))
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	txs, err := a.store.Transactions(ctx, "", "", 5)
+	txs, err := a.store.Transactions(ctx, family(r), "", "", 5)
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -77,7 +84,7 @@ func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
 	// keluarga saat menilai "bulan ini boros di mana", dan membuat angkanya
 	// bisa dibandingkan antar bulan.
 	awal := awalBulan(a.today())
-	spend, err := a.store.CategorySpending(ctx, awal, awal.AddDate(0, 1, 0))
+	spend, err := a.store.CategorySpending(ctx, family(r), awal, awal.AddDate(0, 1, 0))
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -108,7 +115,7 @@ var walletTypes = []struct{ Value, Label string }{
 }
 
 func (a *App) walletList(w http.ResponseWriter, r *http.Request) {
-	wallets, err := a.store.Wallets(r.Context())
+	wallets, err := a.store.Wallets(r.Context(), family(r))
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -124,7 +131,7 @@ func (a *App) walletForm(w http.ResponseWriter, r *http.Request) {
 
 	if idStr := r.PathValue("id"); idStr != "" {
 		id = pathID(r)
-		wl, err := a.store.Wallet(r.Context(), id)
+		wl, err := a.store.Wallet(r.Context(), family(r), id)
 		if errors.Is(err, ErrNotFound) {
 			a.notFound(w)
 			return
@@ -203,7 +210,7 @@ func (a *App) walletCreate(w http.ResponseWriter, r *http.Request) {
 		a.renderWalletForm(w, r, 0, f, err.Error())
 		return
 	}
-	if _, err := a.store.CreateWallet(r.Context(), wl); err != nil {
+	if _, err := a.store.CreateWallet(r.Context(), family(r), wl); err != nil {
 		a.fail(w, r, err)
 		return
 	}
@@ -221,7 +228,7 @@ func (a *App) walletUpdate(w http.ResponseWriter, r *http.Request) {
 
 	// Mengubah mata uang dompet yang sudah punya transaksi akan mengubah arti
 	// semua nominal yang tersimpan, jadi ditolak.
-	old, err := a.store.Wallet(r.Context(), id)
+	old, err := a.store.Wallet(r.Context(), family(r), id)
 	if errors.Is(err, ErrNotFound) {
 		a.notFound(w)
 		return
@@ -230,7 +237,7 @@ func (a *App) walletUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if old.Currency != wl.Currency {
-		txs, err := a.store.Transactions(r.Context(), "", "", 0)
+		txs, err := a.store.Transactions(r.Context(), family(r), "", "", 0)
 		if err != nil {
 			a.fail(w, r, err)
 			return
@@ -244,7 +251,7 @@ func (a *App) walletUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := a.store.UpdateWallet(r.Context(), wl); err != nil {
+	if err := a.store.UpdateWallet(r.Context(), family(r), wl); err != nil {
 		a.fail(w, r, err)
 		return
 	}
@@ -252,13 +259,13 @@ func (a *App) walletUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) walletDelete(w http.ResponseWriter, r *http.Request) {
-	err := a.store.DeleteWallet(r.Context(), pathID(r))
+	err := a.store.DeleteWallet(r.Context(), family(r), pathID(r))
 	if errors.Is(err, ErrNotFound) {
 		a.notFound(w)
 		return
 	}
 	if err != nil {
-		wallets, lerr := a.store.Wallets(r.Context())
+		wallets, lerr := a.store.Wallets(r.Context(), family(r))
 		if lerr != nil {
 			a.fail(w, r, lerr)
 			return
@@ -297,12 +304,12 @@ func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 		filter = ""
 	}
 
-	txs, err := a.store.Transactions(ctx, filter, kategori, 200)
+	txs, err := a.store.Transactions(ctx, family(r), filter, kategori, 200)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	cats, err := a.store.Categories(ctx, "")
+	cats, err := a.store.Categories(ctx, family(r), "")
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -316,7 +323,7 @@ func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) txDetail(w http.ResponseWriter, r *http.Request) {
-	t, err := a.store.Transaction(r.Context(), pathID(r))
+	t, err := a.store.Transaction(r.Context(), family(r), pathID(r))
 	if errors.Is(err, ErrNotFound) {
 		a.notFound(w)
 		return
@@ -333,7 +340,7 @@ func (a *App) txDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if t.IsCrossCur() {
-		rates, err := a.rates(r.Context())
+		rates, err := a.rates(r.Context(), family(r))
 		if err != nil {
 			a.fail(w, r, err)
 			return
@@ -366,7 +373,7 @@ func (a *App) txForm(w http.ResponseWriter, r *http.Request) {
 	if r.PathValue("id") != "" {
 		id = pathID(r)
 		var err error
-		t, err = a.store.Transaction(ctx, id)
+		t, err = a.store.Transaction(ctx, family(r), id)
 		if errors.Is(err, ErrNotFound) {
 			a.notFound(w)
 			return
@@ -402,7 +409,7 @@ func (a *App) txForm(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) renderTxForm(w http.ResponseWriter, r *http.Request, kind string, id int64, f map[string]string, errMsg string) {
 	ctx := r.Context()
-	wallets, err := a.store.Wallets(ctx)
+	wallets, err := a.store.Wallets(ctx, family(r))
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -431,7 +438,7 @@ func (a *App) renderTxForm(w http.ResponseWriter, r *http.Request, kind string, 
 	page := "transaksi_form.html"
 
 	if kind != "transfer" {
-		cats, err := a.store.CategoryNames(ctx, kind)
+		cats, err := a.store.CategoryNames(ctx, family(r), kind)
 		if err != nil {
 			a.fail(w, r, err)
 			return
@@ -455,7 +462,7 @@ func (a *App) renderTxForm(w http.ResponseWriter, r *http.Request, kind string, 
 			f["ke_dompet"] = strconv.FormatInt(firstOtherWallet(wallets, f["dompet"]), 10)
 		}
 
-		storeRates, err := a.store.Rates(ctx)
+		storeRates, err := a.store.Rates(ctx, family(r))
 		if err != nil {
 			a.fail(w, r, err)
 			return
@@ -564,7 +571,7 @@ func (a *App) readTx(r *http.Request, kind string) (Tx, map[string]string, error
 	t.Date = tanggal
 
 	walletID, _ := strconv.ParseInt(f["dompet"], 10, 64)
-	from, err := a.store.Wallet(ctx, walletID)
+	from, err := a.store.Wallet(ctx, family(r), walletID)
 	if err != nil {
 		return t, f, errors.New("Dompet tidak valid.")
 	}
@@ -572,7 +579,7 @@ func (a *App) readTx(r *http.Request, kind string) (Tx, map[string]string, error
 	t.WalletCur = from.Currency
 
 	if kind != "transfer" {
-		known, err := a.store.CategoryNames(ctx, kind)
+		known, err := a.store.CategoryNames(ctx, family(r), kind)
 		if err != nil {
 			return t, f, errors.New("Gagal membaca daftar kategori.")
 		}
@@ -593,7 +600,7 @@ func (a *App) readTx(r *http.Request, kind string) (Tx, map[string]string, error
 	if toID == from.ID {
 		return t, f, errors.New("Dompet asal dan tujuan tidak boleh sama.")
 	}
-	to, err := a.store.Wallet(ctx, toID)
+	to, err := a.store.Wallet(ctx, family(r), toID)
 	if err != nil {
 		return t, f, errors.New("Dompet tujuan tidak valid.")
 	}
@@ -623,7 +630,7 @@ func (a *App) readTx(r *http.Request, kind string) (Tx, map[string]string, error
 	} else if from.Currency == to.Currency {
 		t.AdminFee = out - in
 	} else if s := strings.TrimSpace(f["kurs"]); s != "" {
-		priceCur, perCur := a.quoteDirection(ctx, from.Currency, to.Currency)
+		priceCur, perCur := a.quoteDirection(ctx, family(r), from.Currency, to.Currency)
 		rate, err = ParseUnitRate(s, priceCur, perCur, from.Currency, to.Currency)
 		if err != nil {
 			return t, f, errors.New("Kurs tidak valid.")
@@ -653,8 +660,8 @@ func (a *App) readTx(r *http.Request, kind string) (Tx, map[string]string, error
 // quoteDirection memilih arah tampilan kurs yang enak dibaca:
 // "1 USD = Rp15.500", bukan "1 IDR = $0,000064".
 // Mengembalikan (mata uang harga, mata uang yang dihargai).
-func (a *App) quoteDirection(ctx context.Context, from, to string) (string, string) {
-	if rates, err := a.rates(ctx); err == nil {
+func (a *App) quoteDirection(ctx context.Context, familyID int64, from, to string) (string, string) {
+	if rates, err := a.rates(ctx, familyID); err == nil {
 		if r, ok := rates[from+">"+to]; ok && r.Valid() {
 			_, priceCur, perCur := r.Unit()
 			return priceCur, perCur
@@ -679,7 +686,7 @@ func slicesContains(list []string, v string) bool {
 // checkBalance menolak transaksi yang membuat dompet non-kartu-kredit minus.
 // Kartu kredit memang dirancang bersaldo negatif, jadi dilewati.
 func (a *App) checkBalance(r *http.Request, t Tx, excludeTxID int64) error {
-	wl, err := a.store.Wallet(r.Context(), t.WalletID)
+	wl, err := a.store.Wallet(r.Context(), family(r), t.WalletID)
 	if err != nil {
 		return err
 	}
@@ -688,7 +695,7 @@ func (a *App) checkBalance(r *http.Request, t Tx, excludeTxID int64) error {
 	}
 	after := wl.BalanceMinor - t.AmountMinor
 	if excludeTxID != 0 {
-		if old, err := a.store.Transaction(r.Context(), excludeTxID); err == nil && old.WalletID == wl.ID {
+		if old, err := a.store.Transaction(r.Context(), family(r), excludeTxID); err == nil && old.WalletID == wl.ID {
 			after += old.AmountMinor
 		}
 	}
@@ -712,7 +719,7 @@ func (a *App) txCreate(w http.ResponseWriter, r *http.Request) {
 		a.renderTxForm(w, r, kind, 0, f, err.Error())
 		return
 	}
-	id, err := a.store.CreateTx(r.Context(), t, userFrom(r.Context()).ID)
+	id, err := a.store.CreateTx(r.Context(), family(r), t, userFrom(r.Context()).ID)
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -722,7 +729,7 @@ func (a *App) txCreate(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) txUpdate(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
-	old, err := a.store.Transaction(r.Context(), id)
+	old, err := a.store.Transaction(r.Context(), family(r), id)
 	if errors.Is(err, ErrNotFound) {
 		a.notFound(w)
 		return
@@ -741,7 +748,7 @@ func (a *App) txUpdate(w http.ResponseWriter, r *http.Request) {
 		a.renderTxForm(w, r, old.Kind, id, f, err.Error())
 		return
 	}
-	if err := a.store.UpdateTx(r.Context(), t); err != nil {
+	if err := a.store.UpdateTx(r.Context(), family(r), t); err != nil {
 		a.fail(w, r, err)
 		return
 	}
@@ -749,7 +756,7 @@ func (a *App) txUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) txDelete(w http.ResponseWriter, r *http.Request) {
-	err := a.store.DeleteTx(r.Context(), pathID(r))
+	err := a.store.DeleteTx(r.Context(), family(r), pathID(r))
 	if errors.Is(err, ErrNotFound) {
 		a.notFound(w)
 		return
@@ -769,7 +776,7 @@ func (a *App) categoryList(w http.ResponseWriter, r *http.Request) {
 // renderCategories menampilkan daftar kategori. errMsg kosong berarti tidak ada
 // masalah; status dipakai supaya kegagalan hapus tidak dijawab 200.
 func (a *App) renderCategories(w http.ResponseWriter, r *http.Request, errMsg string, status int) {
-	cats, err := a.store.Categories(r.Context(), "")
+	cats, err := a.store.Categories(r.Context(), family(r), "")
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -800,7 +807,7 @@ func (a *App) categoryForm(w http.ResponseWriter, r *http.Request) {
 
 	if r.PathValue("id") != "" {
 		id = pathID(r)
-		c, err := a.store.Category(r.Context(), id)
+		c, err := a.store.Category(r.Context(), family(r), id)
 		if errors.Is(err, ErrNotFound) {
 			a.notFound(w)
 			return
@@ -854,7 +861,7 @@ func (a *App) categoryCreate(w http.ResponseWriter, r *http.Request) {
 		a.renderCategoryForm(w, r, 0, f, err.Error())
 		return
 	}
-	if err := a.store.CreateCategory(r.Context(), kind, name); err != nil {
+	if err := a.store.CreateCategory(r.Context(), family(r), kind, name); err != nil {
 		// Satu-satunya kegagalan yang wajar di sini adalah nama kembar.
 		a.renderCategoryForm(w, r, 0, f, "Kategori dengan nama itu sudah ada.")
 		return
@@ -872,7 +879,7 @@ func (a *App) categoryUpdate(w http.ResponseWriter, r *http.Request) {
 	// Jenis kategori tidak bisa diubah: transaksi lama dicocokkan lewat pasangan
 	// jenis dan nama, jadi memindahkan kategori antar jenis akan memutus
 	// kaitannya dengan transaksi yang sudah ada.
-	if err := a.store.RenameCategory(r.Context(), id, name); errors.Is(err, ErrNotFound) {
+	if err := a.store.RenameCategory(r.Context(), family(r), id, name); errors.Is(err, ErrNotFound) {
 		a.notFound(w)
 		return
 	} else if err != nil {
@@ -883,7 +890,7 @@ func (a *App) categoryUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) categoryDelete(w http.ResponseWriter, r *http.Request) {
-	err := a.store.DeleteCategory(r.Context(), pathID(r))
+	err := a.store.DeleteCategory(r.Context(), family(r), pathID(r))
 	if errors.Is(err, ErrNotFound) {
 		a.notFound(w)
 		return

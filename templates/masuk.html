@@ -1,14 +1,21 @@
 {{define "content"}}
 <div class="auth-card card elev-md">
   <div class="brand auth-brand">Rukun</div>
-  <p class="text-muted small">Keuangan {{.Family}}</p>
+  <p class="text-muted small">Keuangan keluarga</p>
 
   {{if .Error}}<p class="alert" role="alert">{{.Error}}</p>{{end}}
 
   <form method="post" action="/masuk" class="stack-sm">
     <div class="field">
+      <label for="kode">Kode Keluarga</label>
+      <input class="input" id="kode" name="kode" required autocomplete="off"
+             value="{{with .Form}}{{.Kode}}{{end}}" placeholder="abcde-fghij-klmno">
+      <p class="hint">Menentukan keluarga mana yang dimaksud. Cukup diisi sekali,
+        setelah itu diingat di perangkat ini.</p>
+    </div>
+    <div class="field">
       <label for="nama">Nama</label>
-      <input class="input" id="nama" name="nama" required autofocus autocomplete="username"
+      <input class="input" id="nama" name="nama" required autocomplete="username"
              value="{{with .Form}}{{.Nama}}{{end}}">
     </div>
     <div class="field">
@@ -19,8 +26,7 @@
   </form>
 
   <p class="small text-muted auth-alt">
-    {{if .Kosong}}Belum ada akun di sini. <a href="/daftar">Buat akun pertama</a>.
-    {{else}}Anggota keluarga baru? <a href="/daftar">Daftar dengan kode undangan</a>.{{end}}
+    Anggota keluarga baru? <a href="/daftar">Daftar dengan kode undangan</a>.
   </p>
 </div>
 {{end}}
