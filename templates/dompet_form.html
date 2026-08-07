@@ -1,0 +1,52 @@
+{{define "content"}}
+<form method="post" action="{{.Action}}" class="stack" id="wallet-form">
+
+  <div class="field">
+    <label>Jenis Dompet</label>
+    <div class="seg">
+      {{range $.Types}}
+        <label class="seg-opt">
+          <input type="radio" name="jenis" value="{{.Value}}" data-jenis
+                 {{if eq $.Form.jenis .Value}}checked{{end}}>{{.Label}}
+        </label>
+      {{end}}
+    </div>
+  </div>
+
+  <div class="field" id="provider-field">
+    <label for="penyedia">Penyedia</label>
+    <input class="input" id="penyedia" name="penyedia" list="provider-list"
+           value="{{.Form.penyedia}}" autocomplete="off" placeholder="Ketik atau pilih">
+    <datalist id="provider-list"></datalist>
+  </div>
+
+  <div class="field">
+    <label for="nama">Nama Dompet</label>
+    <input class="input" id="nama" name="nama" required value="{{.Form.nama}}"
+           placeholder="Tabungan Pendidikan Anak">
+  </div>
+
+  <div class="field">
+    <label for="mata_uang">Mata Uang</label>
+    <select class="input" id="mata_uang" name="mata_uang">
+      {{range $.Currencies}}
+        <option value="{{.Code}}" {{if eq $.Form.mata_uang .Code}}selected{{end}}>{{.Code}} — {{.Name}}</option>
+      {{end}}
+    </select>
+  </div>
+
+  <div class="field">
+    <label for="saldo_awal">Saldo Awal</label>
+    <div class="input-affix">
+      <span class="affix" data-currency-symbol>{{symbol .Form.mata_uang}}</span>
+      <input class="input" id="saldo_awal" name="saldo_awal" inputmode="decimal"
+             value="{{.Form.saldo_awal}}">
+    </div>
+    <p class="hint">Untuk kartu kredit, isi tagihan berjalan sebagai angka negatif.</p>
+  </div>
+
+  <button type="submit" class="btn btn-primary btn-block">Simpan Dompet</button>
+</form>
+
+<span id="provider-data" hidden data-providers="{{.ProvidersJSON}}"></span>
+{{end}}

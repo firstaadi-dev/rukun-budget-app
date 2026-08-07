@@ -1,0 +1,8 @@
+/rukun
+/out
+.env
+.idea/workspace.xml
+.idea/shelf/
+.env.local
+.env.*.local
+.neon

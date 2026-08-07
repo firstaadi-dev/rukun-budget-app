@@ -1,0 +1,38 @@
+# Blueprint Render. Deploy: Render Dashboard → New → Blueprint → pilih repo ini.
+# Satu web service + satu Postgres, keduanya di Singapore (paling dekat ke Indonesia).
+
+databases:
+  - name: rukun-db
+    databaseName: rukun
+    user: rukun
+    region: singapore
+    plan: free
+    postgresMajorVersion: "17"
+    ipAllowList: [] # hanya bisa diakses dari dalam jaringan Render
+
+services:
+  - type: web
+    name: rukun
+    runtime: go
+    region: singapore
+    plan: free
+    branch: main
+    buildCommand: go build -o rukun .
+    startCommand: ./rukun
+    healthCheckPath: /healthz
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: rukun-db
+          property: connectionString
+      # Kode undangan untuk mendaftarkan anggota keluarga. Dibuat acak oleh
+      # Render; lihat nilainya di tab Environment lalu bagikan ke keluarga.
+      - key: SIGNUP_CODE
+        generateValue: true
+      # Nama yang muncul di sapaan dashboard, mis. "Keluarga Santoso".
+      - key: APP_FAMILY
+        sync: false
+      - key: BASE_CURRENCY
+        value: IDR
+      - key: APP_TZ
+        value: Asia/Jakarta

@@ -1,0 +1,73 @@
+{{define "content"}}
+<div class="stack-lg">
+
+  <div class="greet">
+    <h4>Halo, {{.Family}}</h4>
+    <div class="text-muted small">{{.Today}}</div>
+  </div>
+
+  <div class="summary">
+    <div class="card elev-sm sum-main">
+      <div class="card-kicker">Total Dimiliki</div>
+      <div class="big-figure">{{.Summary.TotalOwned}}</div>
+      <div class="card-body small">Bersih dari semua dompet, setelah dikurangi kartu kredit</div>
+    </div>
+    <div class="card">
+      <div class="card-kicker">Akun Debet</div>
+      <div class="mid-figure">{{.Summary.TotalDebit}}</div>
+      <div class="card-body small">Tunai, bank &amp; e-wallet</div>
+    </div>
+    <div class="card">
+      <div class="card-kicker m-out">Akun Kredit</div>
+      <div class="mid-figure m-out">{{.Summary.TotalCredit}}</div>
+      <div class="card-body small">Terpakai di kartu kredit</div>
+    </div>
+  </div>
+
+  {{with .Summary.Unconverted}}
+    <p class="note">Dompet bermata uang {{range $i, $c := .}}{{if $i}}, {{end}}{{$c}}{{end}} belum ikut dijumlahkan
+      — kursnya belum diketahui. Catat satu transfer lintas mata uang untuk menetapkannya.</p>
+  {{end}}
+
+  <div class="quick">
+    <a href="/transaksi/baru?jenis=expense"><span class="q-ic m-out">{{template "icon-out"}}</span>Pengeluaran</a>
+    <a href="/transaksi/baru?jenis=income"><span class="q-ic m-in">{{template "icon-in"}}</span>Pemasukan</a>
+    <a href="/transaksi/baru?jenis=transfer"><span class="q-ic m-accent">{{template "icon-transfer"}}</span>Transfer</a>
+  </div>
+
+  <div class="dash-cols">
+  <section>
+    <div class="sec-head">
+      <h6>Transaksi Terbaru</h6>
+      <a href="/transaksi" class="small">Lihat semua</a>
+    </div>
+    {{if .Recent}}
+      <div class="rows">{{range .Recent}}{{template "tx-row" .}}{{end}}</div>
+    {{else}}
+      <p class="empty">Belum ada transaksi. Mulai dari tombol Pengeluaran atau Pemasukan di atas.</p>
+    {{end}}
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h6>Dompet Saya</h6>
+      <a href="/dompet" class="small">Lihat semua</a>
+    </div>
+    {{if .Wallets}}
+      <div class="wallet-strip">
+        {{range .Wallets}}
+          <a class="card mini" href="/dompet/{{.ID}}/ubah">
+            <span class="text-muted tiny">{{.TypeLabel}}</span>
+            <span class="mini-name">{{.Name}}</span>
+            <span class="mini-amt{{if .Negative}} m-out{{end}}">{{.Balance}}</span>
+          </a>
+        {{end}}
+      </div>
+    {{else}}
+      <p class="empty"><a href="/dompet/baru">Tambah dompet pertama</a> untuk mulai mencatat.</p>
+    {{end}}
+  </section>
+  </div>
+
+</div>
+{{end}}

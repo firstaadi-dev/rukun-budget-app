@@ -1,0 +1,30 @@
+{{define "content"}}
+<div class="auth-card card elev-md">
+  <div class="brand auth-brand">Rukun</div>
+  <p class="text-muted small">Gabung ke keuangan {{.Family}}</p>
+
+  {{if .Error}}<p class="alert" role="alert">{{.Error}}</p>{{end}}
+
+  <form method="post" action="/daftar" class="stack-sm">
+    <div class="field">
+      <label for="nama">Nama</label>
+      <input class="input" id="nama" name="nama" required autofocus autocomplete="username"
+             placeholder="Ayah" value="{{with .Form}}{{.Nama}}{{end}}">
+      <p class="hint">Nama ini muncul di "Dicatat oleh" tiap transaksi.</p>
+    </div>
+    <div class="field">
+      <label for="sandi">Kata Sandi</label>
+      <input class="input" id="sandi" name="sandi" type="password" required minlength="8"
+             autocomplete="new-password">
+      <p class="hint">Minimal 8 karakter.</p>
+    </div>
+    <div class="field">
+      <label for="kode">Kode Undangan</label>
+      <input class="input" id="kode" name="kode" required autocomplete="off">
+    </div>
+    <button type="submit" class="btn btn-primary btn-block">Daftar</button>
+  </form>
+
+  <p class="small text-muted auth-alt">Sudah punya akun? <a href="/masuk">Masuk</a>.</p>
+</div>
+{{end}}

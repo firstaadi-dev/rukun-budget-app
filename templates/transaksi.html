@@ -1,0 +1,26 @@
+{{define "content"}}
+<div class="stack">
+  <div class="page-head">
+    <h4>Transaksi</h4>
+    <a href="/transaksi/baru?jenis=expense" class="btn btn-primary">Tambah{{template "icon-plus"}}</a>
+  </div>
+
+  <nav class="seg">
+    {{range $.Filters}}
+      <a class="seg-opt{{if eq $.Filter .Value}} on{{end}}"
+         href="/transaksi{{if .Value}}?jenis={{.Value}}{{end}}">{{.Label}}</a>
+    {{end}}
+  </nav>
+
+  {{if .Groups}}
+    {{range .Groups}}
+      <section>
+        <h6 class="group-head">{{.Label}}</h6>
+        <div class="rows">{{range .Items}}{{template "tx-row" .}}{{end}}</div>
+      </section>
+    {{end}}
+  {{else}}
+    <p class="empty">Belum ada transaksi di filter ini.</p>
+  {{end}}
+</div>
+{{end}}

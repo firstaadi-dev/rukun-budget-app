@@ -1,0 +1,864 @@
+/* Classical — design-system tokens and component classes. This file is the source of truth for the system's look; retune it here and see readme.md. */
+
+:root {
+  --color-bg: #f3f2f2;
+  --color-surface: #eae9e9;
+  --color-text: #201f1d;
+  --color-accent: #b68235;
+  --color-accent-2: #ac803e;
+  --color-divider: color-mix(in srgb, #201f1d 16%, transparent);
+
+  /* Tonal ramps — generated in OKLCH on one shared lightness scale, so the
+     same step of any role matches the others in visual value. */
+  --color-neutral-100: #f8f4f4;
+  --color-neutral-200: #eae7e7;
+  --color-neutral-300: #d7d3d3;
+  --color-neutral-400: #bab6b6;
+  --color-neutral-500: #9b9797;
+  --color-neutral-600: #7d7979;
+  --color-neutral-700: #605d5d;
+  --color-neutral-800: #444141;
+  --color-neutral-900: #2d2b2b;
+
+  --color-accent-100: #fff3e4;
+  --color-accent-200: #ffe3bf;
+  --color-accent-300: #facb8d;
+  --color-accent-400: #e1ad66;
+  --color-accent-500: #c28d41;
+  --color-accent-600: #a06f24;
+  --color-accent-700: #7d5411;
+  --color-accent-800: #5a3b0a;
+  --color-accent-900: #3a270d;
+
+  --color-accent-2-100: #fff3e4;
+  --color-accent-2-200: #ffe3be;
+  --color-accent-2-300: #f5cd96;
+  --color-accent-2-400: #dbaf70;
+  --color-accent-2-500: #bc8f4e;
+  --color-accent-2-600: #9b7232;
+  --color-accent-2-700: #79561f;
+  --color-accent-2-800: #573d14;
+  --color-accent-2-900: #382810;
+
+  --font-heading: "Cormorant Garamond", system-ui, sans-serif;
+  --font-heading-weight: 600; /* review round 3: bold retired — semibold is the
+     interface headings' ceiling (they need the weight at small sizes); display
+     text goes lighter still, to the normal cut (see the deck) */
+  --font-body: "Lora", system-ui, sans-serif;
+
+  --space-1: 4.6px;
+  --space-2: 9.2px;
+  --space-3: 13.8px;
+  --space-4: 18.4px;
+  --space-6: 27.6px;
+  --space-8: 36.8px;
+
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 7px;
+
+  /* Elevation — derived from the ground: soft ink-tinted shadows on a
+     light theme, a hairline edge + ambient darkness on a dark one. */
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+}
+h1, h2, h3, h4 { font-family: var(--font-heading); font-weight: var(--font-heading-weight); }
+
+.plate{filter:sepia(0.22) saturate(0.82) contrast(1.05);box-sizing:border-box;
+  border:6px solid var(--color-surface);outline:1px solid var(--color-divider)}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Components — built with the tokens above. Plain CSS
+   on plain HTML: no JavaScript, no build step. Each class is documented in
+   readme.md and demonstrated in foundations/ and components/.
+   ══════════════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; font-size: 15px; line-height: 1.55; font-weight: 400; }
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  line-height: 1.12; letter-spacing: -0.015em; margin: 0 0 var(--space-2);
+}
+h1 { font-size: 42px; }
+h2 { font-size: 32px; }
+h3 { font-size: 25px; }
+h4 { font-size: 20px; }
+h5 { font-size: 16px; }
+h6 { font-size: 13px; }
+h6 { letter-spacing: 0.08em; text-transform: uppercase; }
+p { margin: 0 0 var(--space-3); }
+a { color: var(--color-accent); text-underline-offset: 3px; }
+img { display: block; max-width: 100%; }
+figure { margin: 0; }
+figcaption {
+  font-size: 11px; margin-top: var(--space-1);
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+.text-muted { color: color-mix(in srgb, var(--color-text) 55%, transparent); }
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+::selection { background: color-mix(in srgb, var(--color-accent) 30%, transparent); }
+
+/* — rules — */
+.hr {
+  height: 1px; border: 0; margin: var(--space-4) 0;
+  background: var(--color-divider);
+}
+
+/* — buttons — */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  cursor: pointer; text-decoration: none;
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 14px; line-height: 1.2; color: var(--color-text); /* matches the .input's 14px —
+     the pair sits side by side in sign-up rows */
+  background: transparent; border: 1px solid transparent;
+  padding: var(--space-2) calc(var(--space-3) * 1.2);
+  border-radius: var(--radius-md);
+}
+.btn svg { display: block; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary { color: var(--color-accent); border-color: var(--color-accent); }
+.btn-primary:hover { background: color-mix(in srgb, var(--color-accent) 12%, transparent); }
+.btn-primary:active { background: color-mix(in srgb, var(--color-accent) 22%, transparent); }
+.btn-secondary { border-color: var(--color-divider); }
+.btn-secondary:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+.btn-secondary:active { background: color-mix(in srgb, var(--color-text) 14%, transparent); }
+.btn-ghost { color: var(--color-accent); padding-inline: var(--space-1); }
+.btn-ghost:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
+.btn-ghost:active { background: color-mix(in srgb, var(--color-accent) 18%, transparent); }
+.btn-icon { width: 36px; height: 36px; padding: 0; }
+.btn-block { width: 100%; margin-top: var(--space-2); }
+
+/* — forms — */
+.field > label {
+  display: block; font-size: 12px; margin-bottom: 5px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+.input {
+  width: 100%; min-height: 36px; padding: 6px 10px; font: inherit;
+  font-size: 14px; color: var(--color-text); caret-color: var(--color-accent);
+  background: transparent;
+  border: 1px solid var(--color-divider); border-radius: var(--radius-md);
+}
+.input:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
+.input:focus-visible { border-color: var(--color-accent); outline-offset: 0; }
+textarea.input { min-height: 90px; resize: vertical; }
+.radio { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
+.radio input, .seg-opt input {
+  position: absolute; opacity: 0; width: 0; height: 0; pointer-events: none;
+}
+.radio .dot {
+  width: 16px; height: 16px; flex: none; border-radius: 50%;
+  border: 1.5px solid var(--color-divider);
+}
+.radio:hover .dot { border-color: var(--color-accent); }
+.radio input:checked + .dot {
+  border-color: var(--color-accent); background: var(--color-accent);
+  box-shadow: inset 0 0 0 4px var(--color-bg);
+}
+.radio input:focus-visible + .dot { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.seg {
+  display: inline-flex; overflow: hidden;
+  border: 1px solid var(--color-divider); border-radius: var(--radius-md);
+}
+.seg-opt {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; font-size: 13px; cursor: pointer;
+}
+.seg-opt + .seg-opt { border-left: 1px solid var(--color-divider); }
+.seg-opt:has(input:checked) { color: var(--color-accent); box-shadow: inset 0 0 0 1px var(--color-accent); }
+.seg-opt:not(:has(input:checked)):hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+.seg-opt:has(input:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+
+/* — cards — */
+.card {
+  display: flex; flex-direction: column; gap: var(--space-2);
+  padding: var(--space-3); border-radius: var(--radius-md); background: transparent; border: 1px solid var(--color-divider);
+}
+.card-kicker { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-accent); }
+.card-title {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 17px; line-height: 1.2;
+}
+.card-body { margin: 0; font-size: 13px; opacity: 0.8; flex: 1; }
+.card-meta {
+  display: flex; align-items: center; gap: 6px; font-size: 11px;
+  color: color-mix(in srgb, var(--color-text) 50%, transparent);
+}
+.elev-sm { box-shadow: var(--shadow-sm); }
+.elev-md { box-shadow: var(--shadow-md); }
+.elev-lg { box-shadow: var(--shadow-lg); }
+
+/* — tags — */
+.tag {
+  display: inline-flex; align-items: center; font-size: 11px;
+  letter-spacing: 0.02em; padding: 3px 10px;
+  border-radius: calc(var(--radius-md) * 0.75);
+}
+.tag-accent { background: var(--color-accent-100); color: var(--color-accent-800); }
+.tag-accent-2 { background: var(--color-accent-2-100); color: var(--color-accent-2-800); }
+.tag-neutral { background: var(--color-neutral-100); color: var(--color-neutral-800); }
+.tag-outline { border: 1px solid var(--color-accent); color: var(--color-accent); }
+
+/* — navigation — */
+.nav {
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-divider);
+}
+.nav-brand {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 18px; margin-right: auto;
+}
+.nav a { color: inherit; text-decoration: none; font-size: 14px; }
+.nav a:hover, .nav a[aria-current='page'] { color: var(--color-accent); }
+
+/* — tables — */
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th {
+  text-align: left; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  padding: var(--space-2); border-bottom: 1px solid var(--color-divider);
+}
+.table td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-divider);
+}
+.table tbody tr:hover { background: color-mix(in srgb, var(--color-text) 4%, transparent); }
+
+/* — dialog — */
+.dialog-backdrop {
+  position: fixed; inset: 0; display: grid; place-items: center;
+  padding: var(--space-4);
+  background: color-mix(in srgb, var(--color-neutral-900) 50%, transparent);
+}
+.dialog {
+  width: min(440px, 100%); display: flex; flex-direction: column; gap: var(--space-3);
+  padding: var(--space-4); border-radius: var(--radius-lg);
+  background: var(--color-surface); box-shadow: var(--shadow-lg); border: 1px solid var(--color-divider);
+}
+.dialog-title {
+  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-size: 20px;
+}
+.dialog-body { font-size: 14px; opacity: 0.85; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
+
+</style>
+  <script src="78932a15-1e95-4905-be5f-40607ae31cf6"></script>
+  <style>
+    :root{--money-in:oklch(52% 0.09 149);--money-out:oklch(53% 0.11 27)}
+    body{margin:0;background:var(--color-surface)}
+    .om-icon{display:block;flex-shrink:0}
+    ::-webkit-scrollbar{display:none}
+  </style>
+</helmet>
+
+<div style="min-height:100vh;padding:36px 24px 80px;display:flex;flex-direction:column;align-items:center;gap:32px;font-family:var(--font-body)">
+
+  <div style="text-align:center;max-width:640px;display:flex;flex-direction:column;gap:6px">
+    <div style="font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-accent-700)">Fase 1 · Mockup</div>
+    <h2 style="margin:0">Rukun — Keuangan Keluarga</h2>
+    <p style="margin:0;font-size:14px;opacity:0.7">Aplikasi kolaboratif untuk mencatat keuangan keluarga. Pilih layar di bawah untuk melihat setiap alur: Dashboard, Dompet, dan Transaksi.</p>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:920px">
+    <sc-for list="{{ tabs }}" as="tab" hint-placeholder-count="9">
+      <button type="button" sc-camel-on-click="{{ tab.onClick }}" style="{{ tab.style }}">{{ tab.label }}</button>
+    </sc-for>
+  </div>
+
+  <div style="display:flex;justify-content:center;width:100%">
+
+    <sc-if value="{{ isWebFrame }}" hint-placeholder-val="{{ false }}">
+      <x-import component-from-global-scope="ChromeWindow" from="957c61d9-0718-4390-9815-5bc794c8b453#/browser-window.jsx" width="{{ 1360 }}" height="{{ 860 }}" url="rukun.app/dashboard" hint-size="1360px,860px">
+        <div style="width:100%;height:100%;overflow:auto;background:var(--color-bg);color:var(--color-text);display:flex">
+
+          <div style="width:216px;flex-shrink:0;border-right:1px solid var(--color-divider);background:var(--color-surface);padding:24px 16px;display:flex;flex-direction:column;gap:24px">
+            <div style="font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:20px;padding-left:8px">Rukun</div>
+            <div style="display:flex;flex-direction:column;gap:2px">
+              <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--radius-md);color:var(--color-accent-700);background:var(--color-accent-100);font-size:14px">
+                <svg class="om-icon" width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7"></path><path d="M9 22V12h6v10"></path></svg>Dashboard
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--radius-md);color:var(--color-text);opacity:0.75;font-size:14px">
+                <svg class="om-icon" width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path></svg>Dompet
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--radius-md);color:var(--color-text);opacity:0.75;font-size:14px">
+                <svg class="om-icon" width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>Transaksi
+              </div>
+            </div>
+          </div>
+
+          <div style="flex:1;padding:32px 40px;display:flex;flex-direction:column;gap:28px;min-width:0">
+            <div style="display:flex;align-items:flex-end;justify-content:space-between">
+              <div>
+                <h3 style="margin:0">Dashboard</h3>
+                <div style="font-size:13px;opacity:0.6">Jumat, 7 Agustus 2026</div>
+              </div>
+              <button type="button" class="btn btn-primary">Tambah Transaksi<svg class="om-icon" width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:16px">
+              <div class="card elev-sm" style="gap:var(--space-1)">
+                <div class="card-kicker">Total Dimiliki</div>
+                <div style="font-family:var(--font-heading);font-weight:400;font-size:34px;color:var(--color-accent-700)">{{ summary.totalOwned }}</div>
+                <div class="card-body" style="flex:none">Bersih dari semua dompet, setelah dikurangi kartu kredit</div>
+              </div>
+              <div class="card elev-sm" style="gap:var(--space-1)">
+                <div class="card-kicker">Total Akun Debet</div>
+                <div style="font-family:var(--font-heading);font-weight:400;font-size:26px">{{ summary.totalDebit }}</div>
+                <div class="card-body" style="flex:none">Tunai, bank &amp; e-wallet</div>
+              </div>
+              <div class="card elev-sm" style="gap:var(--space-1)">
+                <div class="card-kicker" style="color:var(--money-out)">Total Akun Kredit</div>
+                <div style="font-family:var(--font-heading);font-weight:400;font-size:26px;color:var(--money-out)">{{ summary.totalCredit }}</div>
+                <div class="card-body" style="flex:none">Terpakai di kartu kredit</div>
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:24px;align-items:flex-start">
+              <div>
+                <h5 style="margin-bottom:var(--space-2)">Transaksi Terbaru</h5>
+                <sc-raw-table class="table">
+                  <sc-raw-thead><sc-raw-tr><sc-raw-th>Tanggal</sc-raw-th><sc-raw-th>Deskripsi</sc-raw-th><sc-raw-th>Dompet</sc-raw-th><sc-raw-th style="text-align:right">Jumlah</sc-raw-th></sc-raw-tr></sc-raw-thead>
+                  <sc-raw-tbody>
+                    <sc-for list="{{ recentTx }}" as="tx" hint-placeholder-count="4">
+                      <sc-raw-tr>
+                        <sc-raw-td class="text-muted">{{ tx.dateLabel }}</sc-raw-td>
+                        <sc-raw-td>{{ tx.desc }}</sc-raw-td>
+                        <sc-raw-td class="text-muted">{{ tx.walletLabel }}</sc-raw-td>
+                        <sc-raw-td style="text-align:right;color:{{ tx.amountColor }}">{{ tx.amountSigned }}</sc-raw-td>
+                      </sc-raw-tr>
+                    </sc-for>
+                  </sc-raw-tbody>
+                </sc-raw-table>
+              </div>
+              <div>
+                <h5 style="margin-bottom:var(--space-2)">Dompet Saya</h5>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <sc-for list="{{ wallets }}" as="w" hint-placeholder-count="5">
+                    <div class="card" style="flex-direction:row;align-items:center;justify-content:space-between;padding:var(--space-2) var(--space-3)">
+                      <div style="display:flex;flex-direction:column">
+                        <span style="font-size:13px">{{ w.name }}</span>
+                        <span class="text-muted" style="font-size:11px">{{ w.subtitle }}</span>
+                      </div>
+                      <span style="font-size:13px;color:{{ w.amountColor }}">{{ w.balanceFormatted }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </x-import>
+    </sc-if>
+
+    <sc-if value="{{ isMobileFrame }}" hint-placeholder-val="{{ true }}">
+      <x-import component-from-global-scope="IOSDevice" from="8ff5f046-3b72-4b0d-8d65-04f6da3b446c#/ios-frame.jsx" hint-size="402px,874px">
+        <div style="height:100%;display:flex;flex-direction:column;background:var(--color-bg);color:var(--color-text);font-family:var(--font-body)">
+
+          <sc-if value="{{ !isScreenDashboard }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:56px 20px 4px;display:flex;align-items:center;gap:10px;flex-shrink:0">
+              <button type="button" sc-camel-on-click="{{ goBack }}" style="all:unset;cursor:pointer;display:flex;width:32px;height:32px;align-items:center;justify-content:center;border:1px solid var(--color-divider);border-radius:50%">
+                <svg class="om-icon" width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+              </button>
+              <h5 style="margin:0">{{ screenTitle }}</h5>
+            </div>
+          </sc-if>
+
+          <div style="flex:1;overflow:auto;padding:0 20px 28px">
+
+            <sc-if value="{{ isScreenDashboard }}" hint-placeholder-val="{{ false }}">
+              <div style="padding-top:56px;display:flex;flex-direction:column;gap:22px">
+                <div>
+                  <div style="font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:22px">Halo, Keluarga Santoso</div>
+                  <div class="text-muted" style="font-size:13px">Jumat, 7 Agustus 2026</div>
+                </div>
+
+                <div class="card elev-sm" style="gap:4px">
+                  <div class="card-kicker">Total Dimiliki</div>
+                  <div style="font-family:var(--font-heading);font-weight:400;font-size:36px;color:var(--color-accent-700)">{{ summary.totalOwned }}</div>
+                  <div class="card-body" style="flex:none;font-size:12px">Bersih dari semua dompet, setelah dikurangi kartu kredit</div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                  <div class="card" style="gap:4px">
+                    <div class="card-kicker">Akun Debet</div>
+                    <div style="font-family:var(--font-heading);font-weight:400;font-size:19px">{{ summary.totalDebit }}</div>
+                  </div>
+                  <div class="card" style="gap:4px">
+                    <div class="card-kicker" style="color:var(--money-out)">Akun Kredit</div>
+                    <div style="font-family:var(--font-heading);font-weight:400;font-size:19px;color:var(--money-out)">{{ summary.totalCredit }}</div>
+                  </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+                  <button type="button" sc-camel-on-click="{{ goExpense }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 4px;border:1px solid var(--color-divider);border-radius:var(--radius-md);font-size:11px;text-align:center">
+                    <svg class="om-icon" width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="var(--money-out)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>Pengeluaran
+                  </button>
+                  <button type="button" sc-camel-on-click="{{ goIncome }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 4px;border:1px solid var(--color-divider);border-radius:var(--radius-md);font-size:11px;text-align:center">
+                    <svg class="om-icon" width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="var(--money-in)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="7" x2="7" y2="17"></line><polyline points="17 17 7 17 7 7"></polyline></svg>Pemasukan
+                  </button>
+                  <button type="button" sc-camel-on-click="{{ goTransfer }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 4px;border:1px solid var(--color-divider);border-radius:var(--radius-md);font-size:11px;text-align:center">
+                    <svg class="om-icon" width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="var(--color-accent-700)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>Transfer
+                  </button>
+                </div>
+
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+                    <h6 style="margin:0">Transaksi Terbaru</h6>
+                    <a href="#" sc-camel-on-click="{{ goTransactionsPrevent }}" style="font-size:12px">Lihat semua</a>
+                  </div>
+                  <div style="display:flex;flex-direction:column">
+                    <sc-for list="{{ recentTx }}" as="tx" hint-placeholder-count="4">
+                      <div sc-camel-on-click="{{ tx.onClick }}" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--color-divider);cursor:{{ tx.cursor }}">
+                        <div style="width:34px;height:34px;border-radius:50%;background:{{ tx.iconBg }};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                          <sc-if value="{{ tx.isExpense }}" hint-placeholder-val="{{ false }}"><svg class="om-icon" width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="var(--money-out)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg></sc-if>
+                          <sc-if value="{{ tx.isIncome }}" hint-placeholder-val="{{ false }}"><svg class="om-icon" width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="var(--money-in)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="7" x2="7" y2="17"></line><polyline points="17 17 7 17 7 7"></polyline></svg></sc-if>
+                          <sc-if value="{{ tx.isTransfer2 }}" hint-placeholder-val="{{ false }}"><svg class="om-icon" width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="var(--color-accent-700)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg></sc-if>
+                        </div>
+                        <div style="flex:1;min-width:0">
+                          <div style="font-size:13.5px">{{ tx.desc }}</div>
+                          <div class="text-muted" style="font-size:11px">{{ tx.walletLabel }} · {{ tx.dateLabel }}</div>
+                        </div>
+                        <div style="font-size:13.5px;color:{{ tx.amountColor }};flex-shrink:0">{{ tx.amountSigned }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+                    <h6 style="margin:0">Dompet Saya</h6>
+                    <a href="#" sc-camel-on-click="{{ goWalletsPrevent }}" style="font-size:12px">Lihat semua</a>
+                  </div>
+                  <div style="display:flex;gap:10px;overflow-x:auto;padding-bottom:4px">
+                    <sc-for list="{{ wallets }}" as="w" hint-placeholder-count="5">
+                      <div class="card" style="flex-shrink:0;width:132px;gap:6px">
+                        <span class="text-muted" style="font-size:10.5px">{{ w.typeLabel }}</span>
+                        <span style="font-size:12.5px">{{ w.name }}</span>
+                        <span style="font-size:13.5px;color:{{ w.amountColor }}">{{ w.balanceFormatted }}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isScreenWallets }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:16px">
+                <button type="button" sc-camel-on-click="{{ goWalletForm }}" class="btn btn-primary btn-block">Tambah Dompet<svg class="om-icon" width="14" height="14" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <sc-for list="{{ wallets }}" as="w" hint-placeholder-count="6">
+                    <div class="card elev-sm" style="flex-direction:row;align-items:center;gap:12px">
+                      <div style="width:38px;height:38px;border-radius:50%;background:var(--color-accent-100);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--color-accent-700)">
+                        <sc-if value="{{ w.isCash }}" hint-placeholder-val="{{ false }}"><svg class="om-icon" width="17" height="17" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="12" cy="12" r="2"></circle></svg></sc-if>
+                        <sc-if value="{{ w.isBank }}" hint-placeholder-val="{{ false }}"><svg class="om-icon" width="17" height="17" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"></path><path d="M5 21V7l7-4 7 4v14"></path><path d="M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"></path></svg></sc-if>
+                        <sc-if value="{{ w.isCredit }}" hint-placeholder-val="{{ false }}"><svg class="om-icon" width="17" height="17" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg></sc-if>
+                        <sc-if value="{{ w.isEwallet }}" hint-placeholder-val="{{ false }}"><svg class="om-icon" width="17" height="17" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg></sc-if>
+                      </div>
+                      <div style="flex:1;min-width:0">
+                        <div style="font-size:14px">{{ w.name }}</div>
+                        <div class="text-muted" style="font-size:11.5px">{{ w.subtitle }}</div>
+                      </div>
+                      <div style="text-align:right">
+                        <div style="font-size:14px;color:{{ w.amountColor }}">{{ w.balanceFormatted }}</div>
+                        <span class="tag tag-neutral" style="font-size:9.5px">{{ w.currency }}</span>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isScreenWalletForm }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:14px">
+                <div class="field">
+                  <label>Jenis Dompet</label>
+                  <div class="seg" style="width:100%">
+                    <label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="jenis">Tunai</label>
+                    <label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="jenis" checked="">Bank</label>
+                    <label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="jenis">Kredit</label>
+                    <label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="jenis">E-Wallet</label>
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Penyedia</label>
+                  <sc-raw-select class="input">
+                    <option>BCA</option><option selected="{{ true }}">Bank Mandiri</option><option>BNI</option><option>BRI</option><option>CIMB Niaga</option><option>Bank Permata</option>
+                  </sc-raw-select>
+                </div>
+                <div class="field">
+                  <label>Nama Dompet</label>
+                  <input class="input" value="Tabungan Pendidikan Anak">
+                </div>
+                <div class="field">
+                  <label>Mata Uang</label>
+                  <sc-raw-select class="input">
+                    <option selected="{{ true }}">IDR — Rupiah Indonesia</option><option>USD — Dolar AS</option><option>SGD — Dolar Singapura</option><option>EUR — Euro</option><option>JPY — Yen Jepang</option>
+                  </sc-raw-select>
+                </div>
+                <div class="field">
+                  <label>Saldo Awal</label>
+                  <div style="display:flex;align-items:center;border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden">
+                    <span style="padding:0 10px;font-size:14px;color:var(--color-text);opacity:0.6;border-right:1px solid var(--color-divider)">Rp</span>
+                    <input class="input" style="border:none;border-radius:0" value="5.000.000">
+                  </div>
+                </div>
+                <button type="button" class="btn btn-primary btn-block">Simpan Dompet</button>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isScreenTransactions }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:16px">
+                <div class="seg" style="width:100%">
+                  <label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="filt" checked="">Semua</label>
+                  <label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="filt">Keluar</label>
+                  <label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="filt">Masuk</label>
+                  <label class="seg-opt" style="flex:1;justify-content:center"><input type="radio" name="filt">Transfer</label>
+                </div>
+                <sc-for list="{{ txGroups }}" as="grp" hint-placeholder-count="3">
+                  <div>
+                    <h6 style="margin-bottom:6px">{{ grp.label }}</h6>
+                    <sc-for list="{{ grp.items }}" as="tx" hint-placeholder-count="2">
+                      <div sc-camel-on-click="{{ tx.onClick }}" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--color-divider);cursor:{{ tx.cursor }}">
+                        <div style="width:34px;height:34px;border-radius:50%;background:{{ tx.iconBg }};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                          <sc-if value="{{ tx.isExpense }}" hint-placeholder-val="{{ false }}"><svg class="om-icon" width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="var(--money-out)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg></sc-if>
+                          <sc-if value="{{ tx.isIncome }}" hint-placeholder-val="{{ false }}"><svg class="om-icon" width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="var(--money-in)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="7" x2="7" y2="17"></line><polyline points="17 17 7 17 7 7"></polyline></svg></sc-if>
+                          <sc-if value="{{ tx.isTransfer2 }}" hint-placeholder-val="{{ false }}"><svg class="om-icon" width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="var(--color-accent-700)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg></sc-if>
+                        </div>
+                        <div style="flex:1;min-width:0">
+                          <div style="font-size:13.5px">{{ tx.desc }}</div>
+                          <div class="text-muted" style="font-size:11px">{{ tx.walletLabel }} · {{ tx.note }}</div>
+                        </div>
+                        <div style="font-size:13.5px;color:{{ tx.amountColor }};flex-shrink:0">{{ tx.amountSigned }}</div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isScreenExpenseForm }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:14px">
+                <div class="field">
+                  <label>Dompet</label>
+                  <sc-raw-select class="input"><option selected="{{ true }}">Tunai — Rp850.000</option><option>Rekening Utama (BCA) — Rp12.500.000</option><option>GoPay — Rp320.000</option></sc-raw-select>
+                </div>
+                <div class="field">
+                  <label>Kategori</label>
+                  <div style="display:flex;flex-wrap:wrap;gap:6px">
+                    <span class="tag tag-outline">Belanja</span>
+                    <span class="tag tag-neutral">Tagihan</span>
+                    <span class="tag tag-neutral">Transportasi</span>
+                    <span class="tag tag-neutral">Makanan</span>
+                    <span class="tag tag-neutral">Kesehatan</span>
+                    <span class="tag tag-neutral">Lainnya</span>
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Nominal <span class="text-muted">· mata uang dompet: IDR</span></label>
+                  <div style="display:flex;align-items:center;border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden">
+                    <span style="padding:0 10px;font-size:14px;opacity:0.6;border-right:1px solid var(--color-divider)">Rp</span>
+                    <input class="input" style="border:none;border-radius:0" value="450.000">
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Tanggal</label>
+                  <input class="input" type="date" value="2026-08-07">
+                </div>
+                <div class="field">
+                  <label>Catatan</label>
+                  <textarea class="input" rows="2">Belanja mingguan di pasar</textarea>
+                </div>
+                <button type="button" class="btn btn-primary btn-block">Simpan Pengeluaran</button>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isScreenIncomeForm }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:14px">
+                <div class="field">
+                  <label>Dompet</label>
+                  <sc-raw-select class="input"><option selected="{{ true }}">Rekening Utama (BCA) — Rp12.500.000</option><option>Tunai — Rp850.000</option><option>GoPay — Rp320.000</option></sc-raw-select>
+                </div>
+                <div class="field">
+                  <label>Kategori</label>
+                  <div style="display:flex;flex-wrap:wrap;gap:6px">
+                    <span class="tag tag-outline">Gaji</span>
+                    <span class="tag tag-neutral">Bonus</span>
+                    <span class="tag tag-neutral">Hadiah</span>
+                    <span class="tag tag-neutral">Investasi</span>
+                    <span class="tag tag-neutral">Lainnya</span>
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Nominal <span class="text-muted">· mata uang dompet: IDR</span></label>
+                  <div style="display:flex;align-items:center;border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden">
+                    <span style="padding:0 10px;font-size:14px;opacity:0.6;border-right:1px solid var(--color-divider)">Rp</span>
+                    <input class="input" style="border:none;border-radius:0" value="15.000.000">
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Tanggal</label>
+                  <input class="input" type="date" value="2026-08-07">
+                </div>
+                <div class="field">
+                  <label>Catatan</label>
+                  <textarea class="input" rows="2">Gaji bulanan Agustus</textarea>
+                </div>
+                <button type="button" class="btn btn-primary btn-block">Simpan Pemasukan</button>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isScreenTransferForm }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:14px">
+                <div class="field">
+                  <label>Dari Dompet</label>
+                  <sc-raw-select class="input"><option selected="{{ true }}">Rekening Utama (BCA) — IDR</option><option>Tunai — IDR</option></sc-raw-select>
+                </div>
+                <div class="field">
+                  <label>Ke Dompet</label>
+                  <sc-raw-select class="input"><option selected="{{ true }}">Tabungan USD (Mandiri) — USD</option><option>Tabungan Darurat (Mandiri) — IDR</option></sc-raw-select>
+                </div>
+                <div style="border:1px solid var(--color-accent);border-radius:var(--radius-md);padding:8px 10px;font-size:12px;color:var(--color-accent-700)">Transfer lintas mata uang: IDR → USD</div>
+                <div class="field">
+                  <label>Nominal Keluar (dari sumber)</label>
+                  <div style="display:flex;align-items:center;border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden">
+                    <span style="padding:0 10px;font-size:14px;opacity:0.6;border-right:1px solid var(--color-divider)">Rp</span>
+                    <input class="input" style="border:none;border-radius:0" value="15.550.000">
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Kurs <span class="text-muted">· default penyedia: Rp15.450 / USD</span></label>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span style="font-size:13px;white-space:nowrap">1 USD =</span>
+                    <input class="input" value="15.550">
+                    <span class="tag tag-outline" style="white-space:nowrap">Kustom</span>
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Nominal Diterima (di tujuan)</label>
+                  <div style="display:flex;align-items:center;border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden">
+                    <span style="padding:0 10px;font-size:14px;opacity:0.6;border-right:1px solid var(--color-divider)">$</span>
+                    <input class="input" style="border:none;border-radius:0" value="1,000.00">
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Biaya Admin</label>
+                  <div style="display:flex;align-items:center;border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden">
+                    <span style="padding:0 10px;font-size:14px;opacity:0.6;border-right:1px solid var(--color-divider)">Rp</span>
+                    <input class="input" style="border:none;border-radius:0" value="50.000">
+                  </div>
+                  <div class="text-muted" style="font-size:11px;margin-top:4px">Dihitung otomatis dari selisih nominal keluar dan (nominal diterima × kurs). Bisa diedit manual.</div>
+                </div>
+                <div class="field">
+                  <label>Catatan</label>
+                  <textarea class="input" rows="2">Nabung dalam USD untuk dana pendidikan</textarea>
+                </div>
+                <button type="button" class="btn btn-primary btn-block">Simpan Transfer</button>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ isScreenDetail }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:18px">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 0">
+                  <div style="width:52px;height:52px;border-radius:50%;background:var(--color-accent-100);display:flex;align-items:center;justify-content:center;color:var(--color-accent-700)">
+                    <svg class="om-icon" width="24" height="24" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+                  </div>
+                  <div style="font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:18px">Transfer Antar Dompet</div>
+                  <div class="text-muted" style="font-size:12px">6 Agustus 2026, 14:32</div>
+                </div>
+                <div class="card elev-sm" style="gap:10px">
+                  <div style="display:flex;justify-content:space-between;font-size:13px"><span class="text-muted">Dari</span><span>Rekening Utama (BCA) · IDR</span></div>
+                  <div style="display:flex;justify-content:space-between;font-size:13px"><span class="text-muted">Nominal keluar</span><span>Rp15.550.000</span></div>
+                  <div style="display:flex;justify-content:space-between;font-size:13px"><span class="text-muted">Kurs digunakan</span><span>Rp15.550 / USD (kustom)</span></div>
+                  <div style="display:flex;justify-content:space-between;font-size:13px"><span class="text-muted">Biaya admin</span><span>Rp50.000</span></div>
+                  <div class="hr" style="margin:2px 0"></div>
+                  <div style="display:flex;justify-content:space-between;font-size:13px"><span class="text-muted">Ke</span><span>Tabungan USD (Mandiri) · USD</span></div>
+                  <div style="display:flex;justify-content:space-between;font-size:13px"><span class="text-muted">Nominal diterima</span><span>$1,000.00</span></div>
+                  <div class="hr" style="margin:2px 0"></div>
+                  <div style="display:flex;justify-content:space-between;font-size:13px"><span class="text-muted">Catatan</span><span style="text-align:right;max-width:60%">Nabung dalam USD untuk dana pendidikan</span></div>
+                  <div style="display:flex;justify-content:space-between;font-size:13px"><span class="text-muted">Dicatat oleh</span><span>Ayah</span></div>
+                </div>
+                <div style="display:flex;gap:10px">
+                  <button type="button" class="btn btn-secondary" style="flex:1">Edit</button>
+                  <button type="button" class="btn btn-ghost" style="flex:1">Hapus</button>
+                </div>
+              </div>
+            </sc-if>
+
+          </div>
+        </div>
+      </x-import>
+    </sc-if>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script="">
+
+const MONEY_IN = 'oklch(52% 0.09 149)';
+const MONEY_OUT = 'oklch(53% 0.11 27)';
+
+function fmtIDR(n) {
+  const neg = n < 0;
+  const s = Math.abs(Math.round(n)).toLocaleString('id-ID');
+  return (neg ? '-Rp' : 'Rp') + s;
+}
+function fmtUSD(n) {
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fmt(n, currency) { return currency === 'USD' ? fmtUSD(n) : fmtIDR(n); }
+
+const WALLETS = [
+  { id: 'w1', name: 'Tunai', type: 'Tunai', provider: null, currency: 'IDR', balance: 850000 },
+  { id: 'w2', name: 'Rekening Utama', type: 'Bank', provider: 'BCA', currency: 'IDR', balance: 12500000 },
+  { id: 'w3', name: 'Tabungan Darurat', type: 'Bank', provider: 'Mandiri', currency: 'IDR', balance: 25000000 },
+  { id: 'w4', name: 'GoPay', type: 'E-Wallet', provider: 'GoPay', currency: 'IDR', balance: 320000 },
+  { id: 'w5', name: 'Kartu Kredit BCA', type: 'Kartu Kredit', provider: 'BCA', currency: 'IDR', balance: -2100000 },
+  { id: 'w6', name: 'Tabungan USD', type: 'Bank', provider: 'Mandiri', currency: 'USD', balance: 1000 },
+];
+
+const TRANSACTIONS = [
+  { id: 't1', type: 'Pemasukan', date: '2026-08-07', dateLabel: 'Hari ini', walletId: 'w2', category: 'Gaji', amount: 15000000, note: 'Gaji bulanan Agustus' },
+  { id: 't2', type: 'Pengeluaran', date: '2026-08-07', dateLabel: 'Hari ini', walletId: 'w1', category: 'Belanja', amount: 450000, note: 'Belanja mingguan di pasar' },
+  { id: 't3', type: 'Transfer', date: '2026-08-06', dateLabel: 'Kemarin', walletId: 'w2', toWalletId: 'w6', amountOut: 15550000, amountIn: 1000, note: 'Nabung dalam USD untuk dana pendidikan' },
+  { id: 't4', type: 'Pengeluaran', date: '2026-08-06', dateLabel: 'Kemarin', walletId: 'w4', category: 'Tagihan', amount: 350000, note: 'Bayar listrik PLN' },
+  { id: 't5', type: 'Pengeluaran', date: '2026-08-05', dateLabel: '5 Agustus 2026', walletId: 'w1', category: 'Lainnya', amount: 100000, note: 'Beli pulsa' },
+];
+
+const SCREENS = [
+  { key: 'dash-mobile', label: 'Dashboard (Mobile)' },
+  { key: 'dash-web', label: 'Dashboard (Web)' },
+  { key: 'wallets', label: 'Daftar Dompet' },
+  { key: 'wallet-form', label: 'Tambah Dompet' },
+  { key: 'transactions', label: 'Daftar Transaksi' },
+  { key: 'expense-form', label: 'Tambah Pengeluaran' },
+  { key: 'income-form', label: 'Tambah Pemasukan' },
+  { key: 'transfer-form', label: 'Tambah Transfer' },
+  { key: 'detail', label: 'Detail Transaksi' },
+];
+
+const TITLES = {
+  wallets: 'Dompet', 'wallet-form': 'Dompet Baru', transactions: 'Transaksi',
+  'expense-form': 'Catat Pengeluaran', 'income-form': 'Catat Pemasukan',
+  'transfer-form': 'Transfer Antar Dompet', detail: 'Detail Transaksi',
+};
+
+class Component extends DCLogic {
+  state = { currentScreen: 'dash-mobile' };
+
+  walletById(id) { return WALLETS.find(w => w.id === id); }
+
+  buildWalletVM(w) {
+    const label = w.provider ? (w.type === 'Bank' || w.type === 'Kartu Kredit' ? w.provider + ' \u00b7 ' + w.type : w.provider) : w.type;
+    return {
+      id: w.id, name: w.name, currency: w.currency,
+      typeLabel: w.type, subtitle: label,
+      balanceFormatted: fmt(w.balance, w.currency),
+      amountColor: w.balance < 0 ? MONEY_OUT : 'var(--color-text)',
+      isCash: w.type === 'Tunai', isBank: w.type === 'Bank',
+      isCredit: w.type === 'Kartu Kredit', isEwallet: w.type === 'E-Wallet',
+    };
+  }
+
+  buildTxVM(tx, opts) {
+    opts = opts || {};
+    const wallet = this.walletById(tx.walletId);
+    const isTransfer = tx.type === 'Transfer';
+    let desc, walletLabel, amountSigned, amountColor;
+    if (isTransfer) {
+      const toWallet = this.walletById(tx.toWalletId);
+      desc = tx.note;
+      walletLabel = wallet.name + ' \u2192 ' + toWallet.name;
+      amountSigned = '-' + fmt(tx.amountOut, wallet.currency);
+      amountColor = 'var(--color-text)';
+    } else {
+      desc = tx.category + (opts.short ? '' : ' \u2014 ' + tx.note);
+      walletLabel = wallet.name;
+      const sign = tx.type === 'Pemasukan' ? '+' : '-';
+      amountSigned = sign + fmt(tx.amount, wallet.currency);
+      amountColor = tx.type === 'Pemasukan' ? MONEY_IN : MONEY_OUT;
+    }
+    return {
+      id: tx.id, desc, walletLabel, dateLabel: tx.dateLabel, note: tx.note,
+      amountSigned, amountColor,
+      isExpense: tx.type === 'Pengeluaran', isIncome: tx.type === 'Pemasukan', isTransfer2: isTransfer,
+      iconBg: tx.type === 'Pengeluaran' ? 'color-mix(in srgb, ' + MONEY_OUT + ' 14%, transparent)'
+        : tx.type === 'Pemasukan' ? 'color-mix(in srgb, ' + MONEY_IN + ' 14%, transparent)'
+        : 'var(--color-accent-100)',
+      cursor: isTransfer ? 'pointer' : 'default',
+      onClick: isTransfer ? () => this.setState({ currentScreen: 'detail' }) : () => {},
+    };
+  }
+
+  renderVals() {
+    const cur = this.state.currentScreen;
+    const setScreen = (k) => () => this.setState({ currentScreen: k });
+
+    const totalDebit = WALLETS.filter(w => w.currency === 'IDR' && w.balance > 0).reduce((s, w) => s + w.balance, 0);
+    const totalCredit = WALLETS.filter(w => w.type === 'Kartu Kredit').reduce((s, w) => s + Math.abs(w.balance), 0);
+    const totalOwned = totalDebit - totalCredit;
+
+    const wallets = WALLETS.map(w => this.buildWalletVM(w));
+    const recentTx = TRANSACTIONS.slice(0, 4).map(t => this.buildTxVM(t, { short: true }));
+
+    const groupsMap = {};
+    const order = [];
+    TRANSACTIONS.forEach(t => {
+      if (!groupsMap[t.dateLabel]) { groupsMap[t.dateLabel] = []; order.push(t.dateLabel); }
+      groupsMap[t.dateLabel].push(this.buildTxVM(t));
+    });
+    const txGroups = order.map(label => ({ label, items: groupsMap[label] }));
+
+    return {
+      tabs: SCREENS.map(s => ({
+        label: s.label, onClick: setScreen(s.key),
+        style: 'font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:13px;padding:7px 14px;border-radius:999px;cursor:pointer;'
+          + (cur === s.key
+            ? 'border:1px solid var(--color-accent);color:var(--color-accent-700);background:var(--color-accent-100)'
+            : 'border:1px solid var(--color-divider);color:var(--color-text);background:transparent;opacity:0.75'),
+      })),
+      isWebFrame: cur === 'dash-web',
+      isMobileFrame: cur !== 'dash-web',
+      isScreenDashboard: cur === 'dash-mobile',
+      isScreenWallets: cur === 'wallets',
+      isScreenWalletForm: cur === 'wallet-form',
+      isScreenTransactions: cur === 'transactions',
+      isScreenExpenseForm: cur === 'expense-form',
+      isScreenIncomeForm: cur === 'income-form',
+      isScreenTransferForm: cur === 'transfer-form',
+      isScreenDetail: cur === 'detail',
+      screenTitle: TITLES[cur] || '',
+      goBack: setScreen('dash-mobile'),
+      goExpense: setScreen('expense-form'),
+      goIncome: setScreen('income-form'),
+      goTransfer: setScreen('transfer-form'),
+      goWalletForm: setScreen('wallet-form'),
+      goTransactionsPrevent: (e) => { e.preventDefault(); this.setState({ currentScreen: 'transactions' }); },
+      goWalletsPrevent: (e) => { e.preventDefault(); this.setState({ currentScreen: 'wallets' }); },
+      summary: {
+        totalOwned: fmtIDR(totalOwned),
+        totalDebit: fmtIDR(totalDebit),
+        totalCredit: fmtIDR(totalCredit),
+      },
+      wallets, recentTx, txGroups,
+    };
+  }
+}
+
+</script>
+
+</body></html>"
+  </script>
+</body>
+</html

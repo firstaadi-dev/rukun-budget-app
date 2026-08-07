@@ -1,0 +1,361 @@
+/* Rukun — lapisan aplikasi di atas design system Classical.
+   classical.css menyediakan token dan komponen (.card/.btn/.input/.tag/.seg);
+   file ini cuma menambah kerangka layar dan pola yang khas aplikasi ini. */
+
+:root {
+  --money-in: oklch(52% 0.09 149);
+  --money-out: oklch(53% 0.11 27);
+  --tap: 44px; /* target sentuh minimum */
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+a { color: var(--color-accent-700); }
+
+.ic { width: 1em; height: 1em; display: block; flex-shrink: 0; }
+.small { font-size: 12.5px; }
+.tiny { font-size: 10.5px; }
+.text-muted { opacity: 0.62; }
+.m-in { color: var(--money-in); }
+.m-out { color: var(--money-out); }
+.m-accent { color: var(--color-accent-700); }
+.m-neutral { color: var(--color-text); }
+
+/* ---------- kerangka ---------- */
+
+.shell { min-height: 100dvh; }
+
+.main {
+  padding: max(20px, env(safe-area-inset-top)) 20px calc(84px + env(safe-area-inset-bottom));
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.sidebar { display: none; }
+
+.tabbar {
+  position: fixed;
+  inset: auto 0 0 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-divider);
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 10;
+}
+.tabbar a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: var(--tap);
+  padding: 8px 4px;
+  font-size: 10.5px;
+  color: var(--color-text);
+  opacity: 0.6;
+  text-decoration: none;
+}
+.tabbar a .ic { width: 19px; height: 19px; }
+.tabbar a.on { opacity: 1; color: var(--color-accent-700); }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: var(--space-4);
+}
+.topbar h5 { margin: 0; }
+.back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-divider);
+  border-radius: 50%;
+  color: var(--color-text);
+}
+.back .ic { width: 16px; height: 16px; }
+
+@media (min-width: 900px) {
+  .shell { display: grid; grid-template-columns: 216px 1fr; }
+  .tabbar { display: none; }
+  .main { padding: 32px 40px; max-width: 940px; margin: 0; }
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+    height: 100dvh;
+    position: sticky;
+    top: 0;
+    padding: 24px 16px;
+    background: var(--color-surface);
+    border-right: 1px solid var(--color-divider);
+  }
+  .sidebar nav { display: flex; flex-direction: column; gap: 2px; }
+  .sidebar nav a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    color: var(--color-text);
+    opacity: 0.75;
+    text-decoration: none;
+  }
+  .sidebar nav a .ic { width: 16px; height: 16px; }
+  .sidebar nav a.on {
+    opacity: 1;
+    color: var(--color-accent-700);
+    background: var(--color-accent-100);
+  }
+  .sidebar-foot {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12.5px;
+    padding-left: 10px;
+  }
+}
+
+.brand { font-family: var(--font-heading); font-weight: var(--font-heading-weight); font-size: 20px; }
+.linkish {
+  all: unset;
+  cursor: pointer;
+  color: var(--color-accent-700);
+  font-size: 12.5px;
+  width: fit-content;
+}
+
+/* ---------- susunan umum ---------- */
+
+.stack { display: flex; flex-direction: column; gap: var(--space-3); }
+.stack-sm { display: flex; flex-direction: column; gap: var(--space-2); }
+.stack-lg { display: flex; flex-direction: column; gap: var(--space-6); }
+
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.page-head h4 { margin: 0; }
+
+.sec-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+.sec-head h6 { margin: 0; }
+.group-head { margin: 0 0 6px; }
+
+.alert {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--money-out);
+  border-radius: var(--radius-md);
+  color: var(--money-out);
+  font-size: 13px;
+}
+.banner {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  color: var(--color-accent-700);
+  font-size: 12px;
+}
+.note, .empty {
+  margin: 0;
+  font-size: 12.5px;
+  opacity: 0.7;
+  padding: var(--space-3) 0;
+}
+.hint { margin: 4px 0 0; font-size: 11px; opacity: 0.6; }
+
+/* ---------- dashboard ---------- */
+
+.greet h4 { margin: 0; }
+.big-figure { font-family: var(--font-heading); font-size: 36px; color: var(--color-accent-700); line-height: 1.1; }
+.mid-figure { font-family: var(--font-heading); font-size: 19px; }
+
+.summary { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.summary .sum-main { grid-column: 1 / -1; }
+@media (min-width: 900px) {
+  .summary { grid-template-columns: 1.3fr 1fr 1fr; }
+  .summary .sum-main { grid-column: auto; }
+  .big-figure { font-size: 34px; }
+  .mid-figure { font-size: 26px; }
+}
+
+.quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.quick a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 4px;
+  min-height: var(--tap);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  text-align: center;
+  color: var(--color-text);
+  text-decoration: none;
+}
+.quick .ic { width: 18px; height: 18px; }
+
+/* Di layar lebar, transaksi dan dompet berdampingan seperti di handoff desain;
+   di layar sempit keduanya menumpuk. */
+.dash-cols { display: flex; flex-direction: column; gap: var(--space-6); }
+@media (min-width: 900px) {
+  .dash-cols { display: grid; grid-template-columns: 1.5fr 1fr; gap: var(--space-6); align-items: start; }
+  .dash-cols .wallet-strip { flex-direction: column; overflow: visible; }
+  .dash-cols .card.mini { width: auto; }
+}
+
+.wallet-strip {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.wallet-strip::-webkit-scrollbar { display: none; }
+.card.mini {
+  flex-shrink: 0;
+  width: 138px;
+  gap: 6px;
+  text-decoration: none;
+  color: var(--color-text);
+}
+.mini-name { font-size: 12.5px; }
+.mini-amt { font-size: 13.5px; }
+
+/* ---------- baris transaksi ---------- */
+
+.rows { display: flex; flex-direction: column; }
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  min-height: var(--tap);
+  border-bottom: 1px solid var(--color-divider);
+  color: var(--color-text);
+  text-decoration: none;
+}
+.row-ic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-accent-100);
+}
+.row-ic .ic { width: 16px; height: 16px; }
+.t-out { background: color-mix(in srgb, var(--money-out) 14%, transparent); color: var(--money-out); }
+.t-in { background: color-mix(in srgb, var(--money-in) 14%, transparent); color: var(--money-in); }
+.t-neutral { background: var(--color-accent-100); color: var(--color-accent-700); }
+
+.row-main { display: flex; flex-direction: column; flex: 1; min-width: 0; color: inherit; text-decoration: none; }
+.row-title { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-sub { font-size: 11px; }
+.row-amt { font-size: 13.5px; flex-shrink: 0; }
+
+.wallet-item { flex-direction: row; align-items: center; gap: 12px; }
+.wallet-amt { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 14px; }
+.wallet-item form { display: flex; }
+
+/* ---------- form ---------- */
+
+.seg { display: flex; width: 100%; }
+.seg .seg-opt { flex: 1; justify-content: center; min-height: var(--tap); }
+a.seg-opt {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: var(--color-text);
+}
+a.seg-opt.on { background: var(--color-accent-100); color: var(--color-accent-700); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip input { position: absolute; opacity: 0; pointer-events: none; }
+.chip .tag {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  border: 1px solid var(--color-divider);
+  background: transparent;
+}
+.chip input:checked + .tag {
+  border-color: var(--color-accent);
+  color: var(--color-accent-700);
+  background: var(--color-accent-100);
+}
+.chip input:focus-visible + .tag { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+.input-affix {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.input-affix .affix {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 14px;
+  opacity: 0.6;
+  border-right: 1px solid var(--color-divider);
+  white-space: nowrap;
+}
+.input-affix .input { border: none; border-radius: 0; flex: 1; min-width: 0; }
+
+.rate-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rate-row .input-affix { flex: 1; min-width: 140px; }
+
+.danger-row { margin-top: var(--space-6); }
+
+/* ---------- detail ---------- */
+
+.detail-head { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 0; text-align: center; }
+.detail-ic {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+}
+.detail-ic .ic { width: 24px; height: 24px; }
+.detail-title { font-family: var(--font-heading); font-weight: var(--font-heading-weight); font-size: 18px; }
+.detail-card { gap: 10px; }
+.dl { display: flex; justify-content: space-between; gap: 16px; font-size: 13px; }
+.dl-long { text-align: right; max-width: 60%; }
+.detail-actions { display: flex; gap: 10px; }
+.detail-actions > * { flex: 1; display: flex; }
+.detail-actions .btn { flex: 1; justify-content: center; }
+
+/* ---------- login ---------- */
+
+.auth-shell {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.auth-card { width: 100%; max-width: 380px; gap: var(--space-3); }
+.auth-brand { font-size: 26px; }
+.auth-alt { margin: 0; }

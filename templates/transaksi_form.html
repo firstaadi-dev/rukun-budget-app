@@ -1,0 +1,56 @@
+{{define "content"}}
+<form method="post" action="{{.Action}}" class="stack" data-amount-form>
+
+  <div class="field">
+    <label for="dompet">Dompet</label>
+    <select class="input" id="dompet" name="dompet" data-wallet-select>
+      {{range $.Wallets}}
+        <option value="{{.ID}}" data-currency="{{.Currency}}" data-symbol="{{symbol .Currency}}"
+                {{if eq $.Form.dompet (printf "%d" .ID)}}selected{{end}}>{{.Name}} — {{.Balance}}</option>
+      {{end}}
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Kategori</label>
+    <div class="chips">
+      {{range $.Categories}}
+        <label class="chip">
+          <input type="radio" name="kategori" value="{{.}}" required
+                 {{if eq $.Form.kategori .}}checked{{end}}>
+          <span class="tag">{{.}}</span>
+        </label>
+      {{end}}
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="nominal">Nominal <span class="text-muted">· mata uang dompet: <span data-currency-code></span></span></label>
+    <div class="input-affix">
+      <span class="affix" data-currency-symbol></span>
+      <input class="input" id="nominal" name="nominal" inputmode="decimal" required
+             value="{{.Form.nominal}}" placeholder="0">
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="tanggal">Tanggal</label>
+    <input class="input" id="tanggal" name="tanggal" type="date" required value="{{.Form.tanggal}}">
+  </div>
+
+  <div class="field">
+    <label for="catatan">Catatan</label>
+    <textarea class="input" id="catatan" name="catatan" rows="2"
+              placeholder="Belanja mingguan di pasar">{{.Form.catatan}}</textarea>
+  </div>
+
+  <button type="submit" class="btn btn-primary btn-block">Simpan {{.KindLabel}}</button>
+</form>
+
+{{if .ID}}
+  <form method="post" action="/transaksi/{{.ID}}/hapus" class="danger-row"
+        onsubmit="return confirm('Hapus transaksi ini?')">
+    <button type="submit" class="btn btn-ghost btn-block">Hapus Transaksi</button>
+  </form>
+{{end}}
+{{end}}

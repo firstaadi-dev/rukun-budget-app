@@ -1,0 +1,18 @@
+# Postgres untuk pengembangan lokal. Aplikasinya sendiri dijalankan dengan
+# `go run .` supaya reload-nya cepat — tidak perlu ikut dimasukkan ke container.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: rukun
+      POSTGRES_PASSWORD: rukun
+      POSTGRES_DB: rukun
+    ports: ["5432:5432"]
+    volumes: [rukun-pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rukun"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  rukun-pgdata:

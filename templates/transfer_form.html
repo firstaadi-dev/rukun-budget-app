@@ -1,0 +1,87 @@
+{{define "content"}}
+<form method="post" action="{{.Action}}" class="stack" id="transfer-form"
+      data-rates="{{.RatesJSON}}" data-base="{{.Base}}">
+
+  <div class="field">
+    <label for="dompet">Dari Dompet</label>
+    <select class="input" id="dompet" name="dompet" data-from>
+      {{range $.Wallets}}
+        <option value="{{.ID}}" data-currency="{{.Currency}}" data-symbol="{{symbol .Currency}}"
+                {{if eq $.Form.dompet (printf "%d" .ID)}}selected{{end}}>{{.Name}} — {{.Balance}}</option>
+      {{end}}
+    </select>
+  </div>
+
+  <div class="field">
+    <label for="ke_dompet">Ke Dompet</label>
+    <select class="input" id="ke_dompet" name="ke_dompet" data-to>
+      {{range $.Wallets}}
+        <option value="{{.ID}}" data-currency="{{.Currency}}" data-symbol="{{symbol .Currency}}"
+                {{if eq $.Form.ke_dompet (printf "%d" .ID)}}selected{{end}}>{{.Name}} — {{.Balance}}</option>
+      {{end}}
+    </select>
+  </div>
+
+  <p class="banner" data-cross hidden></p>
+
+  <div class="field">
+    <label for="nominal_keluar">Nominal Keluar <span class="text-muted">· didebit dari dompet sumber</span></label>
+    <div class="input-affix">
+      <span class="affix" data-sym-from></span>
+      <input class="input" id="nominal_keluar" name="nominal_keluar" inputmode="decimal" required
+             value="{{.Form.nominal_keluar}}" placeholder="0">
+    </div>
+  </div>
+
+  <div class="field" data-rate-field hidden>
+    <label for="kurs">Kurs <span class="text-muted" data-rate-default></span></label>
+    <div class="rate-row">
+      <span class="small" data-rate-per></span>
+      <div class="input-affix">
+        <span class="affix" data-sym-price></span>
+        <input class="input" id="kurs" name="kurs" inputmode="decimal" value="{{.Form.kurs}}">
+      </div>
+      <span class="tag tag-outline tiny" data-rate-custom hidden>Kustom</span>
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="nominal_diterima">Nominal Diterima <span class="text-muted">· masuk ke dompet tujuan</span></label>
+    <div class="input-affix">
+      <span class="affix" data-sym-to></span>
+      <input class="input" id="nominal_diterima" name="nominal_diterima" inputmode="decimal" required
+             value="{{.Form.nominal_diterima}}" placeholder="0">
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="biaya_admin">Biaya Admin</label>
+    <div class="input-affix">
+      <span class="affix" data-sym-from></span>
+      <input class="input" id="biaya_admin" name="biaya_admin" inputmode="decimal"
+             value="{{.Form.biaya_admin}}" placeholder="0">
+    </div>
+    <p class="hint">Dihitung otomatis dari selisih nominal keluar dan nilai nominal diterima. Bisa diedit manual.</p>
+  </div>
+
+  <div class="field">
+    <label for="tanggal">Tanggal</label>
+    <input class="input" id="tanggal" name="tanggal" type="date" required value="{{.Form.tanggal}}">
+  </div>
+
+  <div class="field">
+    <label for="catatan">Catatan</label>
+    <textarea class="input" id="catatan" name="catatan" rows="2"
+              placeholder="Nabung dalam USD untuk dana pendidikan">{{.Form.catatan}}</textarea>
+  </div>
+
+  <button type="submit" class="btn btn-primary btn-block">Simpan Transfer</button>
+</form>
+
+{{if .ID}}
+  <form method="post" action="/transaksi/{{.ID}}/hapus" class="danger-row"
+        onsubmit="return confirm('Hapus transfer ini?')">
+    <button type="submit" class="btn btn-ghost btn-block">Hapus Transfer</button>
+  </form>
+{{end}}
+{{end}}

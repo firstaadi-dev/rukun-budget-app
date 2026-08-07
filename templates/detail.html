@@ -1,0 +1,41 @@
+{{define "content"}}
+<div class="stack-lg">
+
+  <div class="detail-head">
+    <span class="detail-ic t-{{.Tx.Tone}}">{{template "tx-icon" .Tx.Kind}}</span>
+    <div class="detail-title">{{if .Tx.IsTransfer}}Transfer Antar Dompet{{else}}{{.KindLabel}} · {{.Tx.Category}}{{end}}</div>
+    <div class="text-muted small">{{.Waktu}}</div>
+  </div>
+
+  <div class="card elev-sm detail-card">
+    {{if .Tx.IsTransfer}}
+      <div class="dl"><span class="text-muted">Dari</span><span>{{.Tx.WalletName}} · {{.Tx.WalletCur}}</span></div>
+      <div class="dl"><span class="text-muted">Nominal keluar</span><span>{{.Amount}}</span></div>
+      {{if .Tx.IsCrossCur}}
+        <div class="dl"><span class="text-muted">Kurs digunakan</span>
+          <span>{{.Tx.RateLabel}}{{if .RateCustom}} <span class="tag tag-outline tiny">kustom</span>{{end}}</span></div>
+      {{end}}
+      <div class="dl"><span class="text-muted">Biaya admin</span><span>{{.Fee}}</span></div>
+      <div class="hr"></div>
+      <div class="dl"><span class="text-muted">Ke</span><span>{{.Tx.ToWalletName}} · {{.Tx.ToWalletCur}}</span></div>
+      <div class="dl"><span class="text-muted">Nominal diterima</span><span>{{.AmountIn}}</span></div>
+    {{else}}
+      <div class="dl"><span class="text-muted">Dompet</span><span>{{.Tx.WalletName}} · {{.Tx.WalletCur}}</span></div>
+      <div class="dl"><span class="text-muted">Kategori</span><span>{{.Tx.Category}}</span></div>
+      <div class="dl"><span class="text-muted">Nominal</span><span class="m-{{.Tx.Tone}}">{{.Tx.Amount}}</span></div>
+    {{end}}
+    <div class="hr"></div>
+    <div class="dl"><span class="text-muted">Catatan</span><span class="dl-long">{{if .Tx.Note}}{{.Tx.Note}}{{else}}—{{end}}</span></div>
+    <div class="dl"><span class="text-muted">Dicatat oleh</span><span>{{if .Tx.CreatedBy}}{{.Tx.CreatedBy}}{{else}}—{{end}}</span></div>
+  </div>
+
+  <div class="detail-actions">
+    <a href="/transaksi/{{.Tx.ID}}/ubah" class="btn btn-secondary">Edit</a>
+    <form method="post" action="/transaksi/{{.Tx.ID}}/hapus"
+          onsubmit="return confirm('Hapus transaksi ini? Saldo dompet akan ikut berubah.')">
+      <button type="submit" class="btn btn-ghost">Hapus</button>
+    </form>
+  </div>
+
+</div>
+{{end}}
