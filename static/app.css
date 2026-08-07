@@ -348,6 +348,23 @@ a { color: var(--color-accent-700); }
 .wallet-amt { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 14px; }
 .wallet-item form { display: flex; }
 
+/* Baris dompet yang bisa dibuka, dipakai akun kredit. <details> mengurus
+   buka-tutupnya sendiri, jadi tidak ada JS di sini — hanya segitiga bawaannya
+   yang diganti chevron supaya seragam dengan ikon lain. */
+.wallet-drop { gap: 0; }
+.wallet-drop > summary { display: flex; cursor: pointer; list-style: none; }
+.wallet-drop > summary::-webkit-details-marker { display: none; }
+.wallet-drop .chev { display: flex; flex-shrink: 0; opacity: 0.5; transition: transform 0.15s; }
+.wallet-drop[open] .chev { transform: rotate(180deg); }
+.wallet-isi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-divider);
+}
+
 /* ---------- form ---------- */
 
 .seg { display: flex; width: 100%; }
