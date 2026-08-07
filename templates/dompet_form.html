@@ -35,11 +35,33 @@
     </select>
   </div>
 
+  {{/* Siklus tagihan hanya berarti untuk kartu kredit; skrip menyembunyikannya
+       untuk jenis lain, dan server pun mengabaikannya di sana. */}}
+  <div class="field" id="siklus-kartu" hidden>
+    <label>Siklus Tagihan</label>
+    <div class="siklus">
+      <div class="input-affix">
+        <span class="affix">Cetak tgl</span>
+        <input class="input" name="tanggal_cetak" inputmode="numeric" min="1" max="31"
+               type="number" value="{{.Form.tanggal_cetak}}" placeholder="25">
+      </div>
+      <div class="input-affix">
+        <span class="affix">Bayar tgl</span>
+        <input class="input" name="tanggal_bayar" inputmode="numeric" min="1" max="31"
+               type="number" value="{{.Form.tanggal_bayar}}" placeholder="15">
+      </div>
+    </div>
+    <p class="hint">Tanggal cetak menentukan mana belanja yang sudah masuk tagihan,
+      tanggal bayar menentukan jatuh temponya. Kosongkan kalau belum tahu — kartu
+      tetap berfungsi, hanya tanpa perhitungan tagihan.</p>
+  </div>
+
   <div class="field">
     <label for="saldo_awal">Saldo Awal</label>
     <div class="input-affix">
       <span class="affix" data-currency-symbol>{{symbol .Form.mata_uang}}</span>
-      <input class="input" id="saldo_awal" name="saldo_awal" inputmode="decimal"
+      <input class="input" id="saldo_awal" name="saldo_awal" inputmode="decimal" pattern="-?[0-9.,]*"
+             title="Hanya angka, titik, dan koma"
              value="{{.Form.saldo_awal}}">
     </div>
     <p class="hint">Untuk kartu kredit, isi tagihan berjalan sebagai angka negatif.</p>

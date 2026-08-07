@@ -1,0 +1,68 @@
+{{define "content"}}
+{{with .Summary}}
+<div class="stack-lg">
+
+  <div class="page-head">
+    <h4>Hutang &amp; Piutang</h4>
+    <a href="/hutang/baru" class="btn btn-primary">Catat{{template "icon-plus"}}</a>
+  </div>
+
+  <div class="summary">
+    <div class="card elev-sm sum-main">
+      <div class="card-kicker">Selisih Bersih</div>
+      <div class="big-figure m-{{.NetTone}}">{{.Net}}</div>
+      <div class="card-body small">
+        {{if eq .NetTone "out"}}Sisanya kewajiban kita.
+        {{else if eq .NetTone "in"}}Sisanya tagihan kita ke orang lain.
+        {{else}}Hutang dan piutang seimbang.{{end}}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-kicker m-out">Total Hutang</div>
+      <div class="mid-figure m-out">{{.TotalHutang}}</div>
+      <div class="card-body small">Yang kita pinjam</div>
+    </div>
+    <div class="card">
+      <div class="card-kicker m-in">Total Piutang</div>
+      <div class="mid-figure m-in">{{.TotalPiutang}}</div>
+      <div class="card-body small">Yang dipinjam dari kita</div>
+    </div>
+  </div>
+
+  {{with .Unconverted}}
+    <p class="note">Catatan bermata uang {{range $i, $c := .}}{{if $i}}, {{end}}{{$c}}{{end}}
+      belum ikut dijumlahkan — kursnya belum diketahui.</p>
+  {{end}}
+
+  <section>
+    <h6 class="group-head">Per Pihak</h6>
+    {{if .Parties}}
+      <div class="stack-sm">
+        {{range .Parties}}
+          <a class="card elev-sm pihak" href="/hutang/pihak/{{.ID}}">
+            <div class="pihak-head">
+              <span class="row-title">{{.Name}}</span>
+              {{if .Kosong}}<span class="text-muted small">lunas</span>{{end}}
+            </div>
+            {{range .Baris}}
+              <div class="pihak-baris small">
+                <span class="text-muted">
+                  {{if ne .Hutang "—"}}hutang {{.Hutang}}{{end}}
+                  {{if and (ne .Hutang "—") (ne .Piutang "—")}} · {{end}}
+                  piutang {{.Piutang}}
+                </span>
+                <span class="m-{{.NetTone}}">{{.Net}}</span>
+              </div>
+            {{end}}
+          </a>
+        {{end}}
+      </div>
+    {{else}}
+      <p class="empty">Belum ada catatan hutang atau piutang.
+        <a href="/hutang/baru">Catat yang pertama</a>.</p>
+    {{end}}
+  </section>
+
+</div>
+{{end}}
+{{end}}

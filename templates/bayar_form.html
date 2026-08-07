@@ -1,0 +1,68 @@
+{{define "content"}}
+<form method="post" action="/hutang/pihak/{{.Party.ID}}/bayar" class="stack" id="hutang-form">
+  <input type="hidden" name="arah" value="{{.Form.arah}}">
+
+  <p class="banner">
+    {{if eq .Form.arah "piutang"}}Menerima pelunasan dari {{.Party.Name}} — piutang berkurang.
+    {{else}}Membayar ke {{.Party.Name}} — hutang berkurang.{{end}}
+  </p>
+
+  {{range .Party.Baris}}
+    <div class="dl small">
+      <span class="text-muted">Sisa {{if eq $.Form.arah "piutang"}}piutang{{else}}hutang{{end}}</span>
+      <span class="m-{{if eq $.Form.arah "piutang"}}in{{else}}out{{end}}">
+        {{if eq $.Form.arah "piutang"}}{{.Piutang}}{{else}}{{.Hutang}}{{end}}
+      </span>
+    </div>
+  {{end}}
+
+  <div class="field">
+    <label for="dompet">Dompet</label>
+    <select class="input" id="dompet" name="dompet" data-wallet-select>
+      <option value="" data-currency="" data-symbol="">Tanpa dompet</option>
+      {{range $.Wallets}}
+        <option value="{{.ID}}" data-currency="{{.Currency}}" data-symbol="{{symbol .Currency}}"
+                {{if eq $.Form.dompet (printf "%d" .ID)}}selected{{end}}>{{.Name}} — {{.Balance}}</option>
+      {{end}}
+    </select>
+    <p class="hint">
+      {{if eq .Form.arah "piutang"}}Dompet yang menerima uangnya.
+      {{else}}Dompet yang uangnya dikeluarkan.{{end}}
+    </p>
+  </div>
+
+  <div class="field" data-currency-field hidden>
+    <label for="mata_uang">Mata Uang</label>
+    <select class="input" id="mata_uang" name="mata_uang">
+      {{range $.Currencies}}
+        <option value="{{.Code}}" {{if eq $.Form.mata_uang .Code}}selected{{end}}>{{.Code}} — {{.Name}}</option>
+      {{end}}
+    </select>
+  </div>
+
+  <div class="field">
+    <label for="nominal">Nominal</label>
+    <div class="input-affix">
+      <span class="affix" data-currency-symbol></span>
+      <input class="input" id="nominal" name="nominal" inputmode="decimal" pattern="-?[0-9.,]*"
+             title="Hanya angka, titik, dan koma" required
+             value="{{.Form.nominal}}" placeholder="0">
+    </div>
+    <p class="hint">Sudah terisi sisa penuh. Kurangi kalau membayar sebagian.</p>
+  </div>
+
+  <div class="field">
+    <label for="tanggal">Tanggal</label>
+    <input class="input" id="tanggal" name="tanggal" type="date" required value="{{.Form.tanggal}}">
+  </div>
+
+  <div class="field">
+    <label for="catatan">Catatan</label>
+    <textarea class="input" id="catatan" name="catatan" rows="2">{{.Form.catatan}}</textarea>
+  </div>
+
+  <button type="submit" class="btn btn-primary btn-block">
+    {{if eq .Form.arah "piutang"}}Catat Penerimaan{{else}}Catat Pembayaran{{end}}
+  </button>
+</form>
+{{end}}

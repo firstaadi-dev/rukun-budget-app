@@ -27,6 +27,7 @@
         <a href="/" class="{{if eq .Nav "dashboard"}}on{{end}}">{{template "icon-home"}}Dashboard</a>
         <a href="/dompet" class="{{if eq .Nav "dompet"}}on{{end}}">{{template "icon-wallet"}}Dompet</a>
         <a href="/transaksi" class="{{if eq .Nav "transaksi"}}on{{end}}">{{template "icon-list"}}Transaksi</a>
+        <a href="/hutang" class="{{if eq .Nav "hutang"}}on{{end}}">{{template "icon-hutang"}}Hutang</a>
         <a href="/kategori" class="{{if eq .Nav "kategori"}}on{{end}}">{{template "icon-tag"}}Kategori</a>
       </nav>
       <form method="post" action="/keluar" class="sidebar-foot">
@@ -51,6 +52,7 @@
       <a href="/" class="{{if eq .Nav "dashboard"}}on{{end}}">{{template "icon-home"}}<span>Dashboard</span></a>
       <a href="/dompet" class="{{if eq .Nav "dompet"}}on{{end}}">{{template "icon-wallet"}}<span>Dompet</span></a>
       <a href="/transaksi" class="{{if eq .Nav "transaksi"}}on{{end}}">{{template "icon-list"}}<span>Transaksi</span></a>
+      <a href="/hutang" class="{{if eq .Nav "hutang"}}on{{end}}">{{template "icon-hutang"}}<span>Hutang</span></a>
       <a href="/kategori" class="{{if eq .Nav "kategori"}}on{{end}}">{{template "icon-tag"}}<span>Kategori</span></a>
     </nav>
   </div>
@@ -69,6 +71,39 @@
 {{define "icon-in"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="7" x2="7" y2="17"/><polyline points="17 17 7 17 7 7"/></svg>{{end}}
 {{define "icon-transfer"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>{{end}}
 
+{{define "icon-hutang"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>{{end}}
+{{define "icon-kartu"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>{{end}}
+
+{{/* Kartu ringkas satu kartu kredit: tagihan yang harus dibayar, sisa
+     pemakaian, dan jatuh temponya. */}}
+{{define "kartu-kredit"}}
+<div class="card elev-sm kk{{if .Telat}} kk-telat{{else if .Segera}} kk-segera{{end}}">
+  <div class="kk-head">
+    <span class="kk-nama">{{template "icon-kartu"}} {{.Name}}</span>
+    <span class="tag tag-neutral tiny">{{.Currency}}</span>
+  </div>
+  <div class="kk-angka">
+    <div>
+      <div class="card-kicker">Tagihan</div>
+      <div class="kk-utama{{if not .Lunas}} m-out{{end}}">{{.Payable}}</div>
+    </div>
+    <div>
+      <div class="card-kicker">Sisa Pemakaian</div>
+      <div class="kk-sisa">{{.Outstanding}}</div>
+    </div>
+  </div>
+  <div class="kk-kaki small text-muted">
+    Tercetak {{.Settlement}} · jatuh tempo {{.Due}}
+    {{if .Lunas}}<span class="tag tag-neutral tiny">lunas</span>
+    {{else if .Telat}}<span class="tag tag-outline tiny m-out">telat {{neg .HariLagi}} hari</span>
+    {{else if .Segera}}<span class="tag tag-outline tiny">{{.HariLagi}} hari lagi</span>{{end}}
+  </div>
+  {{if not .Lunas}}
+    <a class="btn btn-primary btn-block" href="/transaksi/baru?jenis=transfer&ke={{.ID}}&nominal={{.PayablePlain}}">Bayar Tagihan</a>
+  {{end}}
+</div>
+{{end}}
+
 {{define "icon-tag"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>{{end}}
 
 {{define "icon-cash"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/></svg>{{end}}
@@ -86,7 +121,8 @@
 {{define "tx-icon"}}
   {{if eq . "expense"}}{{template "icon-out"}}
   {{else if eq . "income"}}{{template "icon-in"}}
-  {{else}}{{template "icon-transfer"}}{{end}}
+  {{else if eq . "transfer"}}{{template "icon-transfer"}}
+  {{else}}{{template "icon-hutang"}}{{end}}
 {{end}}
 
 {{/* Pemilih jenis di atas form pencatatan. Hanya muncul saat membuat baru:

@@ -1,0 +1,76 @@
+{{define "content"}}
+<div class="stack-lg">
+
+  {{with .Party}}
+    <div class="card elev-sm">
+      {{if .Baris}}
+        {{range .Baris}}
+          <div class="pihak-angka">
+            <div>
+              <div class="card-kicker m-out">Hutang</div>
+              <div class="mid-figure m-out">{{.Hutang}}</div>
+            </div>
+            <div>
+              <div class="card-kicker m-in">Piutang</div>
+              <div class="mid-figure m-in">{{.Piutang}}</div>
+            </div>
+            <div>
+              <div class="card-kicker">Bersih</div>
+              <div class="mid-figure m-{{.NetTone}}">{{.Net}}</div>
+            </div>
+          </div>
+        {{end}}
+      {{else}}
+        <p class="empty">Tidak ada saldo tersisa dengan pihak ini.</p>
+      {{end}}
+      {{if .Note}}<p class="hint">{{.Note}}</p>{{end}}
+    </div>
+
+    <div class="aksi-pihak">
+      <a class="btn btn-primary" href="/hutang/pihak/{{.ID}}/bayar?arah=hutang">Bayar Hutang</a>
+      <a class="btn btn-secondary" href="/hutang/pihak/{{.ID}}/bayar?arah=piutang">Terima Piutang</a>
+    </div>
+    <div class="aksi-pihak">
+      <a class="btn btn-secondary" href="/hutang/baru?jenis=debt_in&pihak={{.Name}}">Tambah Hutang</a>
+      <a class="btn btn-secondary" href="/hutang/baru?jenis=loan_out&pihak={{.Name}}">Tambah Piutang</a>
+    </div>
+  {{end}}
+
+  <section>
+    <h6 class="group-head">Riwayat</h6>
+    {{if .Groups}}
+      {{range .Groups}}
+        <div class="stack-sm">
+          <div class="text-muted small">{{.Label}}</div>
+          <div class="rows">{{range .Items}}{{template "tx-row" .}}{{end}}</div>
+        </div>
+      {{end}}
+    {{else}}
+      <p class="empty">Belum ada catatan dengan pihak ini.</p>
+    {{end}}
+  </section>
+
+  {{with .Party}}
+    <details class="kelola">
+      <summary class="small text-muted">Ubah nama atau hapus pihak</summary>
+      <form method="post" action="/hutang/pihak/{{.ID}}/ubah" class="stack">
+        <div class="field">
+          <label for="nama">Nama Pihak</label>
+          <input class="input" id="nama" name="nama" required value="{{.Name}}">
+        </div>
+        <div class="field">
+          <label for="catatan">Catatan</label>
+          <input class="input" id="catatan" name="catatan" value="{{.Note}}"
+                 placeholder="Tetangga sebelah, nomor HP, dsb.">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Simpan</button>
+      </form>
+      <form method="post" action="/hutang/pihak/{{.ID}}/hapus" class="danger-row"
+            onsubmit="return confirm('Hapus pihak {{.Name}}?')">
+        <button type="submit" class="btn btn-ghost btn-block">Hapus Pihak</button>
+      </form>
+    </details>
+  {{end}}
+
+</div>
+{{end}}

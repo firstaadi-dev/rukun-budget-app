@@ -83,8 +83,38 @@ type TxView struct {
 	RateLabel   string
 }
 
+// debtLabel: nama jenis hutang piutang seperti yang dibaca user.
+var debtLabel = map[string]string{
+	"debt_in":  "Hutang",
+	"debt_pay": "Bayar Hutang",
+	"loan_out": "Piutang",
+	"loan_in":  "Terima Piutang",
+}
+
 func viewTx(t Tx, today time.Time) TxView {
 	v := TxView{Tx: t, DateLabel: labelTanggal(t.Date, today)}
+
+	if t.IsDebt() {
+		v.ShortDesc = debtLabel[t.Kind] + " · " + t.PartyName
+		v.Desc = v.ShortDesc
+		if t.Note != "" {
+			v.Desc += " — " + t.Note
+		}
+		// Tanpa dompet, catatan ini hanya menggerakkan kewajiban dan tidak
+		// menyentuh saldo mana pun. Itu perlu terlihat di daftar transaksi,
+		// kalau tidak angkanya terbaca seperti uang yang berpindah.
+		v.WalletLabel = t.WalletName
+		if !t.HasWallet() {
+			v.WalletLabel = "tanpa dompet"
+		}
+		if t.AddsBalance() {
+			v.Amount, v.Tone = "+"+Format(t.AmountMinor, t.WalletCur), "in"
+		} else {
+			v.Amount, v.Tone = "-"+Format(t.AmountMinor, t.WalletCur), "out"
+		}
+		return v
+	}
+
 	switch t.Kind {
 	case "transfer":
 		v.Desc = t.Note
@@ -274,5 +304,134 @@ func summarize(ws []Wallet, rates map[string]Rate, base string) Summary {
 		TotalCredit: Format(credit, base),
 		Base:        base,
 		Unconverted: missing,
+	}
+}
+
+// ---------- kartu kredit ----------
+
+type CardView struct {
+	Wallet
+	Payable string
+	// PayablePlain: nominal tagihan tanpa simbol mata uang, untuk mengisi
+	// otomatis kolom nominal di form pembayaran.
+	PayablePlain string
+	Outstanding  string
+	Settlement   string
+	Due          string
+	// HariLagi: sisa hari menuju jatuh tempo. Negatif berarti sudah lewat.
+	HariLagi int
+	Lunas    bool
+}
+
+func (c CardView) Telat() bool  { return !c.Lunas && c.HariLagi < 0 }
+func (c CardView) Segera() bool { return !c.Lunas && c.HariLagi >= 0 && c.HariLagi <= 5 }
+
+func viewCard(st CardStatus, today time.Time) CardView {
+	return CardView{
+		Wallet:       st.Wallet,
+		Payable:      Format(st.PayableMinor, st.Wallet.Currency),
+		PayablePlain: FormatPlain(st.PayableMinor, st.Wallet.Currency),
+		Outstanding:  Format(-st.OutstandingMinor, st.Wallet.Currency),
+		Settlement:   tanggalPendek(st.Settlement),
+		Due:          tanggalPendek(st.Due),
+		HariLagi:     int(hari(st.Due).Sub(hari(today)).Hours() / 24),
+		Lunas:        st.PayableMinor == 0,
+	}
+}
+
+// ---------- hutang dan piutang ----------
+
+type PartyView struct {
+	Party
+	Baris  []PartyBalanceView
+	Kosong bool
+}
+
+type PartyBalanceView struct {
+	Currency string
+	Hutang   string
+	Piutang  string
+	Net      string
+	NetTone  string // out kalau kita yang berhutang, in kalau kita yang menagih
+}
+
+func viewParty(p Party) PartyView {
+	v := PartyView{Party: p, Kosong: true}
+	for _, b := range p.Saldo {
+		if b.HutangMinor == 0 && b.PiutangMinor == 0 {
+			continue
+		}
+		v.Kosong = false
+		net := b.NetMinor()
+		tone := "neutral"
+		switch {
+		case net > 0:
+			tone = "in"
+		case net < 0:
+			tone = "out"
+		}
+		v.Baris = append(v.Baris, PartyBalanceView{
+			Currency: b.Currency,
+			Hutang:   Format(b.HutangMinor, b.Currency),
+			Piutang:  Format(b.PiutangMinor, b.Currency),
+			Net:      Format(net, b.Currency),
+			NetTone:  tone,
+		})
+	}
+	return v
+}
+
+type DebtSummary struct {
+	Base         string
+	TotalHutang  string
+	TotalPiutang string
+	Net          string
+	NetTone      string
+	Parties      []PartyView
+	Unconverted  []string
+}
+
+// summarizeDebts menjumlahkan hutang dan piutang seluruh pihak ke mata uang
+// dasar. Sama seperti total dompet, mata uang yang kursnya belum diketahui
+// dilewati dan dilaporkan — angka kurang lengkap lebih baik daripada total
+// yang diam-diam salah.
+func summarizeDebts(parties []Party, rates map[string]Rate, base string) DebtSummary {
+	var hutang, piutang int64
+	seen := map[string]bool{}
+	var missing []string
+
+	views := make([]PartyView, 0, len(parties))
+	for _, p := range parties {
+		views = append(views, viewParty(p))
+		for _, b := range p.Saldo {
+			h, pi := b.HutangMinor, b.PiutangMinor
+			if b.Currency != base {
+				r, ok := rates[b.Currency+">"+base]
+				if !ok || !r.Valid() {
+					if !seen[b.Currency] {
+						seen[b.Currency] = true
+						missing = append(missing, b.Currency)
+					}
+					continue
+				}
+				h, pi = r.Convert(h), r.Convert(pi)
+			}
+			hutang += h
+			piutang += pi
+		}
+	}
+
+	net := piutang - hutang
+	tone := "neutral"
+	switch {
+	case net > 0:
+		tone = "in"
+	case net < 0:
+		tone = "out"
+	}
+	return DebtSummary{
+		Base: base, TotalHutang: Format(hutang, base), TotalPiutang: Format(piutang, base),
+		Net: Format(net, base), NetTone: tone,
+		Parties: views, Unconverted: missing,
 	}
 }

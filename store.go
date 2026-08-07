@@ -31,7 +31,13 @@ type Wallet struct {
 	Currency     string
 	InitialMinor int64
 	BalanceMinor int64
+	// Tanggal cetak tagihan dan jatuh tempo, hanya untuk kartu kredit.
+	// Nol berarti siklusnya belum diisi.
+	SettlementDay int
+	PaymentDay    int
 }
+
+func (w Wallet) HasCycle() bool { return w.SettlementDay > 0 && w.PaymentDay > 0 }
 
 func (w Wallet) IsCredit() bool { return w.Type == "credit" }
 
@@ -61,8 +67,10 @@ func (w Wallet) Subtitle() string {
 // Pemanggil menambahkan syarat lain dengan AND, mulai dari $2.
 const walletSelect = `
 SELECT w.id, w.name, w.type, COALESCE(w.provider, ''), w.currency, w.initial_balance_minor,
+       COALESCE(w.settlement_day, 0), COALESCE(w.payment_day, 0),
        w.initial_balance_minor
-       + COALESCE((SELECT SUM(CASE WHEN t.kind = 'income' THEN t.amount_minor ELSE -t.amount_minor END)
+       + COALESCE((SELECT SUM(CASE WHEN t.kind IN ('income', 'debt_in', 'loan_in')
+                                   THEN t.amount_minor ELSE -t.amount_minor END)
                    FROM transactions t WHERE t.wallet_id = w.id), 0)
        + COALESCE((SELECT SUM(t.amount_in_minor)
                    FROM transactions t WHERE t.to_wallet_id = w.id), 0) AS balance_minor
@@ -74,7 +82,8 @@ func scanWallets(rows pgx.Rows) ([]Wallet, error) {
 	var out []Wallet
 	for rows.Next() {
 		var w Wallet
-		if err := rows.Scan(&w.ID, &w.Name, &w.Type, &w.Provider, &w.Currency, &w.InitialMinor, &w.BalanceMinor); err != nil {
+		if err := rows.Scan(&w.ID, &w.Name, &w.Type, &w.Provider, &w.Currency, &w.InitialMinor,
+			&w.SettlementDay, &w.PaymentDay, &w.BalanceMinor); err != nil {
 			return nil, err
 		}
 		out = append(out, w)
@@ -108,18 +117,22 @@ func (s *Store) Wallet(ctx context.Context, familyID, id int64) (Wallet, error) 
 func (s *Store) CreateWallet(ctx context.Context, familyID int64, w Wallet) (int64, error) {
 	var id int64
 	err := s.db.QueryRow(ctx,
-		`INSERT INTO wallets (family_id, name, type, provider, currency, initial_balance_minor)
-		 VALUES ($1, $2, $3, NULLIF($4, ''), $5, $6) RETURNING id`,
-		familyID, w.Name, w.Type, w.Provider, w.Currency, w.InitialMinor).Scan(&id)
+		`INSERT INTO wallets (family_id, name, type, provider, currency, initial_balance_minor,
+		                      settlement_day, payment_day)
+		 VALUES ($1, $2, $3, NULLIF($4, ''), $5, $6, NULLIF($7, 0), NULLIF($8, 0)) RETURNING id`,
+		familyID, w.Name, w.Type, w.Provider, w.Currency, w.InitialMinor,
+		w.SettlementDay, w.PaymentDay).Scan(&id)
 	return id, err
 }
 
 func (s *Store) UpdateWallet(ctx context.Context, familyID int64, w Wallet) error {
 	tag, err := s.db.Exec(ctx,
 		`UPDATE wallets SET name = $1, type = $2, provider = NULLIF($3, ''),
-		        currency = $4, initial_balance_minor = $5
-		 WHERE id = $6 AND family_id = $7`,
-		w.Name, w.Type, w.Provider, w.Currency, w.InitialMinor, w.ID, familyID)
+		        currency = $4, initial_balance_minor = $5,
+		        settlement_day = NULLIF($6, 0), payment_day = NULLIF($7, 0)
+		 WHERE id = $8 AND family_id = $9`,
+		w.Name, w.Type, w.Provider, w.Currency, w.InitialMinor,
+		w.SettlementDay, w.PaymentDay, w.ID, familyID)
 	if err == nil && tag.RowsAffected() == 0 {
 		return ErrNotFound
 	}
@@ -148,23 +161,45 @@ func (s *Store) DeleteWallet(ctx context.Context, familyID, id int64) error {
 // ---------- Transaction ----------
 
 type Tx struct {
-	ID           int64
-	Kind         string // expense | income | transfer
-	Date         time.Time
+	ID   int64
+	Kind string // expense | income | transfer | debt_in | debt_pay | loan_out | loan_in
+	Date time.Time
+	// WalletID nol berarti transaksi ini tidak menyentuh dompet mana pun.
+	// Hanya mungkin untuk hutang piutang: meminjam sesuatu yang tidak pernah
+	// masuk rekening tetap menambah kewajiban.
 	WalletID     int64
 	WalletName   string
-	WalletCur    string
-	AmountMinor  int64 // sisi sumber, sudah termasuk biaya admin
+	WalletCur    string // dari dompetnya, atau dari kolom currency kalau tanpa dompet
+	AmountMinor  int64  // sisi sumber, sudah termasuk biaya admin
 	Category     string
 	ToWalletID   int64
 	ToWalletName string
 	ToWalletCur  string
 	AmountInMino int64
 	AdminFee     int64
+	PartyID      int64
+	PartyName    string
 	Note         string
 	CreatedBy    string
 	CreatedAt    time.Time
 }
+
+// Jenis hutang piutang. debt_* menyangkut kewajiban kita, loan_* menyangkut
+// tagihan kita kepada orang lain.
+var kindHutangPiutang = map[string]bool{
+	"debt_in": true, "debt_pay": true, "loan_out": true, "loan_in": true,
+}
+
+// kindMenambahSaldo: jenis yang membuat saldo dompet bertambah. Dipakai
+// walletSelect juga; keduanya harus selalu sepakat, karena jenis yang terlewat
+// di salah satunya membuat saldo bohong tanpa error apa pun.
+var kindMenambahSaldo = map[string]bool{
+	"income": true, "debt_in": true, "loan_in": true,
+}
+
+func (t Tx) IsDebt() bool      { return kindHutangPiutang[t.Kind] }
+func (t Tx) HasWallet() bool   { return t.WalletID != 0 }
+func (t Tx) AddsBalance() bool { return kindMenambahSaldo[t.Kind] }
 
 func (t Tx) IsTransfer() bool   { return t.Kind == "transfer" }
 func (t Tx) IsCrossCur() bool   { return t.IsTransfer() && t.WalletCur != t.ToWalletCur }
@@ -178,17 +213,30 @@ func (t Tx) Rate() Rate {
 	return EffectiveRate(t.AmountMinor, t.AdminFee, t.AmountInMino, t.WalletCur, t.ToWalletCur)
 }
 
+// currencyKolom: mata uang hanya disimpan sendiri saat transaksi tidak punya
+// dompet. Kalau dompetnya ada, mata uangnya diturunkan dari dompet itu, dan
+// menyimpannya dua kali membuka peluang keduanya berbeda.
+func (t Tx) currencyKolom() string {
+	if t.WalletID != 0 {
+		return ""
+	}
+	return t.WalletCur
+}
+
 // Sama seperti walletSelect: penyaring keluarga menempel di potongannya,
 // pemanggil menambah syarat lain dengan AND mulai dari $2.
 const txSelect = `
-SELECT t.id, t.kind, t.occurred_on, t.wallet_id, w.name, w.currency,
+SELECT t.id, t.kind, t.occurred_on,
+       COALESCE(t.wallet_id, 0), COALESCE(w.name, ''), COALESCE(w.currency, t.currency, ''),
        t.amount_minor, COALESCE(t.category, ''),
        COALESCE(t.to_wallet_id, 0), COALESCE(w2.name, ''), COALESCE(w2.currency, ''),
-       COALESCE(t.amount_in_minor, 0), t.admin_fee_minor, t.note,
-       COALESCE(u.name, ''), t.created_at
+       COALESCE(t.amount_in_minor, 0), t.admin_fee_minor,
+       COALESCE(t.party_id, 0), COALESCE(p.name, ''),
+       t.note, COALESCE(u.name, ''), t.created_at
 FROM transactions t
-JOIN wallets w ON w.id = t.wallet_id
+LEFT JOIN wallets w ON w.id = t.wallet_id
 LEFT JOIN wallets w2 ON w2.id = t.to_wallet_id
+LEFT JOIN parties p ON p.id = t.party_id
 LEFT JOIN users u ON u.id = t.created_by
 WHERE t.family_id = $1`
 
@@ -199,7 +247,8 @@ func scanTxs(rows pgx.Rows) ([]Tx, error) {
 		var t Tx
 		if err := rows.Scan(&t.ID, &t.Kind, &t.Date, &t.WalletID, &t.WalletName, &t.WalletCur,
 			&t.AmountMinor, &t.Category, &t.ToWalletID, &t.ToWalletName, &t.ToWalletCur,
-			&t.AmountInMino, &t.AdminFee, &t.Note, &t.CreatedBy, &t.CreatedAt); err != nil {
+			&t.AmountInMino, &t.AdminFee, &t.PartyID, &t.PartyName,
+			&t.Note, &t.CreatedBy, &t.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, t)
@@ -207,13 +256,18 @@ func scanTxs(rows pgx.Rows) ([]Tx, error) {
 	return out, rows.Err()
 }
 
-// Transactions: kind dan category kosong berarti semua. limit 0 berarti tanpa
-// batas. Transfer tidak punya kategori, jadi menyaring per kategori dengan
-// sendirinya menyisakan pengeluaran dan pemasukan saja.
-func (s *Store) Transactions(ctx context.Context, familyID int64, kind, category string, limit int) ([]Tx, error) {
-	q := txSelect + ` AND ($2 = '' OR t.kind = $2) AND ($3 = '' OR t.category = $3)
+// Transactions: kinds kosong berarti semua jenis, category kosong berarti semua
+// kategori, limit 0 berarti tanpa batas. Transfer dan hutang piutang tidak punya
+// kategori, jadi menyaring per kategori dengan sendirinya menyisakan pengeluaran
+// dan pemasukan saja.
+func (s *Store) Transactions(ctx context.Context, familyID int64, kinds []string, category string, limit int) ([]Tx, error) {
+	q := txSelect + ` AND (cardinality($2::text[]) = 0 OR t.kind = ANY($2))
+	                  AND ($3 = '' OR t.category = $3)
 	                  ORDER BY t.occurred_on DESC, t.id DESC`
-	args := []any{familyID, kind, category}
+	if kinds == nil {
+		kinds = []string{}
+	}
+	args := []any{familyID, kinds, category}
 	if limit > 0 {
 		q += " LIMIT $4"
 		args = append(args, limit)
@@ -244,23 +298,26 @@ func (s *Store) CreateTx(ctx context.Context, familyID int64, t Tx, userID int64
 	var id int64
 	err := s.db.QueryRow(ctx,
 		`INSERT INTO transactions
-		   (family_id, kind, occurred_on, wallet_id, amount_minor, category,
-		    to_wallet_id, amount_in_minor, admin_fee_minor, note, created_by)
-		 VALUES ($1, $2, $3, $4, $5, NULLIF($6, ''), NULLIF($7, 0)::BIGINT, NULLIF($8, 0)::BIGINT, $9, $10, $11)
+		   (family_id, kind, occurred_on, wallet_id, currency, amount_minor, category,
+		    to_wallet_id, amount_in_minor, admin_fee_minor, party_id, note, created_by)
+		 VALUES ($1, $2, $3, NULLIF($4, 0)::BIGINT, NULLIF($5, '')::CHAR(3), $6, NULLIF($7, ''),
+		         NULLIF($8, 0)::BIGINT, NULLIF($9, 0)::BIGINT, $10, NULLIF($11, 0)::BIGINT, $12, $13)
 		 RETURNING id`,
-		familyID, t.Kind, t.Date, t.WalletID, t.AmountMinor, t.Category,
-		t.ToWalletID, t.AmountInMino, t.AdminFee, t.Note, userID).Scan(&id)
+		familyID, t.Kind, t.Date, t.WalletID, t.currencyKolom(), t.AmountMinor, t.Category,
+		t.ToWalletID, t.AmountInMino, t.AdminFee, t.PartyID, t.Note, userID).Scan(&id)
 	return id, err
 }
 
 func (s *Store) UpdateTx(ctx context.Context, familyID int64, t Tx) error {
 	tag, err := s.db.Exec(ctx,
-		`UPDATE transactions SET occurred_on = $1, wallet_id = $2, amount_minor = $3,
-		        category = NULLIF($4, ''), to_wallet_id = NULLIF($5, 0)::BIGINT,
-		        amount_in_minor = NULLIF($6, 0)::BIGINT, admin_fee_minor = $7, note = $8
-		 WHERE id = $9 AND kind = $10 AND family_id = $11`,
-		t.Date, t.WalletID, t.AmountMinor, t.Category, t.ToWalletID,
-		t.AmountInMino, t.AdminFee, t.Note, t.ID, t.Kind, familyID)
+		`UPDATE transactions SET occurred_on = $1, wallet_id = NULLIF($2, 0)::BIGINT,
+		        currency = NULLIF($3, '')::CHAR(3), amount_minor = $4,
+		        category = NULLIF($5, ''), to_wallet_id = NULLIF($6, 0)::BIGINT,
+		        amount_in_minor = NULLIF($7, 0)::BIGINT, admin_fee_minor = $8,
+		        party_id = NULLIF($9, 0)::BIGINT, note = $10
+		 WHERE id = $11 AND kind = $12 AND family_id = $13`,
+		t.Date, t.WalletID, t.currencyKolom(), t.AmountMinor, t.Category, t.ToWalletID,
+		t.AmountInMino, t.AdminFee, t.PartyID, t.Note, t.ID, t.Kind, familyID)
 	if err == nil && tag.RowsAffected() == 0 {
 		return ErrNotFound
 	}
@@ -286,12 +343,21 @@ type Category struct {
 
 // Categories mengembalikan kategori beserta jumlah pemakaiannya. kind kosong
 // berarti semua jenis.
+//
+// Jumlah pemakaian dihitung lewat satu agregat yang di-join, bukan subquery
+// berkorelasi per baris: bentuk yang kedua menjalankan satu query terpisah untuk
+// setiap kategori, sehingga membuka halaman Kategori berarti belasan pemindaian
+// tabel transaksi sekaligus.
 func (s *Store) Categories(ctx context.Context, familyID int64, kind string) ([]Category, error) {
 	rows, err := s.db.Query(ctx, `
-		SELECT c.id, c.kind, c.name,
-		       (SELECT count(*) FROM transactions t
-		         WHERE t.family_id = c.family_id AND t.kind = c.kind AND t.category = c.name)
+		SELECT c.id, c.kind, c.name, COALESCE(p.jumlah, 0)
 		FROM categories c
+		LEFT JOIN (
+			SELECT t.kind, t.category, count(*) AS jumlah
+			FROM transactions t
+			WHERE t.family_id = $1
+			GROUP BY t.kind, t.category
+		) p ON p.kind = c.kind AND p.category = c.name
 		WHERE c.family_id = $1 AND ($2 = '' OR c.kind = $2)
 		ORDER BY c.kind, c.name`, familyID, kind)
 	if err != nil {
@@ -651,4 +717,193 @@ func (s *Store) UpdateFamily(ctx context.Context, id int64, name, code string) (
 		`SELECT id, name, signup_code, created_at FROM families WHERE id = $1`, id).
 		Scan(&f.ID, &f.Name, &f.SignupCode, &f.CreatedAt)
 	return f, err
+}
+
+// ---------- Pihak, hutang, dan piutang ----------
+
+type Party struct {
+	ID   int64
+	Name string
+	Note string
+	// Saldo per mata uang. Hutang berarti kita yang berkewajiban, piutang
+	// berarti pihak itu yang berkewajiban kepada kita.
+	Saldo []PartyBalance
+}
+
+type PartyBalance struct {
+	Currency     string
+	HutangMinor  int64 // debt_in dikurangi debt_pay
+	PiutangMinor int64 // loan_out dikurangi loan_in
+}
+
+func (b PartyBalance) NetMinor() int64 { return b.PiutangMinor - b.HutangMinor }
+
+// partyBalanceSQL menjumlahkan hutang dan piutang per pihak per mata uang.
+// Mata uangnya diambil dari dompet kalau ada, kalau tidak dari kolom currency
+// pada transaksinya sendiri — hutang tanpa dompet tetap punya mata uang.
+const partyBalanceSQL = `
+SELECT t.party_id, COALESCE(w.currency, t.currency) AS cur,
+       SUM(CASE t.kind WHEN 'debt_in' THEN t.amount_minor
+                       WHEN 'debt_pay' THEN -t.amount_minor ELSE 0 END) AS hutang,
+       SUM(CASE t.kind WHEN 'loan_out' THEN t.amount_minor
+                       WHEN 'loan_in' THEN -t.amount_minor ELSE 0 END) AS piutang
+FROM transactions t
+LEFT JOIN wallets w ON w.id = t.wallet_id
+WHERE t.family_id = $1 AND t.party_id IS NOT NULL
+GROUP BY t.party_id, COALESCE(w.currency, t.currency)`
+
+// Parties mengembalikan seluruh pihak beserta saldo hutang piutangnya.
+// Pihak yang saldonya sudah nol tetap ditampilkan: riwayatnya masih berguna,
+// dan menghilangkannya membuat user mengira catatannya hilang.
+func (s *Store) Parties(ctx context.Context, familyID int64) ([]Party, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT p.id, p.name, p.note, b.cur, b.hutang, b.piutang
+		FROM parties p
+		LEFT JOIN (`+partyBalanceSQL+`) b ON b.party_id = p.id
+		WHERE p.family_id = $1
+		ORDER BY p.name, b.cur`, familyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []Party
+	for rows.Next() {
+		var (
+			id            int64
+			name, note    string
+			cur           *string
+			hutang, piutg *int64
+		)
+		if err := rows.Scan(&id, &name, &note, &cur, &hutang, &piutg); err != nil {
+			return nil, err
+		}
+		if n := len(out); n == 0 || out[n-1].ID != id {
+			out = append(out, Party{ID: id, Name: name, Note: note})
+		}
+		if cur != nil && (*hutang != 0 || *piutg != 0) {
+			p := &out[len(out)-1]
+			p.Saldo = append(p.Saldo, PartyBalance{
+				Currency: *cur, HutangMinor: *hutang, PiutangMinor: *piutg,
+			})
+		}
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) Party(ctx context.Context, familyID, id int64) (Party, error) {
+	parties, err := s.Parties(ctx, familyID)
+	if err != nil {
+		return Party{}, err
+	}
+	for _, p := range parties {
+		if p.ID == id {
+			return p, nil
+		}
+	}
+	return Party{}, ErrNotFound
+}
+
+func (s *Store) PartyByName(ctx context.Context, familyID int64, name string) (Party, error) {
+	var p Party
+	err := s.db.QueryRow(ctx,
+		`SELECT id, name, note FROM parties WHERE family_id = $1 AND lower(name) = lower($2)`,
+		familyID, name).Scan(&p.ID, &p.Name, &p.Note)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Party{}, ErrNotFound
+	}
+	return p, err
+}
+
+// EnsureParty mencari pihak dengan nama itu, membuatnya kalau belum ada.
+// Pencatatan hutang jadi bisa dilakukan dalam satu langkah tanpa memaksa user
+// mendaftarkan pihaknya lebih dulu.
+func (s *Store) EnsureParty(ctx context.Context, familyID int64, name string) (int64, error) {
+	if p, err := s.PartyByName(ctx, familyID, name); err == nil {
+		return p.ID, nil
+	} else if !errors.Is(err, ErrNotFound) {
+		return 0, err
+	}
+	var id int64
+	err := s.db.QueryRow(ctx,
+		`INSERT INTO parties (family_id, name) VALUES ($1, $2) RETURNING id`,
+		familyID, name).Scan(&id)
+	return id, err
+}
+
+func (s *Store) UpdateParty(ctx context.Context, familyID, id int64, name, note string) error {
+	tag, err := s.db.Exec(ctx,
+		`UPDATE parties SET name = $1, note = $2 WHERE id = $3 AND family_id = $4`,
+		name, note, id, familyID)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return err
+}
+
+// DeleteParty menolak menghapus pihak yang masih punya catatan transaksi.
+// Menghapusnya akan membuat riwayat hutang menggantung tanpa lawan transaksi.
+func (s *Store) DeleteParty(ctx context.Context, familyID, id int64) error {
+	var n int
+	if err := s.db.QueryRow(ctx,
+		`SELECT count(*) FROM transactions WHERE family_id = $1 AND party_id = $2`,
+		familyID, id).Scan(&n); err != nil {
+		return err
+	}
+	if n > 0 {
+		return fmt.Errorf("pihak ini masih punya %d catatan, hapus catatannya dulu", n)
+	}
+	tag, err := s.db.Exec(ctx, `DELETE FROM parties WHERE id = $1 AND family_id = $2`, id, familyID)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return err
+}
+
+// PartyTxs: riwayat hutang piutang satu pihak, terbaru dulu.
+func (s *Store) PartyTxs(ctx context.Context, familyID, partyID int64) ([]Tx, error) {
+	rows, err := s.db.Query(ctx,
+		txSelect+" AND t.party_id = $2 ORDER BY t.occurred_on DESC, t.id DESC",
+		familyID, partyID)
+	if err != nil {
+		return nil, err
+	}
+	return scanTxs(rows)
+}
+
+// ---------- Kartu kredit ----------
+
+// CardStatus: keadaan satu kartu kredit pada satu tanggal.
+type CardStatus struct {
+	Wallet Wallet
+	// PayableMinor: tagihan yang sudah tercetak dan harus dibayar sebelum
+	// jatuh tempo, sudah dikurangi pembayaran yang masuk setelah tanggal cetak.
+	PayableMinor int64
+	// OutstandingMinor: seluruh pemakaian sampai hari ini, termasuk belanja
+	// yang belum masuk tagihan mana pun.
+	OutstandingMinor int64
+	Settlement       time.Time // tanggal cetak terakhir
+	Due              time.Time // jatuh tempo tagihan itu
+}
+
+// CardBalances mengambil dua angka mentah yang dibutuhkan CardStatus:
+// saldo kartu pada tanggal cetak terakhir, dan pembayaran yang masuk sesudahnya.
+func (s *Store) CardBalances(ctx context.Context, familyID, walletID int64, settlement time.Time) (atSettlement, creditsSince int64, err error) {
+	err = s.db.QueryRow(ctx, `
+		SELECT
+		  (SELECT w.initial_balance_minor FROM wallets w
+		    WHERE w.id = $2 AND w.family_id = $1)
+		  + COALESCE((SELECT SUM(CASE WHEN t.kind IN ('income', 'debt_in', 'loan_in')
+		                              THEN t.amount_minor ELSE -t.amount_minor END)
+		              FROM transactions t
+		              WHERE t.family_id = $1 AND t.wallet_id = $2 AND t.occurred_on <= $3), 0)
+		  + COALESCE((SELECT SUM(t.amount_in_minor) FROM transactions t
+		              WHERE t.family_id = $1 AND t.to_wallet_id = $2 AND t.occurred_on <= $3), 0),
+		  COALESCE((SELECT SUM(t.amount_in_minor) FROM transactions t
+		            WHERE t.family_id = $1 AND t.to_wallet_id = $2 AND t.occurred_on > $3), 0)
+		  + COALESCE((SELECT SUM(t.amount_minor) FROM transactions t
+		             WHERE t.family_id = $1 AND t.wallet_id = $2 AND t.occurred_on > $3
+		               AND t.kind IN ('income', 'debt_in', 'loan_in')), 0)`,
+		familyID, walletID, settlement).Scan(&atSettlement, &creditsSince)
+	return atSettlement, creditsSince, err
 }

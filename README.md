@@ -7,6 +7,7 @@ Fase 2: kategori kustom, ringkasan per kategori, filter transaksi per kategori, 
 kurs otomatis dari API.
 Fase 3: multi-tenant — satu deployment melayani banyak keluarga, dengan data yang
 terpisah penuh.
+Fase 4: siklus tagihan kartu kredit, dan pencatatan hutang piutang per pihak.
 
 Satu binary Go: server, template HTML, dan seluruh aset statis ikut ter-embed.
 Tidak ada build frontend, tidak ada `node_modules`, tidak ada framework JS.
@@ -23,10 +24,12 @@ docker compose up -d db
 cp .env.example .env && set -a && . ./.env && set +a && go run .
 ```
 
-Pakai `set -a` + `source`, bukan `export $(... | xargs)`: `APP_FAMILY` berisi spasi
-dan akan terpotong oleh cara yang kedua.
+Pakai `set -a` + `source`, bukan `export $(... | xargs)`: nilai yang mengandung spasi
+akan terpotong oleh cara yang kedua.
 
-Buka http://localhost:8080, lalu daftar memakai `SIGNUP_CODE` dari `.env`.
+Migrasi berjalan otomatis saat start. Database yang masih kosong akan berisi satu
+keluarga bernama "Keluarga" dengan kode daftar acak; lihat kodenya lewat API admin di
+bawah, lalu daftar di http://localhost:8080/daftar dengan kode itu.
 
 Jalankan test (tidak butuh database):
 
@@ -45,19 +48,16 @@ Databasenya di **Neon**, bukan Postgres bawaan Render.
 3. Render Dashboard → **New** → **Blueprint** → pilih repo ini. Render akan menanyakan
    `DATABASE_URL`; tempel connection string tadi. Nilainya disimpan di dashboard, tidak
    pernah masuk git.
-4. Setelah deploy selesai, buka tab **Environment**, salin `SIGNUP_CODE` yang dibuat
-   otomatis, lalu bagikan ke anggota keluarga untuk mendaftar.
-5. Kalau semua anggota sudah punya akun, ganti `SIGNUP_CODE` ke nilai acak baru untuk
-   menutup pendaftaran.
+4. Setelah deploy selesai, buka tab **Environment** dan salin `ADMIN_TOKEN` yang dibuat
+   otomatis. Token itu dipakai untuk membuat keluarga lewat API admin — lihat
+   "Membuat keluarga baru" di bawah.
 
 Pilih region **Singapore** untuk web service-nya, sama dengan region proyek Neon
 (`ap-southeast`). Query yang menyeberang region menambah puluhan milidetik pada setiap
 permintaan halaman.
 
-Nama keluarga sudah tertulis di `render.yaml` (`APP_FAMILY`), jadi Render tidak
-menanyakannya. Ubah di sana kalau perlu diganti.
-
-Skema database dibuat otomatis saat aplikasi start; tidak ada langkah migrasi terpisah.
+Migrasi dijalankan otomatis saat aplikasi start, berurutan dan sekali saja. Tidak ada
+langkah manual, tapi juga bukan berarti tanpa migrasi — lihat bagian akhir README.
 
 Soal paket gratis: web service Render tidur setelah 15 menit menganggur, dan compute
 Neon juga menyusut ke nol saat tidak dipakai. Efeknya request pertama setelah lama
@@ -158,6 +158,46 @@ diperlakukan sebagai rahasia keluarga:
 Setiap pendaftaran baru dicatat di log (`anggota baru terdaftar: ... di keluarga ...`).
 Kalau muncul nama yang tidak dikenal, kode keluarga itu sudah bocor.
 
+## Kartu kredit
+
+Dompet bertipe kartu kredit bisa diberi **tanggal cetak** dan **tanggal bayar**. Dari
+keduanya aplikasi membedakan dua angka yang sering tertukar:
+
+| | Artinya |
+|---|---|
+| **Tagihan** | Yang sudah tercetak di lembar tagihan terakhir dan harus dibayar sebelum jatuh tempo, dikurangi pembayaran yang masuk sesudahnya. |
+| **Sisa pemakaian** | Seluruh yang terpakai sampai hari ini, termasuk belanja yang belum masuk tagihan mana pun. |
+
+Membayar sebesar sisa pemakaian tidak salah, tapi membayar sebesar tagihan sudah cukup
+untuk menghindari bunga — karena itu keduanya ditampilkan berdampingan.
+
+Tanggal di atas jumlah hari suatu bulan dijepit ke hari terakhir bulan itu, jadi tanggal
+cetak 31 tetap masuk akal di Februari. Kartu tanpa siklus tetap berfungsi sebagai dompet
+biasa; tanpa tanggal cetak, "tagihan" tidak punya arti dan menebaknya lebih menyesatkan
+daripada diam.
+
+**Pembayaran kartu dicatat sebagai transfer, bukan pengeluaran.** Belanjanya sudah
+tercatat sebagai pengeluaran waktu kartu dipakai; mencatat pembayarannya sebagai
+pengeluaran lagi akan menghitungnya dua kali. Tombol "Bayar Tagihan" membuka form
+transfer biasa dengan dompet tujuan dan nominal tagihan sudah terisi.
+
+## Hutang dan piutang
+
+Dicatat terhadap **pihak** — orang atau lembaga — dan dijumlahkan per pihak, bukan per
+transaksi. Pembayaran juga dilakukan per pihak: yang ditagih adalah orangnya, bukan
+selembar catatan.
+
+Empat jenis transaksi: `debt_in` menerima pinjaman, `debt_pay` membayar hutang,
+`loan_out` memberi pinjaman, `loan_in` menerima pelunasan.
+
+**Dompetnya boleh kosong.** Meminjam uang yang langsung dipakai tanpa pernah masuk
+rekening tetap menambah kewajiban, dan memaksa memilih dompet akan membuat saldo dompet
+itu salah. Catatan tanpa dompet menyimpan mata uangnya sendiri di kolom `currency`;
+yang punya dompet menurunkannya dari dompet itu, supaya tidak ada dua sumber kebenaran.
+
+Pembayaran yang melebihi sisa saldo ditolak. Tanpa itu, salah ketik satu nol membuat
+saldo hutang berbalik jadi piutang dan tidak ada yang menyadarinya.
+
 ## Keputusan yang penting dipahami sebelum mengubah kode
 
 **Uang selalu `int64` dalam satuan terkecil.** `Rp1.500,50` disimpan sebagai `150050`.
@@ -190,6 +230,14 @@ mengganti nama kategori harus ikut memperbarui transaksinya — itu dilakukan da
 transaksi database di `RenameCategory`, dan menghapus kategori yang masih dipakai
 ditolak.
 
+**Hutang piutang menumpang tabel `transactions`, bukan tabel sendiri.** Saldo dompet
+dihitung dari satu query di `walletSelect`; kalau ada tabel kedua yang juga menggerakkan
+saldo, query itu harus menggabungkan dua sumber dan keduanya bisa menyimpang tanpa
+ketahuan. Konsekuensinya `wallet_id` jadi nullable, dan CHECK `transactions_bentuk`
+yang menentukan kolom mana wajib untuk tiap jenis. Menambah jenis transaksi berarti
+menyentuh CHECK itu **dan** daftar `kindMenambahSaldo` di `store.go` — jenis yang
+terlewat di salah satunya membuat saldo bohong tanpa error apa pun.
+
 **Saldo dompet tidak disimpan.** Selalu dihitung dari `initial_balance_minor` ditambah
 transaksinya (`walletSelect` di `store.go`). Tidak ada kolom yang bisa melenceng dari
 catatan. Kalau nanti transaksi sudah ratusan ribu baris, barulah pertimbangkan cache.
@@ -218,6 +266,8 @@ money.go       nominal int64, kurs sebagai rasio, format Indonesia
 rates.go       kurs pasar dari API, cache di memori, gabung dengan kurs transfer
 view.go        view model dan pelabelan tanggal
 auth.go        sesi cookie, bcrypt, login dan pendaftaran per keluarga
+kartu.go       siklus tagihan kartu kredit: tanggal cetak, jatuh tempo, tagihan
+hutang.go      handler hutang piutang dan pembayaran per pihak
 templates/     layout + satu berkas per halaman
 static/        CSS design system Classical, app.css, app.js, ikon, manifest
 ```
@@ -225,8 +275,9 @@ static/        CSS design system Classical, app.css, app.js, ikon, manifest
 ## Yang sengaja belum ada
 
 Realtime sync, mode offline, laporan dan grafik lintas bulan, ekspor, anggaran per
-kategori, peran/izin per anggota, dan tool migrasi. Semuanya ditambahkan kalau memang
-terasa kurang setelah dipakai, bukan sebelumnya.
+kategori, cicilan berjadwal, pengingat jatuh tempo, bunga kartu kredit, dan peran/izin
+per anggota. Semuanya ditambahkan kalau memang terasa kurang setelah dipakai, bukan
+sebelumnya.
 
 Migrasi sekarang punya penerapnya sendiri di `migrate.go`: berkas `migrations/*.sql`
 dijalankan berurutan, sekali saja, satu transaksi per berkas, dengan advisory lock

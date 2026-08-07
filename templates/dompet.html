@@ -5,6 +5,13 @@
     <a href="/dompet/baru" class="btn btn-primary">Tambah Dompet{{template "icon-plus"}}</a>
   </div>
 
+  {{if .Cards}}
+    <section>
+      <h6 class="group-head">Kartu Kredit</h6>
+      <div class="kk-strip">{{range .Cards}}{{template "kartu-kredit" .}}{{end}}</div>
+    </section>
+  {{end}}
+
   {{if .Wallets}}
     <div class="stack-sm">
       {{range .Wallets}}
