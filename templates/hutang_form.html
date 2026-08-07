@@ -1,0 +1,79 @@
+{{define "content"}}
+<nav class="seg" aria-label="Jenis catatan">
+  {{range $.Kinds}}
+    <a class="seg-opt{{if eq $.Form.jenis .Value}} on{{end}}"
+       href="/hutang/baru?jenis={{.Value}}{{if $.Form.pihak}}&pihak={{$.Form.pihak}}{{end}}">{{.Label}}</a>
+  {{end}}
+</nav>
+
+<form method="post" action="/hutang/baru" class="stack" id="hutang-form">
+  <input type="hidden" name="jenis" value="{{.Form.jenis}}">
+
+  <p class="banner">
+    {{if eq .Form.jenis "debt_in"}}Kita menerima pinjaman — kewajiban bertambah.
+    {{else}}Kita memberi pinjaman — tagihan kita bertambah.{{end}}
+  </p>
+
+  <div class="field">
+    <label for="pihak">Pihak</label>
+    <input class="input" id="pihak" name="pihak" required list="daftar-pihak"
+           value="{{.Form.pihak}}" placeholder="Nama orang atau lembaga" autocomplete="off">
+    <datalist id="daftar-pihak">
+      {{range $.Parties}}<option value="{{.Name}}">{{end}}
+    </datalist>
+    <p class="hint">Nama baru otomatis terdaftar, tidak perlu dibuat lebih dulu.</p>
+  </div>
+
+  <div class="field">
+    <label for="dompet">Dompet</label>
+    <select class="input" id="dompet" name="dompet" data-wallet-select>
+      <option value="" data-currency="" data-symbol="">Tanpa dompet</option>
+      {{range $.Wallets}}
+        <option value="{{.ID}}" data-currency="{{.Currency}}" data-symbol="{{symbol .Currency}}"
+                {{if eq $.Form.dompet (printf "%d" .ID)}}selected{{end}}>{{.Name}} — {{.Balance}}</option>
+      {{end}}
+    </select>
+    <p class="hint">
+      {{if eq .Form.jenis "debt_in"}}Dompet yang menerima uangnya.
+      {{else}}Dompet yang uangnya dikeluarkan.{{end}}
+      Pilih "Tanpa dompet" kalau uangnya tidak pernah masuk atau keluar dari dompet mana pun —
+      saldo tidak akan tersentuh, hanya catatannya yang bertambah.
+    </p>
+  </div>
+
+  {{/* Mata uang hanya perlu dipilih saat tidak ada dompet; kalau ada, ia
+       mengikuti dompetnya supaya tidak ada dua sumber kebenaran. */}}
+  <div class="field" data-currency-field hidden>
+    <label for="mata_uang">Mata Uang</label>
+    <select class="input" id="mata_uang" name="mata_uang">
+      {{range $.Currencies}}
+        <option value="{{.Code}}" {{if eq $.Form.mata_uang .Code}}selected{{end}}>{{.Code}} — {{.Name}}</option>
+      {{end}}
+    </select>
+  </div>
+
+  <div class="field">
+    <label for="nominal">Nominal</label>
+    <div class="input-affix">
+      <span class="affix" data-currency-symbol></span>
+      <input class="input" id="nominal" name="nominal" inputmode="decimal" required
+             value="{{.Form.nominal}}" placeholder="0">
+    </div>
+  </div>
+
+  <div class="field">
+    <label for="tanggal">Tanggal</label>
+    <input class="input" id="tanggal" name="tanggal" type="date" required value="{{.Form.tanggal}}">
+  </div>
+
+  <div class="field">
+    <label for="catatan">Catatan</label>
+    <textarea class="input" id="catatan" name="catatan" rows="2"
+              placeholder="Pinjam untuk biaya rumah sakit">{{.Form.catatan}}</textarea>
+  </div>
+
+  <button type="submit" class="btn btn-primary btn-block">
+    Simpan {{if eq .Form.jenis "debt_in"}}Hutang{{else}}Piutang{{end}}
+  </button>
+</form>
+{{end}}

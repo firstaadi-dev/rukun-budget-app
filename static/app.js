@@ -73,9 +73,19 @@ const symOf = (sel) => sel.selectedOptions[0]?.dataset.symbol || '';
     });
   }
 
-  $$('[data-jenis]', form).forEach((r) => r.addEventListener('change', sync));
+  function syncSiklus() {
+    const jenis = $$('[data-jenis]', form).find((r) => r.checked)?.value;
+    const box = $('#siklus-kartu', form);
+    if (box) box.hidden = jenis !== 'credit';
+  }
+
+  $$('[data-jenis]', form).forEach((r) => {
+    r.addEventListener('change', sync);
+    r.addEventListener('change', syncSiklus);
+  });
   currency.addEventListener('change', syncSymbol);
   sync();
+  syncSiklus();
 })();
 
 // ---------- form pengeluaran / pemasukan: prefix ikut mata uang dompet ----------
@@ -90,6 +100,30 @@ const symOf = (sel) => sel.selectedOptions[0]?.dataset.symbol || '';
     $$('[data-currency-code]', form).forEach((el) => (el.textContent = curOf(wallet)));
   }
   wallet.addEventListener('change', sync);
+  sync();
+})();
+
+// ---------- form hutang piutang ----------
+
+// Mata uang hanya dipilih sendiri saat tidak ada dompet. Begitu dompet dipilih,
+// mata uangnya mengikuti dompet itu — dua sumber kebenaran untuk hal yang sama
+// adalah cara paling mudah membuat nominal tersimpan dengan satuan yang salah.
+(function hutangForm() {
+  const form = $('#hutang-form');
+  if (!form) return;
+  const wallet = $('[data-wallet-select]', form);
+  const curField = $('[data-currency-field]', form);
+  const curSelect = $('#mata_uang', form);
+
+  function sync() {
+    const pakaiDompet = wallet.value !== '';
+    curField.hidden = pakaiDompet;
+    const cur = pakaiDompet ? curOf(wallet) : curSelect.value;
+    const sym = pakaiDompet ? symOf(wallet) : (cur === 'IDR' ? 'Rp' : cur);
+    $$('[data-currency-symbol]', form).forEach((el) => (el.textContent = sym));
+  }
+  wallet.addEventListener('change', sync);
+  curSelect.addEventListener('change', sync);
   sync();
 })();
 

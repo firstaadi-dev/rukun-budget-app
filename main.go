@@ -177,6 +177,15 @@ func (a *App) routes() http.Handler {
 	auth("POST /dompet/{id}/ubah", a.walletUpdate)
 	auth("POST /dompet/{id}/hapus", a.walletDelete)
 
+	auth("GET /hutang", a.debtList)
+	auth("GET /hutang/baru", a.debtForm)
+	auth("POST /hutang/baru", a.debtCreate)
+	auth("GET /hutang/pihak/{id}", a.partyDetail)
+	auth("POST /hutang/pihak/{id}/ubah", a.partyUpdate)
+	auth("POST /hutang/pihak/{id}/hapus", a.partyDelete)
+	auth("GET /hutang/pihak/{id}/bayar", a.payForm)
+	auth("POST /hutang/pihak/{id}/bayar", a.payCreate)
+
 	auth("GET /kategori", a.categoryList)
 	auth("GET /kategori/baru", a.categoryForm)
 	auth("POST /kategori/baru", a.categoryCreate)
@@ -238,6 +247,7 @@ func staticHandler() http.Handler {
 var tmplFuncs = template.FuncMap{
 	"symbol": Symbol,
 	"lower":  strings.ToLower,
+	"neg":    func(n int) int { return -n },
 	// dict merakit map untuk mengoper beberapa nilai ke satu blok template.
 	"dict": func(kv ...any) map[string]any {
 		m := make(map[string]any, len(kv)/2)

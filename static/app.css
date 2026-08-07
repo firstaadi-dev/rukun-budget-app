@@ -16,10 +16,6 @@ a { color: var(--color-accent-700); }
 .small { font-size: 12.5px; }
 .tiny { font-size: 10.5px; }
 .text-muted { opacity: 0.62; }
-.m-in { color: var(--money-in); }
-.m-out { color: var(--money-out); }
-.m-accent { color: var(--color-accent-700); }
-.m-neutral { color: var(--color-text); }
 
 /* ---------- kerangka ---------- */
 
@@ -37,7 +33,7 @@ a { color: var(--color-accent-700); }
   position: fixed;
   inset: auto 0 0 0;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   background: var(--color-surface);
   border-top: 1px solid var(--color-divider);
   padding-bottom: env(safe-area-inset-bottom);
@@ -272,6 +268,42 @@ a { color: var(--color-accent-700); }
 .cat-bar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cat-bar-amt { flex-shrink: 0; }
 
+/* ---------- kartu kredit ---------- */
+
+.kk { gap: var(--space-2); }
+.kk-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.kk-nama { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.kk-nama .ic { width: 16px; height: 16px; }
+.kk-angka { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+.kk-utama { font-family: var(--font-heading); font-size: 24px; }
+.kk-sisa { font-family: var(--font-heading); font-size: 18px; opacity: 0.75; }
+.kk-kaki { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.kk-telat { border-color: var(--money-out); }
+.kk-segera { border-color: var(--color-accent); }
+.kk-strip { display: flex; flex-direction: column; gap: var(--space-3); }
+@media (min-width: 900px) {
+  .kk-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+}
+
+/* ---------- hutang dan piutang ---------- */
+
+.pihak { gap: 6px; text-decoration: none; color: var(--color-text); }
+.pihak-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.pihak-baris { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+/* Tiga kolom di kartu selebar layar ponsel menyisakan ruang sempit, dan angka
+   sebesar .mid-figure akan patah di tanda minusnya. */
+.pihak-angka { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
+.pihak-angka .mid-figure { font-size: 15px; white-space: nowrap; }
+@media (min-width: 480px) {
+  .pihak-angka { gap: var(--space-3); }
+  .pihak-angka .mid-figure { font-size: 19px; }
+}
+.aksi-pihak { display: flex; gap: 10px; }
+.aksi-pihak .btn { flex: 1; justify-content: center; }
+.kelola { margin-top: var(--space-6); }
+.kelola summary { cursor: pointer; padding: var(--space-2) 0; }
+.kelola form { margin-top: var(--space-3); }
+
 /* ---------- baris transaksi ---------- */
 
 .rows { display: flex; flex-direction: column; }
@@ -370,6 +402,9 @@ a.seg-opt.on { background: var(--color-accent-100); color: var(--color-accent-70
 }
 .input-affix .input { border: none; border-radius: 0; flex: 1; min-width: 0; }
 
+.siklus { display: flex; gap: var(--space-2); }
+.siklus .input-affix { flex: 1; }
+
 .rate-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .rate-row .input-affix { flex: 1; min-width: 140px; }
 
@@ -407,3 +442,11 @@ a.seg-opt.on { background: var(--color-accent-100); color: var(--color-accent-70
 .auth-card { width: 100%; max-width: 380px; gap: var(--space-3); }
 .auth-brand { font-size: 26px; }
 .auth-alt { margin: 0; }
+
+/* Utilitas warna uang ditaruh paling akhir supaya menang atas komponen yang
+   punya warna sendiri. .big-figure mewarnai dirinya dengan aksen, dan tanpa
+   urutan ini selisih hutang yang negatif akan tampil emas, bukan merah. */
+.m-in { color: var(--money-in); }
+.m-out { color: var(--money-out); }
+.m-accent { color: var(--color-accent-700); }
+.m-neutral { color: var(--color-text); }

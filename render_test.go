@@ -49,6 +49,7 @@ func TestPagesRender(t *testing.T) {
 			"Title": "Dashboard", "Nav": "dashboard", "Today": tanggalPanjang(today),
 			"Summary": summarize(wallets, rates, "IDR"),
 			"Wallets": viewWallets(wallets), "Recent": views,
+			"Cards": []CardView{kartuUji(today)},
 			"Breakdown": breakdown([]CategorySpend{
 				{Kind: "expense", Category: "Belanja", Currency: "IDR", Minor: 45_000_000},
 				{Kind: "expense", Category: "Tagihan", Currency: "IDR", Minor: 35_000_000},
@@ -59,7 +60,8 @@ func TestPagesRender(t *testing.T) {
 
 		{"dompet.html", map[string]any{
 			"Title": "Dompet", "Nav": "dompet", "Wallets": viewWallets(wallets),
-		}, "Kartu Kredit BCA"},
+			"Cards": []CardView{kartuUji(today)},
+		}, "Sisa Pemakaian"},
 
 		{"dompet_form.html", map[string]any{
 			"Title": "Dompet Baru", "Nav": "dompet", "Back": "/dompet", "Action": "/dompet/baru",
@@ -109,6 +111,42 @@ func TestPagesRender(t *testing.T) {
 			"Kinds": []struct{ Value, Label string }{{"expense", "Pengeluaran"}, {"income", "Pemasukan"}},
 		}, "Simpan Kategori"},
 
+		{"hutang.html", map[string]any{
+			"Title": "Hutang & Piutang", "Nav": "hutang",
+			"Summary": summarizeDebts([]Party{
+				{ID: 1, Name: "Pak Budi", Saldo: []PartyBalance{
+					{Currency: "IDR", HutangMinor: 500_000_000, PiutangMinor: 200_000_000}}},
+				{ID: 2, Name: "Sudah Lunas"},
+			}, rates, "IDR"),
+		}, "Selisih Bersih"},
+
+		{"pihak.html", map[string]any{
+			"Title": "Pak Budi", "Nav": "hutang", "Back": "/hutang",
+			"Party": viewParty(Party{ID: 1, Name: "Pak Budi", Note: "Tetangga",
+				Saldo: []PartyBalance{{Currency: "IDR", HutangMinor: 300_000_000}}}),
+			"Groups": groupTxs(viewTxs([]Tx{{
+				ID: 20, Kind: "debt_in", Date: today, WalletID: 2, WalletName: "Rekening Utama",
+				WalletCur: "IDR", AmountMinor: 500_000_000, PartyID: 1, PartyName: "Pak Budi",
+			}}, today)),
+		}, "Bayar Hutang"},
+
+		{"hutang_form.html", map[string]any{
+			"Title": "Catat Hutang", "Nav": "hutang", "Back": "/hutang",
+			"Form":       map[string]string{"jenis": "debt_in", "tanggal": "2026-08-07", "mata_uang": "IDR"},
+			"Kinds":      debtKinds,
+			"Wallets":    viewWallets(wallets),
+			"Parties":    []Party{{ID: 1, Name: "Pak Budi"}},
+			"Currencies": Currencies,
+		}, "Tanpa dompet"},
+
+		{"bayar_form.html", map[string]any{
+			"Title": "Bayar Hutang ke Pak Budi", "Nav": "hutang", "Back": "/hutang/pihak/1",
+			"Party": viewParty(Party{ID: 1, Name: "Pak Budi",
+				Saldo: []PartyBalance{{Currency: "IDR", HutangMinor: 300_000_000}}}),
+			"Form":    map[string]string{"arah": "hutang", "tanggal": "2026-08-07", "mata_uang": "IDR", "nominal": "3.000.000"},
+			"Wallets": viewWallets(wallets), "Currencies": Currencies,
+		}, "Catat Pembayaran"},
+
 		{"masuk.html", map[string]any{"NoChrome": true,
 			"Form": map[string]string{"Kode": "abcde-fghij-klmno"}}, "Kode Keluarga"},
 		{"daftar.html", map[string]any{"NoChrome": true,
@@ -141,6 +179,20 @@ func TestPagesRender(t *testing.T) {
 // Total dashboard harus menjumlahkan dompet lintas mata uang lewat kurs, dan
 // melaporkan mata uang yang kursnya belum diketahui alih-alih diam-diam
 // menganggapnya nol.
+// kartuUji: satu kartu kredit dengan siklus terisi, untuk menguji rendernya.
+func kartuUji(today time.Time) CardView {
+	wl := Wallet{ID: 5, Name: "Kartu Kredit BCA", Type: "credit", Provider: "BCA",
+		Currency: "IDR", BalanceMinor: -280_000_000, SettlementDay: 25, PaymentDay: 15}
+	settlement := SettlementTerakhir(today, wl.SettlementDay, today.Location())
+	return viewCard(CardStatus{
+		Wallet:           wl,
+		PayableMinor:     200_000_000,
+		OutstandingMinor: wl.BalanceMinor,
+		Settlement:       settlement,
+		Due:              JatuhTempo(settlement, wl.PaymentDay, today.Location()),
+	}, today)
+}
+
 func TestSummarize(t *testing.T) {
 	wallets := []Wallet{
 		{Type: "bank", Currency: "IDR", BalanceMinor: 1_000_000_000},  // Rp10.000.000

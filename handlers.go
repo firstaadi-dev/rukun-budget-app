@@ -74,7 +74,7 @@ func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
-	txs, err := a.store.Transactions(ctx, family(r), "", "", 5)
+	txs, err := a.store.Transactions(ctx, family(r), nil, "", 5)
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -90,7 +90,14 @@ func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	cards, err := a.cardStatuses(ctx, family(r), wallets)
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+
 	a.render(w, r, "dashboard.html", map[string]any{
+		"Cards":     cards,
 		"Title":     "Dashboard",
 		"Nav":       "dashboard",
 		"Today":     tanggalPanjang(a.today()),
@@ -120,9 +127,40 @@ func (a *App) walletList(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
+	cards, err := a.cardStatuses(r.Context(), family(r), wallets)
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
 	a.render(w, r, "dompet.html", map[string]any{
-		"Title": "Dompet", "Nav": "dompet", "Wallets": viewWallets(wallets),
+		"Title": "Dompet", "Nav": "dompet",
+		"Wallets": viewWallets(wallets), "Cards": cards,
 	})
+}
+
+// cardStatuses menghitung tagihan dan sisa pemakaian tiap kartu kredit yang
+// siklusnya sudah diisi. Kartu tanpa siklus dilewati: tanpa tanggal cetak,
+// "tagihan" tidak punya arti dan menebaknya lebih menyesatkan daripada diam.
+func (a *App) cardStatuses(ctx context.Context, familyID int64, wallets []Wallet) ([]CardView, error) {
+	var out []CardView
+	for _, wl := range wallets {
+		if !wl.IsCredit() || !wl.HasCycle() {
+			continue
+		}
+		settlement := SettlementTerakhir(a.today(), wl.SettlementDay, a.loc)
+		atSettlement, creditsSince, err := a.store.CardBalances(ctx, familyID, wl.ID, settlement)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, viewCard(CardStatus{
+			Wallet:           wl,
+			PayableMinor:     TagihanKartu(atSettlement, creditsSince),
+			OutstandingMinor: wl.BalanceMinor,
+			Settlement:       settlement,
+			Due:              JatuhTempo(settlement, wl.PaymentDay, a.loc),
+		}, a.today()))
+	}
+	return out, nil
 }
 
 func (a *App) walletForm(w http.ResponseWriter, r *http.Request) {
@@ -142,6 +180,12 @@ func (a *App) walletForm(w http.ResponseWriter, r *http.Request) {
 		f = map[string]string{
 			"jenis": wl.Type, "penyedia": wl.Provider, "nama": wl.Name,
 			"mata_uang": wl.Currency, "saldo_awal": FormatPlain(wl.InitialMinor, wl.Currency),
+		}
+		if wl.SettlementDay > 0 {
+			f["tanggal_cetak"] = strconv.Itoa(wl.SettlementDay)
+		}
+		if wl.PaymentDay > 0 {
+			f["tanggal_bayar"] = strconv.Itoa(wl.PaymentDay)
 		}
 	}
 	a.renderWalletForm(w, r, id, f, "")
@@ -167,11 +211,13 @@ func (a *App) renderWalletForm(w http.ResponseWriter, r *http.Request, id int64,
 // readWallet memvalidasi input form dompet.
 func readWallet(r *http.Request) (Wallet, map[string]string, error) {
 	f := map[string]string{
-		"jenis":      r.FormValue("jenis"),
-		"penyedia":   strings.TrimSpace(r.FormValue("penyedia")),
-		"nama":       strings.TrimSpace(r.FormValue("nama")),
-		"mata_uang":  r.FormValue("mata_uang"),
-		"saldo_awal": r.FormValue("saldo_awal"),
+		"jenis":         r.FormValue("jenis"),
+		"penyedia":      strings.TrimSpace(r.FormValue("penyedia")),
+		"nama":          strings.TrimSpace(r.FormValue("nama")),
+		"mata_uang":     r.FormValue("mata_uang"),
+		"saldo_awal":    r.FormValue("saldo_awal"),
+		"tanggal_cetak": strings.TrimSpace(r.FormValue("tanggal_cetak")),
+		"tanggal_bayar": strings.TrimSpace(r.FormValue("tanggal_bayar")),
 	}
 	wl := Wallet{Type: f["jenis"], Provider: f["penyedia"], Name: f["nama"], Currency: f["mata_uang"]}
 
@@ -192,7 +238,36 @@ func readWallet(r *http.Request) (Wallet, map[string]string, error) {
 		return wl, f, errors.New("Saldo awal tidak valid.")
 	}
 	wl.InitialMinor = saldo
+
+	// Siklus tagihan hanya berarti untuk kartu kredit. Jenis lain yang kebetulan
+	// mengirim kolomnya diabaikan, karena database pun menolaknya.
+	if wl.Type == "credit" {
+		cetak, errCetak := hariBulan(f["tanggal_cetak"])
+		bayar, errBayar := hariBulan(f["tanggal_bayar"])
+		if errCetak != nil || errBayar != nil {
+			return wl, f, errors.New("Tanggal cetak dan tanggal bayar harus antara 1 sampai 31.")
+		}
+		if (cetak == 0) != (bayar == 0) {
+			return wl, f, errors.New("Isi tanggal cetak dan tanggal bayar sekaligus, atau kosongkan keduanya.")
+		}
+		wl.SettlementDay, wl.PaymentDay = cetak, bayar
+	} else {
+		f["tanggal_cetak"], f["tanggal_bayar"] = "", ""
+	}
 	return wl, f, nil
+}
+
+// hariBulan membaca tanggal dalam bulan. Kosong berarti belum diisi, bukan
+// salah — siklus tagihan boleh dilewati sampai user tahu tanggalnya.
+func hariBulan(s string) (int, error) {
+	if s == "" {
+		return 0, nil
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil || n < 1 || n > 31 {
+		return 0, errors.New("tanggal di luar rentang")
+	}
+	return n, nil
 }
 
 func knownCurrency(code string) bool {
@@ -237,7 +312,7 @@ func (a *App) walletUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if old.Currency != wl.Currency {
-		txs, err := a.store.Transactions(r.Context(), family(r), "", "", 0)
+		txs, err := a.store.Transactions(r.Context(), family(r), nil, "", 0)
 		if err != nil {
 			a.fail(w, r, err)
 			return
@@ -284,27 +359,30 @@ func (a *App) walletDelete(w http.ResponseWriter, r *http.Request) {
 
 var kindLabel = map[string]string{
 	"expense": "Pengeluaran", "income": "Pemasukan", "transfer": "Transfer",
+	"debt_in": "Hutang", "debt_pay": "Bayar Hutang",
+	"loan_out": "Piutang", "loan_in": "Terima Piutang",
 }
 
 var txFilters = []struct{ Value, Label string }{
-	{"", "Semua"}, {"expense", "Keluar"}, {"income", "Masuk"}, {"transfer", "Transfer"},
+	{"", "Semua"}, {"expense", "Keluar"}, {"income", "Masuk"},
+	{"transfer", "Transfer"}, {"hutang", "Hutang"},
 }
 
 func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	filter := r.URL.Query().Get("jenis")
-	if _, ok := kindLabel[filter]; !ok {
+	if _, ok := kindLabel[filter]; !ok && filter != "hutang" {
 		filter = ""
 	}
 	kategori := r.URL.Query().Get("kategori")
 
-	// Transfer tidak punya kategori: menyaring keduanya sekaligus selalu kosong,
-	// jadi memilih kategori otomatis melepas filter jenis "Transfer".
-	if kategori != "" && filter == "transfer" {
+	// Transfer dan hutang piutang tidak punya kategori: menyaring keduanya
+	// sekaligus selalu kosong, jadi memilih kategori melepas filter jenis itu.
+	if kategori != "" && (filter == "transfer" || filter == "hutang") {
 		filter = ""
 	}
 
-	txs, err := a.store.Transactions(ctx, family(r), filter, kategori, 200)
+	txs, err := a.store.Transactions(ctx, family(r), kindsForFilter(filter), kategori, 200)
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -320,6 +398,20 @@ func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 		"Kategori": kategori, "Categories": cats,
 		"Groups": groupTxs(viewTxs(txs, a.today())),
 	})
+}
+
+// kindsForFilter menerjemahkan pilihan filter jadi daftar jenis. "hutang"
+// mewakili empat jenis sekaligus, karena bagi user hutang dan piutang adalah
+// satu urusan meski tersimpan sebagai jenis terpisah.
+func kindsForFilter(filter string) []string {
+	switch filter {
+	case "":
+		return nil
+	case "hutang":
+		return []string{"debt_in", "debt_pay", "loan_out", "loan_in"}
+	default:
+		return []string{filter}
+	}
 }
 
 func (a *App) txDetail(w http.ResponseWriter, r *http.Request) {
@@ -393,6 +485,19 @@ func (a *App) txForm(w http.ResponseWriter, r *http.Request) {
 		"tanggal":  t.Date.Format("2006-01-02"),
 		"catatan":  t.Note,
 		"kategori": t.Category,
+	}
+	// Tombol "Bayar Tagihan" di kartu kredit membuka form transfer ini dengan
+	// dompet tujuan dan nominal sudah terisi. Pembayaran kartu memang transfer:
+	// belanjanya sudah tercatat sebagai pengeluaran waktu kartu dipakai, jadi
+	// mencatatnya lagi sebagai pengeluaran akan menghitungnya dua kali.
+	if id == 0 && t.Kind == "transfer" {
+		if ke := r.URL.Query().Get("ke"); ke != "" {
+			f["ke_dompet"] = ke
+		}
+		if nominal := r.URL.Query().Get("nominal"); nominal != "" {
+			f["nominal_keluar"] = nominal
+			f["nominal_diterima"] = nominal
+		}
 	}
 	if id != 0 {
 		f["dompet"] = strconv.FormatInt(t.WalletID, 10)
