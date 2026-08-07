@@ -143,3 +143,31 @@ func TestPayLaterSamaDenganKartuKredit(t *testing.T) {
 		t.Errorf("sisa pemakaian = %s", v.Outstanding)
 	}
 }
+
+// Tagihan adalah bagian di dalam nominal terpakai, bukan angka terpisah.
+// Selisihnya ditampilkan supaya keduanya bisa dicek silang.
+func TestBelumDitagih(t *testing.T) {
+	w := Wallet{Type: "credit", Currency: "IDR", BalanceMinor: -123_232_300, LimitMinor: 1_000_000_000}
+	st := CardStatus{
+		Wallet: w, OutstandingMinor: w.BalanceMinor, HasCycle: true,
+		PayableMinor: 43_232_300, // Rp432.323
+		Settlement:   tgl(2026, 7, 25), Due: tgl(2026, 8, 15),
+	}
+	v := viewCard(st, tgl(2026, 8, 7))
+
+	// Rp1.232.323 terpakai, Rp432.323 sudah tertagih -> Rp800.000 belum.
+	if v.BelumDitagih != "Rp800.000" {
+		t.Errorf("belum ditagih = %q, mau Rp800.000", v.BelumDitagih)
+	}
+	// Dan ketiganya harus konsisten dengan limitnya.
+	if v.Outstanding != "Rp1.232.323" || v.SisaLimit != "Rp8.767.677" {
+		t.Errorf("terpakai %s, sisa limit %s", v.Outstanding, v.SisaLimit)
+	}
+
+	// Saat seluruh pemakaian sudah tertagih, tidak ada rincian yang perlu
+	// ditampilkan — barisnya dikosongkan, bukan ditulis Rp0.
+	st.PayableMinor = 123_232_300
+	if got := viewCard(st, tgl(2026, 8, 7)).BelumDitagih; got != "" {
+		t.Errorf("semua sudah tertagih seharusnya tanpa rincian, dapat %q", got)
+	}
+}

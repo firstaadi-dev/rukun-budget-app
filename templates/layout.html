@@ -94,6 +94,7 @@
     <div>
       <div class="card-kicker">Terpakai</div>
       <div class="{{if .HasCycle}}kk-sisa{{else}}kk-utama m-out{{end}}">{{.Outstanding}}</div>
+      {{with .BelumDitagih}}<div class="text-muted tiny">termasuk {{.}} belum ditagih</div>{{end}}
     </div>
   </div>
 

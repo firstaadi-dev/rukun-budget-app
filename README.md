@@ -176,7 +176,16 @@ menebak pagunya lebih berbahaya daripada diam.
 | | Artinya |
 |---|---|
 | **Tagihan** | Yang sudah tercetak di lembar tagihan terakhir dan harus dibayar sebelum jatuh tempo, dikurangi pembayaran yang masuk sesudahnya. |
-| **Terpakai** | Seluruh yang terpakai sampai hari ini, termasuk belanja yang belum masuk tagihan mana pun. Dijumlahkan dengan sisa limit, hasilnya pas limitnya. |
+| **Terpakai** | Seluruh yang terpakai sampai hari ini, termasuk belanja yang belum masuk tagihan mana pun. |
+
+Tagihan adalah **bagian di dalam** nominal terpakai, bukan angka terpisah, jadi selisih
+keduanya ikut ditulis sebagai "termasuk sekian belum ditagih". Ketiga angka di kartu bisa
+dicek silang tanpa berhitung: tagihan ditambah yang belum ditagih sama dengan terpakai,
+dan terpakai ditambah sisa limit sama dengan limitnya.
+
+Nominal terpakai sengaja memakai total, bukan hanya yang belum ditagih: limit dimakan
+oleh totalnya, dan bank menolak transaksi berdasarkan angka itu. Menampilkan yang belum
+ditagih saja akan membuat kartunya bertentangan sendiri dengan sisa limit di bawahnya.
 
 Membayar sebesar sisa pemakaian tidak salah, tapi membayar sebesar tagihan sudah cukup
 untuk menghindari bunga — karena itu keduanya ditampilkan berdampingan.

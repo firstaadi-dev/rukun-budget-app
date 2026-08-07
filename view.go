@@ -322,6 +322,10 @@ type CardView struct {
 	// HariLagi: sisa hari menuju jatuh tempo. Negatif berarti sudah lewat.
 	HariLagi int
 	Lunas    bool
+	// BelumDitagih: bagian dari nominal terpakai yang belum masuk tagihan mana
+	// pun. Ditampilkan sebagai rincian, supaya jelas bahwa tagihan bukan angka
+	// terpisah dari terpakai melainkan bagian di dalamnya.
+	BelumDitagih string
 
 	Limit     string
 	SisaLimit string
@@ -351,6 +355,13 @@ func viewCard(st CardStatus, today time.Time) CardView {
 		v.Due = tanggalPendek(st.Due)
 		v.HariLagi = int(hari(st.Due).Sub(hari(today)).Hours() / 24)
 		v.Lunas = st.PayableMinor == 0
+
+		// Tagihan sudah termasuk di dalam nominal terpakai, bukan angka
+		// terpisah. Selisihnya ditampilkan supaya keduanya bisa dicek silang
+		// tanpa berhitung, dan tidak ada yang keliru menjumlahkannya.
+		if sisa := w.TerpakaiMinor() - st.PayableMinor; sisa > 0 {
+			v.BelumDitagih = Format(sisa, w.Currency)
+		}
 	}
 	if w.HasLimit() {
 		v.Limit = Format(w.LimitMinor, w.Currency)
