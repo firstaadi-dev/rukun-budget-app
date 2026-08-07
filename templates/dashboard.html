@@ -20,7 +20,7 @@
     <div class="card">
       <div class="card-kicker m-out">Akun Kredit</div>
       <div class="mid-figure m-out">{{.Summary.TotalCredit}}</div>
-      <div class="card-body small">Terpakai di kartu kredit</div>
+      <div class="card-body small">Terpakai di kartu kredit &amp; PayLater</div>
     </div>
   </div>
 
@@ -32,7 +32,7 @@
   {{if .Cards}}
     <section>
       <div class="sec-head">
-        <h6>Kartu Kredit</h6>
+        <h6>Akun Kredit</h6>
         <a href="/dompet" class="small">Kelola</a>
       </div>
       <div class="kk-strip">{{range .Cards}}{{template "kartu-kredit" .}}{{end}}</div>

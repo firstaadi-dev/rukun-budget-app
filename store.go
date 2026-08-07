@@ -31,18 +31,33 @@ type Wallet struct {
 	Currency     string
 	InitialMinor int64
 	BalanceMinor int64
-	// Tanggal cetak tagihan dan jatuh tempo, hanya untuk kartu kredit.
+	// Tanggal cetak tagihan dan jatuh tempo, hanya untuk akun berbasis kredit.
 	// Nol berarti siklusnya belum diisi.
 	SettlementDay int
 	PaymentDay    int
+	// LimitMinor: pagu pemakaian. Nol berarti belum diisi, bukan nol rupiah —
+	// tanpa limit aplikasi tidak menahan pemakaian sama sekali.
+	LimitMinor int64
 }
 
 func (w Wallet) HasCycle() bool { return w.SettlementDay > 0 && w.PaymentDay > 0 }
+func (w Wallet) HasLimit() bool { return w.LimitMinor > 0 }
 
-func (w Wallet) IsCredit() bool { return w.Type == "credit" }
+// IsCredit: akun yang saldonya bergerak ke arah negatif saat dipakai, dan
+// dilunasi belakangan. Kartu kredit dan PayLater berperilaku sama persis di
+// seluruh aplikasi — perbedaannya cuma nama dan daftar penyedianya.
+func (w Wallet) IsCredit() bool { return w.Type == "credit" || w.Type == "paylater" }
+
+// TerpakaiMinor: berapa yang sedang terpakai dari limit. Saldo akun kredit
+// negatif saat dipakai, jadi ini kebalikan tandanya.
+func (w Wallet) TerpakaiMinor() int64 { return max(0, -w.BalanceMinor) }
+
+// SisaLimitMinor: berapa lagi yang boleh dipakai.
+func (w Wallet) SisaLimitMinor() int64 { return max(0, w.LimitMinor-w.TerpakaiMinor()) }
 
 var walletTypeLabel = map[string]string{
-	"cash": "Tunai", "bank": "Bank", "credit": "Kartu Kredit", "ewallet": "E-Wallet",
+	"cash": "Tunai", "bank": "Bank", "credit": "Kartu Kredit",
+	"ewallet": "E-Wallet", "paylater": "PayLater",
 }
 
 func (w Wallet) TypeLabel() string { return walletTypeLabel[w.Type] }
@@ -52,7 +67,7 @@ func (w Wallet) Subtitle() string {
 	if w.Provider == "" {
 		return w.TypeLabel()
 	}
-	if w.Type == "bank" || w.Type == "credit" {
+	if w.Type == "bank" || w.IsCredit() {
 		return w.Provider + " · " + w.TypeLabel()
 	}
 	return w.Provider
@@ -68,6 +83,7 @@ func (w Wallet) Subtitle() string {
 const walletSelect = `
 SELECT w.id, w.name, w.type, COALESCE(w.provider, ''), w.currency, w.initial_balance_minor,
        COALESCE(w.settlement_day, 0), COALESCE(w.payment_day, 0),
+       COALESCE(w.credit_limit_minor, 0),
        w.initial_balance_minor
        + COALESCE((SELECT SUM(CASE WHEN t.kind IN ('income', 'debt_in', 'loan_in')
                                    THEN t.amount_minor ELSE -t.amount_minor END)
@@ -83,7 +99,7 @@ func scanWallets(rows pgx.Rows) ([]Wallet, error) {
 	for rows.Next() {
 		var w Wallet
 		if err := rows.Scan(&w.ID, &w.Name, &w.Type, &w.Provider, &w.Currency, &w.InitialMinor,
-			&w.SettlementDay, &w.PaymentDay, &w.BalanceMinor); err != nil {
+			&w.SettlementDay, &w.PaymentDay, &w.LimitMinor, &w.BalanceMinor); err != nil {
 			return nil, err
 		}
 		out = append(out, w)
@@ -118,10 +134,11 @@ func (s *Store) CreateWallet(ctx context.Context, familyID int64, w Wallet) (int
 	var id int64
 	err := s.db.QueryRow(ctx,
 		`INSERT INTO wallets (family_id, name, type, provider, currency, initial_balance_minor,
-		                      settlement_day, payment_day)
-		 VALUES ($1, $2, $3, NULLIF($4, ''), $5, $6, NULLIF($7, 0), NULLIF($8, 0)) RETURNING id`,
+		                      settlement_day, payment_day, credit_limit_minor)
+		 VALUES ($1, $2, $3, NULLIF($4, ''), $5, $6,
+		         NULLIF($7, 0), NULLIF($8, 0), NULLIF($9, 0)::BIGINT) RETURNING id`,
 		familyID, w.Name, w.Type, w.Provider, w.Currency, w.InitialMinor,
-		w.SettlementDay, w.PaymentDay).Scan(&id)
+		w.SettlementDay, w.PaymentDay, w.LimitMinor).Scan(&id)
 	return id, err
 }
 
@@ -129,10 +146,11 @@ func (s *Store) UpdateWallet(ctx context.Context, familyID int64, w Wallet) erro
 	tag, err := s.db.Exec(ctx,
 		`UPDATE wallets SET name = $1, type = $2, provider = NULLIF($3, ''),
 		        currency = $4, initial_balance_minor = $5,
-		        settlement_day = NULLIF($6, 0), payment_day = NULLIF($7, 0)
-		 WHERE id = $8 AND family_id = $9`,
+		        settlement_day = NULLIF($6, 0), payment_day = NULLIF($7, 0),
+		        credit_limit_minor = NULLIF($8, 0)::BIGINT
+		 WHERE id = $9 AND family_id = $10`,
 		w.Name, w.Type, w.Provider, w.Currency, w.InitialMinor,
-		w.SettlementDay, w.PaymentDay, w.ID, familyID)
+		w.SettlementDay, w.PaymentDay, w.LimitMinor, w.ID, familyID)
 	if err == nil && tag.RowsAffected() == 0 {
 		return ErrNotFound
 	}
@@ -882,8 +900,11 @@ type CardStatus struct {
 	// OutstandingMinor: seluruh pemakaian sampai hari ini, termasuk belanja
 	// yang belum masuk tagihan mana pun.
 	OutstandingMinor int64
-	Settlement       time.Time // tanggal cetak terakhir
-	Due              time.Time // jatuh tempo tagihan itu
+	// HasCycle: siklus tagihannya sudah diisi. Tanpa itu Settlement, Due, dan
+	// PayableMinor tidak punya arti dan tidak boleh ditampilkan.
+	HasCycle   bool
+	Settlement time.Time // tanggal cetak terakhir
+	Due        time.Time // jatuh tempo tagihan itu
 }
 
 // CardBalances mengambil dua angka mentah yang dibutuhkan CardStatus:

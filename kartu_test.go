@@ -83,3 +83,63 @@ func TestTagihanKartu(t *testing.T) {
 		}
 	}
 }
+
+// Limit menentukan berapa lagi yang boleh dipakai. Saldo akun kredit negatif
+// saat dipakai, jadi arah tandanya mudah tertukar — dikunci di sini.
+func TestSisaLimit(t *testing.T) {
+	rp := func(juta float64) int64 { return int64(juta * 100_000_000) }
+
+	cases := []struct {
+		nama           string
+		saldo, limit   int64
+		terpakai, sisa int64
+		persen         int
+	}{
+		{"belum dipakai", 0, rp(10), 0, rp(10), 0},
+		{"terpakai sebagian", -rp(3), rp(10), rp(3), rp(7), 30},
+		{"terpakai penuh", -rp(10), rp(10), rp(10), 0, 100},
+		{"lebih bayar jadi saldo positif", rp(1), rp(10), 0, rp(10), 0},
+		// Bisa terjadi kalau limit diturunkan setelah kartu terlanjur terpakai.
+		{"terpakai melebihi limit", -rp(12), rp(10), rp(12), 0, 100},
+	}
+	for _, c := range cases {
+		w := Wallet{Type: "credit", Currency: "IDR", BalanceMinor: c.saldo, LimitMinor: c.limit}
+		if got := w.TerpakaiMinor(); got != c.terpakai {
+			t.Errorf("%s: terpakai = %s, mau %s", c.nama, Format(got, "IDR"), Format(c.terpakai, "IDR"))
+		}
+		if got := w.SisaLimitMinor(); got != c.sisa {
+			t.Errorf("%s: sisa limit = %s, mau %s", c.nama, Format(got, "IDR"), Format(c.sisa, "IDR"))
+		}
+		v := viewCard(CardStatus{Wallet: w, OutstandingMinor: c.saldo}, tgl(2026, 8, 7))
+		if v.TerpakaiPersen != c.persen {
+			t.Errorf("%s: persen = %d, mau %d", c.nama, v.TerpakaiPersen, c.persen)
+		}
+	}
+}
+
+// PayLater berperilaku sama persis dengan kartu kredit di seluruh aplikasi.
+func TestPayLaterSamaDenganKartuKredit(t *testing.T) {
+	pl := Wallet{Type: "paylater", Provider: "SPayLater", Currency: "IDR",
+		BalanceMinor: -50_000_000, LimitMinor: 200_000_000}
+	if !pl.IsCredit() {
+		t.Error("PayLater seharusnya dihitung sebagai akun kredit")
+	}
+	if pl.TypeLabel() != "PayLater" {
+		t.Errorf("label = %q", pl.TypeLabel())
+	}
+	if pl.Subtitle() != "SPayLater · PayLater" {
+		t.Errorf("subjudul = %q", pl.Subtitle())
+	}
+	if got := pl.SisaLimitMinor(); got != 150_000_000 {
+		t.Errorf("sisa limit = %s, mau Rp1.500.000", Format(got, "IDR"))
+	}
+
+	// Tanpa siklus tagihan, bagian tagihannya disembunyikan — bukan ditebak.
+	v := viewCard(CardStatus{Wallet: pl, OutstandingMinor: pl.BalanceMinor}, tgl(2026, 8, 7))
+	if v.HasCycle || v.Payable != "" {
+		t.Errorf("akun tanpa siklus seharusnya tanpa tagihan, dapat %q", v.Payable)
+	}
+	if v.Outstanding != "Rp500.000" {
+		t.Errorf("sisa pemakaian = %s", v.Outstanding)
+	}
+}

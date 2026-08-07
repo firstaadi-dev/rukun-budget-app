@@ -37,6 +37,18 @@
 
   {{/* Siklus tagihan hanya berarti untuk kartu kredit; skrip menyembunyikannya
        untuk jenis lain, dan server pun mengabaikannya di sana. */}}
+  <div class="field" id="limit-kredit" hidden>
+    <label for="limit">Limit</label>
+    <div class="input-affix">
+      <span class="affix" data-currency-symbol>{{symbol .Form.mata_uang}}</span>
+      <input class="input" id="limit" name="limit" inputmode="decimal" pattern="-?[0-9.,]*"
+             title="Hanya angka, titik, dan koma"
+             value="{{.Form.limit}}" placeholder="10.000.000">
+    </div>
+    <p class="hint">Pagu pemakaian. Transaksi yang menembusnya akan ditolak.
+      Kosongkan kalau tidak ingin dibatasi.</p>
+  </div>
+
   <div class="field" id="siklus-kartu" hidden>
     <label>Siklus Tagihan</label>
     <div class="siklus">
