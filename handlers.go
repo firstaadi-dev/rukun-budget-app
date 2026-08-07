@@ -139,7 +139,7 @@ func (a *App) walletList(w http.ResponseWriter, r *http.Request) {
 	}
 	a.render(w, r, "dompet.html", map[string]any{
 		"Title": "Dompet", "Nav": "dompet",
-		"Wallets": viewWallets(wallets), "Cards": cards,
+		"Wallets": withCards(viewWallets(wallets), cards),
 	})
 }
 

@@ -58,6 +58,10 @@ type WalletView struct {
 	Wallet
 	Balance  string
 	Negative bool
+	// Card: ringkasan kredit milik dompet ini, kalau ada. Nil untuk dompet
+	// biasa — template memakainya untuk memilih baris biasa atau baris yang
+	// bisa dibuka.
+	Card *CardView
 }
 
 func viewWallet(w Wallet) WalletView {
@@ -70,6 +74,20 @@ func viewWallets(ws []Wallet) []WalletView {
 		out[i] = viewWallet(w)
 	}
 	return out
+}
+
+// withCards menempelkan ringkasan kredit ke baris dompetnya masing-masing.
+// ponytail: pencarian bersarang, satu keluarga tidak akan punya cukup dompet
+// untuk membuat map lebih cepat daripada dua lingkaran ini.
+func withCards(ws []WalletView, cards []CardView) []WalletView {
+	for i := range cards {
+		for j := range ws {
+			if ws[j].ID == cards[i].ID {
+				ws[j].Card = &cards[i]
+			}
+		}
+	}
+	return ws
 }
 
 type TxView struct {

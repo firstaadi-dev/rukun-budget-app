@@ -59,8 +59,8 @@ func TestPagesRender(t *testing.T) {
 		}, "Per Kategori"},
 
 		{"dompet.html", map[string]any{
-			"Title": "Dompet", "Nav": "dompet", "Wallets": viewWallets(wallets),
-			"Cards": []CardView{kartuUji(today)},
+			"Title": "Dompet", "Nav": "dompet",
+			"Wallets": withCards(viewWallets(wallets), []CardView{kartuUji(today)}),
 		}, "Terpakai"},
 
 		{"dompet_form.html", map[string]any{
