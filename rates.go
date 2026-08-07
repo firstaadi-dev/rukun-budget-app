@@ -160,8 +160,8 @@ func (s *rateSource) status() (fetched time.Time, err error) {
 // Kurs pasar menang karena lebih baru; kurs transfer jadi cadangan untuk
 // pasangan mata uang yang tidak dikenal API atau saat API sedang tidak bisa
 // dihubungi.
-func (a *App) rates(ctx context.Context) (map[string]Rate, error) {
-	merged, err := a.store.Rates(ctx)
+func (a *App) rates(ctx context.Context, familyID int64) (map[string]Rate, error) {
+	merged, err := a.store.Rates(ctx, familyID)
 	if err != nil {
 		return nil, err
 	}

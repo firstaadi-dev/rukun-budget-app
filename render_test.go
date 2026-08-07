@@ -109,9 +109,11 @@ func TestPagesRender(t *testing.T) {
 			"Kinds": []struct{ Value, Label string }{{"expense", "Pengeluaran"}, {"income", "Pemasukan"}},
 		}, "Simpan Kategori"},
 
-		{"masuk.html", map[string]any{"NoChrome": true, "Family": "Keluarga Santoso", "Kosong": true}, "Masuk"},
-		{"daftar.html", map[string]any{"NoChrome": true, "Family": "Keluarga Santoso",
-			"Form": map[string]string{"Nama": "Ayah"}, "Error": "Kode undangan tidak cocok."}, "Kode Undangan"},
+		{"masuk.html", map[string]any{"NoChrome": true,
+			"Form": map[string]string{"Kode": "abcde-fghij-klmno"}}, "Kode Keluarga"},
+		{"daftar.html", map[string]any{"NoChrome": true,
+			"Form":  map[string]string{"Nama": "Ayah", "Kode": "abcde-fghij-klmno"},
+			"Error": "Kode undangan tidak cocok dengan keluarga mana pun."}, "Kode Undangan"},
 	}
 
 	for _, c := range cases {
@@ -120,7 +122,7 @@ func TestPagesRender(t *testing.T) {
 			t.Errorf("%s: template tidak ditemukan", c.page)
 			continue
 		}
-		c.data["User"] = User{ID: 1, Name: "Ayah"}
+		c.data["User"] = User{ID: 1, Name: "Ayah", FamilyID: 1, FamilyName: "Keluarga Santoso"}
 		if _, ok := c.data["Family"]; !ok {
 			c.data["Family"] = "Keluarga Santoso"
 		}

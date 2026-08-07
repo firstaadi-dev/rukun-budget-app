@@ -1,7 +1,6 @@
--- Skema Rukun. Dijalankan otomatis saat start (idempotent).
--- ponytail: belum pakai tool migrasi. Satu file CREATE ... IF NOT EXISTS cukup
--- selama skema belum pernah berubah setelah rilis. Begitu perlu ALTER pada
--- data yang sudah hidup, pindah ke golang-migrate dan jadikan file ini 001.
+-- Skema awal Rukun (fase 1 dan 2). Berkas migrasi tidak boleh diubah lagi
+-- setelah pernah diterapkan di database yang hidup: perubahan berikutnya
+-- ditulis sebagai berkas baru bernomor lebih besar.
 
 CREATE TABLE IF NOT EXISTS users (
     id            BIGSERIAL PRIMARY KEY,

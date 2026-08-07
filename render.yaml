@@ -1,14 +1,9 @@
 # Blueprint Render. Deploy: Render Dashboard → New → Blueprint → pilih repo ini.
-# Satu web service + satu Postgres, keduanya di Singapore (paling dekat ke Indonesia).
-
-databases:
-  - name: rukun-db
-    databaseName: rukun
-    user: rukun
-    region: singapore
-    plan: free
-    postgresMajorVersion: "17"
-    ipAllowList: [] # hanya bisa diakses dari dalam jaringan Render
+#
+# Databasenya di Neon, bukan Postgres bawaan Render, jadi berkas ini hanya
+# mengurus web service. Pilih region Singapore untuk keduanya: proyek Neon-nya
+# ada di ap-southeast, dan setiap query menyeberang region akan menambah puluhan
+# milidetik pada setiap permintaan halaman.
 
 services:
   - type: web
@@ -21,18 +16,20 @@ services:
     startCommand: ./rukun
     healthCheckPath: /healthz
     envVars:
+      # Connection string Neon. sync: false berarti Render menanyakannya saat
+      # deploy dan menyimpannya di dashboard — sengaja tidak ditulis di sini,
+      # karena berkas ini masuk git sedangkan isinya kredensial.
+      #
+      # Pakai connection string yang TANPA "-pooler" di nama host. Aplikasi ini
+      # sudah punya pool sendiri lewat pgxpool, dan pooler Neon berjalan dalam
+      # mode transaksi yang bisa berbenturan dengan prepared statement pgx.
       - key: DATABASE_URL
-        fromDatabase:
-          name: rukun-db
-          property: connectionString
-      # Kode undangan untuk mendaftarkan anggota keluarga. Dibuat acak oleh
-      # Render; lihat nilainya di tab Environment lalu bagikan ke keluarga.
-      - key: SIGNUP_CODE
+        sync: false
+      # Token API admin, dipakai untuk membuat keluarga baru lewat curl.
+      # Dibuat acak oleh Render; lihat nilainya di tab Environment.
+      # Kalau dikosongkan, endpoint /admin/* mati total.
+      - key: ADMIN_TOKEN
         generateValue: true
-      # Nama di sapaan dashboard. Hanya label tampilan — pemisahan data antar
-      # keluarga terjadi di level deployment, bukan di sini. Lihat README.
-      - key: APP_FAMILY
-        value: Keluarga Firsta
       - key: BASE_CURRENCY
         value: IDR
       - key: APP_TZ

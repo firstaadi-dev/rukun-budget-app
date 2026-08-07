@@ -1,7 +1,7 @@
 {{define "content"}}
 <div class="auth-card card elev-md">
   <div class="brand auth-brand">Rukun</div>
-  <p class="text-muted small">Gabung ke keuangan {{.Family}}</p>
+  <p class="text-muted small">Gabung ke keuangan keluarga</p>
 
   {{if .Error}}<p class="alert" role="alert">{{.Error}}</p>{{end}}
 
@@ -20,7 +20,9 @@
     </div>
     <div class="field">
       <label for="kode">Kode Undangan</label>
-      <input class="input" id="kode" name="kode" required autocomplete="off">
+      <input class="input" id="kode" name="kode" required autocomplete="off"
+             value="{{with .Form}}{{.Kode}}{{end}}" placeholder="abcde-fghij-klmno">
+      <p class="hint">Minta ke anggota keluarga yang sudah terdaftar.</p>
     </div>
     <button type="submit" class="btn btn-primary btn-block">Daftar</button>
   </form>
