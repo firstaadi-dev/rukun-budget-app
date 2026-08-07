@@ -286,12 +286,21 @@ type Category struct {
 
 // Categories mengembalikan kategori beserta jumlah pemakaiannya. kind kosong
 // berarti semua jenis.
+//
+// Jumlah pemakaian dihitung lewat satu agregat yang di-join, bukan subquery
+// berkorelasi per baris: bentuk yang kedua menjalankan satu query terpisah untuk
+// setiap kategori, sehingga membuka halaman Kategori berarti belasan pemindaian
+// tabel transaksi sekaligus.
 func (s *Store) Categories(ctx context.Context, familyID int64, kind string) ([]Category, error) {
 	rows, err := s.db.Query(ctx, `
-		SELECT c.id, c.kind, c.name,
-		       (SELECT count(*) FROM transactions t
-		         WHERE t.family_id = c.family_id AND t.kind = c.kind AND t.category = c.name)
+		SELECT c.id, c.kind, c.name, COALESCE(p.jumlah, 0)
 		FROM categories c
+		LEFT JOIN (
+			SELECT t.kind, t.category, count(*) AS jumlah
+			FROM transactions t
+			WHERE t.family_id = $1
+			GROUP BY t.kind, t.category
+		) p ON p.kind = c.kind AND p.category = c.name
 		WHERE c.family_id = $1 AND ($2 = '' OR c.kind = $2)
 		ORDER BY c.kind, c.name`, familyID, kind)
 	if err != nil {
