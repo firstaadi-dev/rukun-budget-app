@@ -9,17 +9,35 @@
        class="btn btn-primary">Tambah{{template "icon-plus"}}</a>
   </div>
 
+  {{/* Periode berdiri paling atas karena ia yang paling menentukan isi daftar:
+       sisanya menyaring di dalam rentang yang dipilih di sini. */}}
+  <div class="periode">
+    {{if .Periode.Semua}}
+      <span class="periode-label">Seluruh waktu</span>
+      <a class="small" href="{{.URLBulanIni}}">Kembali ke bulan ini</a>
+    {{else}}
+      <a class="btn btn-ghost btn-icon" href="{{.URLPrev}}" aria-label="Bulan sebelumnya">&lsaquo;</a>
+      <span class="periode-label">{{.Periode.Label}}</span>
+      <a class="btn btn-ghost btn-icon" href="{{.URLNext}}" aria-label="Bulan berikutnya">&rsaquo;</a>
+      <a class="small periode-semua" href="{{.URLSemua}}">Seluruh waktu</a>
+    {{end}}
+  </div>
+
   <nav class="seg">
-    {{range $.Filters}}
-      <a class="seg-opt{{if eq $.Filter .Value}} on{{end}}"
-         href="/transaksi?jenis={{.Value}}{{if $.Kategori}}&kategori={{$.Kategori}}{{end}}">{{.Label}}</a>
+    {{range .Filters}}
+      <a class="seg-opt{{if .On}} on{{end}}" href="{{.URL}}">{{.Label}}</a>
     {{end}}
   </nav>
 
-  {{/* Tanpa JavaScript, select biasa tidak menavigasi. Formnya GET dan tombolnya
-       hanya muncul kalau skrip mati — itu yang membuat filter tetap bisa dipakai. */}}
+  {{/* Satu form untuk pencarian dan kategori sekaligus. Select-nya menavigasi
+       sendiri lewat data-auto-submit, tapi tombolnya tidak lagi disembunyikan
+       di balik noscript: kolom teks butuh cara mengirim yang terlihat. */}}
   <form method="get" action="/transaksi" class="filter-row" data-auto-submit>
     <input type="hidden" name="jenis" value="{{.Filter}}">
+    <input type="hidden" name="periode" value="{{.Periode.Nilai}}">
+    <label for="cari" class="text-muted small">Cari</label>
+    <input class="input" id="cari" name="cari" type="search" value="{{.Cari}}"
+           placeholder="Catatan, kategori, pihak, atau dompet">
     <label for="kategori" class="text-muted small">Kategori</label>
     <select class="input" id="kategori" name="kategori">
       <option value="">Semua kategori</option>
@@ -29,12 +47,20 @@
         </option>
       {{end}}
     </select>
-    <noscript><button type="submit" class="btn">Terapkan</button></noscript>
+    <button type="submit" class="btn btn-secondary">Terapkan</button>
   </form>
 
   {{if .Kategori}}
     <p class="note">Menampilkan kategori <strong>{{.Kategori}}</strong>.
-      <a href="/transaksi{{if .Filter}}?jenis={{.Filter}}{{end}}">Hapus filter</a></p>
+      <a href="{{$.URLTanpaKategori}}">Hapus filter</a></p>
+  {{end}}
+
+  {{/* Pemotongan dikatakan, tidak didiamkan. Daftar yang berhenti tanpa
+       keterangan terbaca sebagai "sudah habis", dan itulah cara transaksi lama
+       dulu menghilang tanpa ada yang menyadarinya. */}}
+  {{if .Terpotong}}
+    <p class="banner">Menampilkan {{.Batas}} transaksi terbaru dari periode ini saja.
+      Persempit dengan pencarian, kategori, atau pilih bulan tertentu untuk melihat sisanya.</p>
   {{end}}
 
   {{if .Groups}}
@@ -44,8 +70,14 @@
         <div class="rows">{{range .Items}}{{template "tx-row" .}}{{end}}</div>
       </section>
     {{end}}
+  {{else if .Cari}}
+    <p class="empty">Tidak ada transaksi yang cocok dengan &ldquo;{{.Cari}}&rdquo;
+      {{if .Periode.Semua}}di seluruh catatan{{else}}di {{.Periode.Label}}{{end}}.
+      {{if not .Periode.Semua}}<a href="{{.URLSemua}}">Cari di seluruh waktu</a>{{else}}<a href="{{.URLTanpaCari}}">Hapus pencarian</a>{{end}}</p>
   {{else}}
-    <p class="empty">Belum ada transaksi di filter ini.</p>
+    <p class="empty">Belum ada transaksi
+      {{if .Periode.Semua}}yang tercatat{{else}}di {{.Periode.Label}}{{end}}{{if .Kategori}} untuk kategori itu{{end}}.
+      {{if not .Periode.Semua}}<a href="{{.URLSemua}}">Lihat seluruh waktu</a>{{end}}</p>
   {{end}}
 </div>
 {{end}}

@@ -52,6 +52,60 @@ func namaBulan(t time.Time) string {
 	return fmt.Sprintf("%s %d", bulanID[int(t.Month())], t.Year())
 }
 
+// ---------- periode daftar transaksi ----------
+
+// periodeSemua: nilai yang melepas batas waktu sama sekali.
+const periodeSemua = "semua"
+
+// Periode: rentang yang sedang dilihat di halaman Transaksi.
+//
+// Daftar transaksi dibatasi bulan berjalan secara bawaan. Sebelumnya daftarnya
+// tak berperiode tapi dipotong di 200 baris terakhir, dan begitu sebuah keluarga
+// melewati angka itu, transaksi lama menghilang dari layar tanpa tanda apa pun
+// dan tanpa cara apa pun untuk sampai ke sana. Bulan adalah satuan yang dipakai
+// keluarga saat mengingat pengeluaran, jadi itu yang jadi bawaannya — dan
+// pindah bulan atau melepas batasnya cukup satu tautan.
+type Periode struct {
+	Nilai string // seperti yang dipasang di URL: "2026-08" atau "semua"
+	Label string
+	From  time.Time // inklusif
+	To    time.Time // eksklusif
+	Semua bool
+	// BulanIni: yang sedang dilihat memang bulan berjalan. Dipakai untuk
+	// memutuskan perlu tidaknya tautan kembali.
+	BulanIni bool
+	// Prev dan Next: nilai periode bulan tetangga. Melangkah maju tidak dibatasi
+	// bulan berjalan — transaksi boleh bertanggal di depan, dan menutup jalan ke
+	// sana akan menyembunyikannya persis seperti pemotongan 200 baris dulu.
+	Prev string
+	Next string
+}
+
+const formatPeriode = "2006-01"
+
+// bacaPeriode menerjemahkan parameter URL jadi rentang tanggal. Kosong atau
+// tidak terbaca berarti bulan berjalan: penyaring yang salah ketik sebaiknya
+// jatuh ke tampilan bawaan, bukan ke daftar kosong yang terlihat seperti data
+// hilang.
+func bacaPeriode(nilai string, today time.Time) Periode {
+	if nilai == periodeSemua {
+		return Periode{Nilai: periodeSemua, Label: "Seluruh waktu", Semua: true}
+	}
+	awal := awalBulan(today)
+	if t, err := time.ParseInLocation(formatPeriode, nilai, today.Location()); err == nil {
+		awal = t
+	}
+	return Periode{
+		Nilai:    awal.Format(formatPeriode),
+		Label:    namaBulan(awal),
+		From:     awal,
+		To:       awal.AddDate(0, 1, 0),
+		BulanIni: awal.Equal(awalBulan(today)),
+		Prev:     awal.AddDate(0, -1, 0).Format(formatPeriode),
+		Next:     awal.AddDate(0, 1, 0).Format(formatPeriode),
+	}
+}
+
 // ---------- view model ----------
 
 type WalletView struct {

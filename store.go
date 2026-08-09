@@ -274,21 +274,50 @@ func scanTxs(rows pgx.Rows) ([]Tx, error) {
 	return out, rows.Err()
 }
 
-// Transactions: kinds kosong berarti semua jenis, category kosong berarti semua
-// kategori, limit 0 berarti tanpa batas. Transfer dan hutang piutang tidak punya
-// kategori, jadi menyaring per kategori dengan sendirinya menyisakan pengeluaran
-// dan pemasukan saja.
-func (s *Store) Transactions(ctx context.Context, familyID int64, kinds []string, category string, limit int) ([]Tx, error) {
+// TxFilter menyaring daftar transaksi. Setiap ruas yang dibiarkan kosong
+// berarti tidak menyaring apa-apa di sisi itu.
+type TxFilter struct {
+	// Kinds kosong berarti semua jenis. Category kosong berarti semua kategori;
+	// transfer dan hutang piutang tidak punya kategori, jadi menyaringnya dengan
+	// sendirinya menyisakan pengeluaran dan pemasukan saja.
+	Kinds    []string
+	Category string
+	// From inklusif, To eksklusif. Keduanya nol berarti seluruh waktu.
+	From, To time.Time
+	// Cari dicocokkan ke catatan, kategori, nama pihak, dan nama dompet —
+	// keempat tempat nama sebuah transaksi bisa diingat kembali.
+	Cari string
+	// Limit 0 berarti tanpa batas.
+	Limit int
+}
+
+func (s *Store) Transactions(ctx context.Context, familyID int64, f TxFilter) ([]Tx, error) {
 	q := txSelect + ` AND (cardinality($2::text[]) = 0 OR t.kind = ANY($2))
 	                  AND ($3 = '' OR t.category = $3)
+	                  AND ($4::date IS NULL OR t.occurred_on >= $4)
+	                  AND ($5::date IS NULL OR t.occurred_on < $5)
+	                  AND ($6 = '' OR t.note ILIKE '%' || $6 || '%'
+	                              OR t.category ILIKE '%' || $6 || '%'
+	                              OR p.name ILIKE '%' || $6 || '%'
+	                              OR w.name ILIKE '%' || $6 || '%')
 	                  ORDER BY t.occurred_on DESC, t.id DESC`
+	kinds := f.Kinds
 	if kinds == nil {
 		kinds = []string{}
 	}
-	args := []any{familyID, kinds, category}
-	if limit > 0 {
-		q += " LIMIT $4"
-		args = append(args, limit)
+	// Tanggal nol dikirim sebagai NULL, bukan sebagai 1 Januari tahun 1:
+	// yang kedua tetap menyaring, hanya dengan batas yang kebetulan longgar.
+	var from, to any
+	if !f.From.IsZero() {
+		from = f.From
+	}
+	if !f.To.IsZero() {
+		to = f.To
+	}
+	args := []any{familyID, kinds, f.Category, from, to, f.Cari}
+	if f.Limit > 0 {
+		q += " LIMIT $7"
+		args = append(args, f.Limit)
 	}
 	rows, err := s.db.Query(ctx, q, args...)
 	if err != nil {

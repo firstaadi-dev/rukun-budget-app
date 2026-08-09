@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -79,10 +80,29 @@ func TestPagesRender(t *testing.T) {
 		}, "Simpan Dompet"},
 
 		{"transaksi.html", map[string]any{
-			"Title": "Transaksi", "Nav": "transaksi", "Filter": "", "Filters": txFilters,
+			"Title": "Transaksi", "Nav": "transaksi", "Filter": "",
+			"Filters":  txFilterOptions(url.Values{}, ""),
 			"Kategori": "", "Categories": []Category{{ID: 1, Kind: "expense", Name: "Belanja"}},
+			"Cari": "", "Periode": bacaPeriode("", today),
+			"URLPrev": "/transaksi?periode=2026-07", "URLNext": "/transaksi?periode=2026-09",
+			"URLSemua": "/transaksi?periode=semua", "URLBulanIni": "/transaksi",
+			"URLTanpaCari": "/transaksi", "URLTanpaKategori": "/transaksi",
 			"Groups": groupTxs(views),
-		}, "Hari ini"},
+		}, "Agustus 2026"},
+
+		// Daftar yang kosong karena pencariannya tidak menemukan apa-apa, dan
+		// yang terpotong di batas halaman. Keduanya blok tersendiri, dan
+		// keduanya justru yang paling menyesatkan kalau salah kata.
+		{"transaksi.html", map[string]any{
+			"Title": "Transaksi", "Nav": "transaksi", "Filter": "",
+			"Filters":  txFilterOptions(url.Values{"cari": {"listrik"}}, ""),
+			"Kategori": "", "Categories": []Category{{ID: 1, Kind: "expense", Name: "Belanja"}},
+			"Cari": "listrik", "Periode": bacaPeriode("", today),
+			"URLPrev": "/transaksi?cari=listrik&periode=2026-07", "URLNext": "/transaksi?cari=listrik&periode=2026-09",
+			"URLSemua": "/transaksi?cari=listrik&periode=semua", "URLBulanIni": "/transaksi?cari=listrik",
+			"URLTanpaCari": "/transaksi", "URLTanpaKategori": "/transaksi?cari=listrik",
+			"Terpotong": true, "Batas": txListLimit,
+		}, "Cari di seluruh waktu"},
 
 		{"transaksi_form.html", map[string]any{
 			"Title": "Catat Pengeluaran", "Nav": "transaksi", "Back": "/transaksi",

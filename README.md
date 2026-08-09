@@ -268,6 +268,36 @@ yang punya dompet menurunkannya dari dompet itu, supaya tidak ada dua sumber keb
 Pembayaran yang melebihi sisa saldo ditolak. Tanpa itu, salah ketik satu nol membuat
 saldo hutang berbalik jadi piutang dan tidak ada yang menyadarinya.
 
+## Daftar transaksi: periode dan pencarian
+
+**Bawaannya bulan berjalan.** Sebelum ini daftarnya tak berperiode tapi dipotong di 200
+baris terakhir — dan begitu sebuah keluarga melewati angka itu, transaksi lama menghilang
+dari layar tanpa tanda apa pun dan tanpa cara apa pun untuk sampai ke sana. Bulan adalah
+satuan yang dipakai keluarga saat mengingat pengeluaran, jadi itu yang jadi bawaannya;
+pindah bulan dan melepas batasnya sama-sama cukup satu tautan.
+
+Melangkah ke bulan depan sengaja tidak ditutup meski belum tiba. Transaksi boleh
+bertanggal di depan, dan menutup jalan ke sana akan menyembunyikannya persis seperti
+pemotongan 200 baris dulu.
+
+**Batas halaman tetap ada, tapi sekarang dikatakan.** Satu bulan praktis tidak pernah
+menembus 200 transaksi, tapi "Seluruh waktu" akan menembusnya cepat. Query karena itu
+meminta satu baris lebih banyak dari batasnya: kelebihan satu baris itulah yang memberi
+tahu bahwa daftarnya terpotong — tanpanya, 200 hasil pas tidak bisa dibedakan dari 200
+hasil pertama dari seribu. Daftar yang berhenti tanpa keterangan terbaca sebagai "sudah
+habis", dan itu persis cara transaksi lama dulu hilang tanpa ada yang menyadarinya.
+
+**Pencarian mencakup empat kolom**: catatan, kategori, nama pihak, dan nama dompet —
+keempat tempat sebuah transaksi bisa diingat kembali. Pencarian tetap tunduk pada periode
+yang sedang dipilih, dan kalau tidak ada hasilnya, layar kosongnya menawarkan pencarian
+yang sama di seluruh waktu. Menyetel pencarian supaya diam-diam melompati periode akan
+lebih membingungkan: hasil yang muncul di luar bulan yang tertulis di layar.
+
+Keempat penyaring — jenis, kategori, periode, pencarian — saling menumpuk, dan setiap
+tautan di halaman itu dirakit oleh `txURL` yang membawa serta penyaring lain yang sedang
+aktif. Parameternya didaftar tertutup di `txParams`, jadi parameter asing tidak ikut
+menempel dari satu tautan ke tautan berikutnya.
+
 ## Keputusan yang penting dipahami sebelum mengubah kode
 
 **Uang selalu `int64` dalam satuan terkecil.** `Rp1.500,50` disimpan sebagai `150050`.

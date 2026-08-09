@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -74,7 +75,7 @@ func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
-	txs, err := a.store.Transactions(ctx, family(r), nil, "", 5)
+	txs, err := a.store.Transactions(ctx, family(r), TxFilter{Limit: 5})
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -335,7 +336,7 @@ func (a *App) walletUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if old.Currency != wl.Currency {
-		txs, err := a.store.Transactions(r.Context(), family(r), nil, "", 0)
+		txs, err := a.store.Transactions(r.Context(), family(r), TxFilter{})
 		if err != nil {
 			a.fail(w, r, err)
 			return
@@ -391,25 +392,90 @@ var txFilters = []struct{ Value, Label string }{
 	{"transfer", "Transfer"}, {"hutang", "Hutang"},
 }
 
+// txListLimit membatasi satu halaman daftar transaksi. Sebulan yang menembus
+// angka ini praktis tidak ada, tapi "Seluruh waktu" akan menembusnya cepat —
+// dan yang penting bukan batasnya, melainkan bahwa pemotongannya dikatakan,
+// bukan diam-diam seperti sebelumnya.
+const txListLimit = 200
+
+// TxFilterOpt: satu pilihan jenis di atas daftar, lengkap dengan URL-nya.
+type TxFilterOpt struct {
+	Value, Label, URL string
+	On                bool
+}
+
+// txParams: penyaring yang boleh menempel di URL daftar transaksi. Didaftar
+// tertutup supaya parameter asing tidak ikut terbawa dari satu tautan ke
+// tautan berikutnya.
+var txParams = []string{"jenis", "kategori", "periode", "cari"}
+
+// txURL merakit URL daftar transaksi dengan satu penyaring diganti. Halaman ini
+// punya empat penyaring yang saling menumpuk, dan menautkan salah satunya tanpa
+// membawa yang lain akan diam-diam melepas penyaring yang sedang dipakai.
+func txURL(q url.Values, key, val string) string {
+	out := url.Values{}
+	for _, k := range txParams {
+		if v := q.Get(k); v != "" && k != key {
+			out.Set(k, v)
+		}
+	}
+	if val != "" {
+		out.Set(key, val)
+	}
+	if len(out) == 0 {
+		return "/transaksi"
+	}
+	return "/transaksi?" + out.Encode()
+}
+
+func txFilterOptions(q url.Values, aktif string) []TxFilterOpt {
+	out := make([]TxFilterOpt, len(txFilters))
+	for i, f := range txFilters {
+		out[i] = TxFilterOpt{Value: f.Value, Label: f.Label,
+			URL: txURL(q, "jenis", f.Value), On: f.Value == aktif}
+	}
+	return out
+}
+
 func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	filter := r.URL.Query().Get("jenis")
+	q := r.URL.Query()
+
+	filter := q.Get("jenis")
 	if _, ok := kindLabel[filter]; !ok && filter != "hutang" {
 		filter = ""
 	}
-	kategori := r.URL.Query().Get("kategori")
+	kategori := q.Get("kategori")
+	cari := strings.TrimSpace(q.Get("cari"))
 
 	// Transfer dan hutang piutang tidak punya kategori: menyaring keduanya
 	// sekaligus selalu kosong, jadi memilih kategori melepas filter jenis itu.
 	if kategori != "" && (filter == "transfer" || filter == "hutang") {
 		filter = ""
 	}
+	// Nilai yang sudah dibetulkan dikembalikan ke q, karena dari sanalah semua
+	// tautan di halaman ini dirakit.
+	q.Set("jenis", filter)
+	q.Set("cari", cari)
 
-	txs, err := a.store.Transactions(ctx, family(r), kindsForFilter(filter), kategori, 200)
+	periode := bacaPeriode(q.Get("periode"), a.today())
+
+	// Diminta satu lebih banyak dari batasnya: kelebihan satu baris itulah yang
+	// memberi tahu bahwa daftarnya terpotong. Tanpa itu, 200 hasil pas tidak
+	// bisa dibedakan dari 200 hasil pertama dari seribu.
+	txs, err := a.store.Transactions(ctx, family(r), TxFilter{
+		Kinds: kindsForFilter(filter), Category: kategori, Cari: cari,
+		From: periode.From, To: periode.To, Limit: txListLimit + 1,
+	})
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
+	terpotong := len(txs) > txListLimit
+	if terpotong {
+		txs = txs[:txListLimit]
+	}
+
 	cats, err := a.store.Categories(ctx, family(r), "")
 	if err != nil {
 		a.fail(w, r, err)
@@ -417,8 +483,16 @@ func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 	}
 	a.render(w, r, "transaksi.html", map[string]any{
 		"Title": "Transaksi", "Nav": "transaksi",
-		"Filter": filter, "Filters": txFilters,
+		"Filter": filter, "Filters": txFilterOptions(q, filter),
 		"Kategori": kategori, "Categories": cats,
+		"Cari": cari, "Periode": periode,
+		"URLPrev":          txURL(q, "periode", periode.Prev),
+		"URLNext":          txURL(q, "periode", periode.Next),
+		"URLSemua":         txURL(q, "periode", periodeSemua),
+		"URLBulanIni":      txURL(q, "periode", ""),
+		"URLTanpaCari":     txURL(q, "cari", ""),
+		"URLTanpaKategori": txURL(q, "kategori", ""),
+		"Terpotong":        terpotong, "Batas": txListLimit,
 		"Groups": groupTxs(viewTxs(txs, a.today())),
 	})
 }
