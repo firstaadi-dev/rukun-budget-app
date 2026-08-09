@@ -195,6 +195,21 @@ cetak 31 tetap masuk akal di Februari. Akun tanpa siklus tetap ditampilkan beser
 dan nominal terpakainya — hanya bagian tagihannya yang disembunyikan, karena tanpa tanggal
 cetak "tagihan" tidak punya arti.
 
+**Pengingat jatuh tempo diangkat ke puncak dashboard.** Tanda "telat" dan "3 hari lagi"
+sudah lama ada di dalam kartunya sendiri, tapi tanda di dalam kartu hanya terbaca oleh
+orang yang sedang memandang kartunya — sementara yang telat bayar justru orang yang
+sedang tidak memikirkan kartu itu sama sekali. Peringatannya karena itu muncul di bagian
+layar yang dilihat lebih dulu, lengkap dengan nominal dan tombol bayarnya, dan **hanya**
+saat ada yang perlu dikerjakan: peringatan yang selalu terpampang akan berhenti dibaca
+tepat pada hari ia dibutuhkan.
+
+Tiga hal yang memicunya: tagihan yang sudah lewat jatuh tempo, tagihan yang jatuh
+temponya tinggal lima hari atau kurang, dan limit yang sudah terpakai 90%. Satu baris per
+akun — kalau tagihannya telat sekaligus limitnya menipis, yang ditulis tagihannya, karena
+hanya itu yang punya tenggat. Urutan kartu di dashboard mengikuti kegentingan yang sama:
+deret kartu itu menggulung ke samping dan yang di ujung praktis tidak terbaca di layar
+ponsel, jadi yang di sana harus yang paling tidak butuh tindakan.
+
 **Pembayaran kartu dicatat sebagai transfer, bukan pengeluaran.** Belanjanya sudah
 tercatat sebagai pengeluaran waktu kartu dipakai; mencatat pembayarannya sebagai
 pengeluaran lagi akan menghitungnya dua kali. Tombol "Bayar Tagihan" membuka form
@@ -294,9 +309,12 @@ static/        CSS design system Classical, app.css, app.js, ikon, manifest
 ## Yang sengaja belum ada
 
 Realtime sync, mode offline, laporan dan grafik lintas bulan, ekspor, anggaran per
-kategori, cicilan berjadwal, pengingat jatuh tempo, bunga kartu kredit, dan peran/izin
-per anggota. Semuanya ditambahkan kalau memang terasa kurang setelah dipakai, bukan
-sebelumnya.
+kategori, cicilan berjadwal, bunga kartu kredit, dan peran/izin per anggota. Semuanya
+ditambahkan kalau memang terasa kurang setelah dipakai, bukan sebelumnya.
+
+Pengingat jatuh tempo di atas juga sebatas yang terlihat saat aplikasi dibuka. Notifikasi
+yang mendorong diri sendiri ke ponsel butuh push server dan izin per perangkat — belum
+ada, dan pengingat yang muncul saat dilihat sudah menutup sebagian besar kasusnya.
 
 Migrasi sekarang punya penerapnya sendiri di `migrate.go`: berkas `migrations/*.sql`
 dijalankan berurutan, sekali saja, satu transaksi per berkas, dengan advisory lock

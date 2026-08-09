@@ -123,3 +123,79 @@ func TestViewTxHutang(t *testing.T) {
 		t.Errorf("bayar hutang = %s (%s), mau -Rp2.000.000 (out)", bayar.Amount, bayar.Tone)
 	}
 }
+
+// kartuTempo: satu akun kredit yang jatuh temponya sekian hari dari hari ini.
+// hariLagi negatif berarti sudah lewat.
+func kartuTempo(id int64, nama string, hariLagi int, payable, limit int64, today time.Time) CardView {
+	wl := Wallet{ID: id, Name: nama, Type: "credit", Currency: "IDR",
+		BalanceMinor: -payable, SettlementDay: 25, PaymentDay: 15, LimitMinor: limit}
+	due := today.AddDate(0, 0, hariLagi)
+	return viewCard(CardStatus{
+		Wallet: wl, HasCycle: true, PayableMinor: payable, OutstandingMinor: wl.BalanceMinor,
+		Settlement: due.AddDate(0, 0, -20), Due: due,
+	}, today)
+}
+
+// Kartu yang paling mendesak harus berada paling depan: deret kartu di
+// dashboard menggulung ke samping, dan yang di ujung praktis tidak terbaca.
+func TestUrutkanKartu(t *testing.T) {
+	today := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
+
+	// Sengaja dibuat dalam urutan terbalik dari yang seharusnya.
+	limitTipis := kartuTempo(4, "Limit Tipis", 20, 95_000_000, 100_000_000, today)
+	cards := []CardView{
+		kartuTempo(1, "Santai", 25, 10_000_000, 500_000_000, today),
+		limitTipis,
+		kartuTempo(3, "Besok", 1, 200_000_000, 0, today),
+		kartuTempo(2, "Telat", -3, 300_000_000, 0, today),
+	}
+	urutkanKartu(cards)
+
+	mau := []string{"Telat", "Besok", "Limit Tipis", "Santai"}
+	for i, nama := range mau {
+		if cards[i].Name != nama {
+			t.Errorf("urutan ke-%d = %s, mau %s", i, cards[i].Name, nama)
+		}
+	}
+}
+
+// Peringatan hanya untuk kartu yang benar-benar butuh tindakan, dan kalimatnya
+// harus bisa dibaca tanpa menghitung sendiri sisa harinya.
+func TestPerhatian(t *testing.T) {
+	today := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
+
+	lunas := kartuTempo(9, "Lunas", 2, 0, 0, today)
+	rows := perhatian([]CardView{
+		kartuTempo(1, "Telat", -3, 300_000_000, 0, today),
+		kartuTempo(2, "Besok", 1, 200_000_000, 0, today),
+		kartuTempo(3, "Hari Ini", 0, 150_000_000, 0, today),
+		kartuTempo(4, "Limit Tipis", 25, 95_000_000, 100_000_000, today),
+		kartuTempo(5, "Santai", 25, 10_000_000, 500_000_000, today),
+		lunas,
+	})
+
+	if len(rows) != 4 {
+		t.Fatalf("jumlah peringatan = %d, mau 4 (yang santai dan yang lunas tidak ikut)", len(rows))
+	}
+	mau := []struct{ nama, pesan, nominal string }{
+		{"Telat", "Tagihan telat 3 hari", "Rp3.000.000"},
+		{"Besok", "Tagihan jatuh tempo besok", "Rp2.000.000"},
+		{"Hari Ini", "Tagihan jatuh tempo hari ini", "Rp1.500.000"},
+		{"Limit Tipis", "Limit terpakai 95%", "sisa Rp50.000"},
+	}
+	for i, w := range mau {
+		if rows[i].Nama != w.nama || rows[i].Pesan != w.pesan || rows[i].Nominal != w.nominal {
+			t.Errorf("baris ke-%d = %q / %q / %q, mau %q / %q / %q",
+				i, rows[i].Nama, rows[i].Pesan, rows[i].Nominal, w.nama, w.pesan, w.nominal)
+		}
+	}
+
+	// Baris limit menipis tidak boleh menawarkan tombol bayar: yang jadi soal
+	// di situ pemakaiannya, bukan tagihan yang jatuh tempo.
+	if rows[3].PayablePlain != "" {
+		t.Errorf("baris limit menipis menawarkan pembayaran %q", rows[3].PayablePlain)
+	}
+	if rows[0].PayablePlain == "" {
+		t.Error("baris tagihan telat tidak membawa nominal untuk form pembayaran")
+	}
+}

@@ -6,6 +6,26 @@
     <div class="text-muted small">{{.Today}}</div>
   </div>
 
+  {{/* Hanya muncul saat ada yang perlu dikerjakan. Peringatan yang selalu
+       terpampang akan berhenti dibaca justru pada hari ia dibutuhkan. */}}
+  {{with .Perhatian}}
+    <section class="perhatian" aria-label="Perlu perhatian">
+      {{range .}}
+        <div class="perhatian-baris">
+          <span class="perhatian-teks">
+            <span class="perhatian-nama">{{.Nama}}</span>
+            <span class="text-muted small">{{.Pesan}}</span>
+          </span>
+          <span class="perhatian-nominal m-{{.Tone}}">{{.Nominal}}</span>
+          {{if .PayablePlain}}
+            <a class="btn btn-ghost small"
+               href="/transaksi/baru?jenis=transfer&ke={{.WalletID}}&nominal={{.PayablePlain}}">Bayar</a>
+          {{end}}
+        </div>
+      {{end}}
+    </section>
+  {{end}}
+
   <div class="summary">
     <div class="card elev-sm sum-main">
       <div class="card-kicker">Total Dimiliki</div>

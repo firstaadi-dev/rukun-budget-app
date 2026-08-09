@@ -98,6 +98,7 @@ func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
 
 	a.render(w, r, "dashboard.html", map[string]any{
 		"Cards":     cards,
+		"Perhatian": perhatian(cards),
 		"Title":     "Dashboard",
 		"Nav":       "dashboard",
 		"Today":     tanggalPanjang(a.today()),
@@ -168,6 +169,7 @@ func (a *App) cardStatuses(ctx context.Context, familyID int64, wallets []Wallet
 		}
 		out = append(out, viewCard(st, a.today()))
 	}
+	urutkanKartu(out)
 	return out, nil
 }
 

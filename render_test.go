@@ -58,6 +58,15 @@ func TestPagesRender(t *testing.T) {
 			}, rates, "IDR", "Agustus 2026"),
 		}, "Per Kategori"},
 
+		// Dashboard yang sedang membawa peringatan tagihan. Dipisah jadi kasus
+		// sendiri karena bagian itu hanya muncul saat ada yang perlu dikerjakan,
+		// jadi dashboard yang tenang tidak pernah merendernya.
+		{"dashboard.html", map[string]any{
+			"Title": "Dashboard", "Nav": "dashboard", "Today": tanggalPanjang(today),
+			"Summary":   summarize(wallets, rates, "IDR"),
+			"Perhatian": perhatian([]CardView{kartuTempo(5, "Kartu Kredit BCA", -2, 200_000_000, 0, today)}),
+		}, "Tagihan telat 2 hari"},
+
 		{"dompet.html", map[string]any{
 			"Title": "Dompet", "Nav": "dompet",
 			"Wallets": withCards(viewWallets(wallets), []CardView{kartuUji(today)}),

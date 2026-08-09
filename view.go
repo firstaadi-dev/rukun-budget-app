@@ -359,6 +359,99 @@ func (c CardView) Segera() bool { return c.HasCycle && !c.Lunas && c.HariLagi >=
 // peringatan yang muncul kecepatan.
 func (c CardView) LimitTipis() bool { return c.HasLimit() && c.TerpakaiPersen >= 90 }
 
+// mendesak: tingkat kegentingan sebuah kartu. Makin kecil makin mendesak.
+func mendesak(c CardView) int {
+	switch {
+	case c.Telat():
+		return 0
+	case c.Segera():
+		return 1
+	case c.LimitTipis():
+		return 2
+	default:
+		return 3
+	}
+}
+
+// urutkanKartu menaruh yang paling mendesak di depan: yang sudah lewat jatuh
+// tempo, lalu yang tenggatnya paling dekat, lalu yang limitnya menipis.
+//
+// Urutan ini bukan kosmetik. Deret kartu di dashboard menggulung ke samping,
+// dan kartu keempat praktis tidak pernah terbaca di layar ponsel — jadi yang
+// berada di sana harus yang paling tidak butuh tindakan, bukan yang kebetulan
+// paling dulu dibuat.
+func urutkanKartu(cards []CardView) {
+	sort.SliceStable(cards, func(i, j int) bool {
+		a, b := cards[i], cards[j]
+		if ra, rb := mendesak(a), mendesak(b); ra != rb {
+			return ra < rb
+		}
+		if a.HasCycle && b.HasCycle && a.HariLagi != b.HariLagi {
+			return a.HariLagi < b.HariLagi
+		}
+		return a.TerpakaiPersen > b.TerpakaiPersen
+	})
+}
+
+// Perhatian: satu baris peringatan di puncak dashboard.
+//
+// Tanda "telat" dan "3 hari lagi" sebenarnya sudah ada di dalam kartunya
+// sendiri, tapi tanda di dalam kartu baru terbaca oleh orang yang sedang
+// memandang kartunya. Yang telat bayar justru orang yang sedang tidak
+// memikirkan kartu itu sama sekali. Karena itu peringatannya dipindah ke
+// bagian layar yang dilihat lebih dulu — dan hanya muncul kalau memang ada
+// yang perlu dikerjakan, supaya tidak jadi hiasan tetap yang berhenti dibaca.
+type Perhatian struct {
+	WalletID int64
+	Nama     string
+	Pesan    string
+	Nominal  string
+	Tone     string
+	// PayablePlain: nominal tagihan tanpa simbol, untuk mengisi form
+	// pembayaran. Kosong berarti tidak ada tagihan yang bisa dibayar dan
+	// tombolnya tidak ditampilkan.
+	PayablePlain string
+}
+
+// perhatian mengumpulkan akun kredit yang butuh tindakan hari ini. Satu baris
+// per akun: kalau tagihannya telat sekaligus limitnya menipis, yang ditulis
+// tagihannya — hanya itu yang punya tenggat.
+func perhatian(cards []CardView) []Perhatian {
+	var out []Perhatian
+	for _, c := range cards {
+		p := Perhatian{WalletID: c.ID, Nama: c.Name, Tone: "out", PayablePlain: c.PayablePlain}
+		switch {
+		case c.Telat():
+			p.Pesan = fmt.Sprintf("Tagihan telat %d hari", -c.HariLagi)
+			p.Nominal = c.Payable
+		case c.Segera():
+			p.Pesan = "Tagihan " + tempoLabel(c.HariLagi)
+			p.Nominal = c.Payable
+		case c.LimitTipis():
+			p.Pesan = fmt.Sprintf("Limit terpakai %d%%", c.TerpakaiPersen)
+			p.Nominal = "sisa " + c.SisaLimit
+			p.PayablePlain = ""
+		default:
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
+}
+
+// tempoLabel menamai tenggat dengan kata yang dipakai sehari-hari. "1 hari
+// lagi" masih harus diterjemahkan sendiri oleh yang membaca; "besok" tidak.
+func tempoLabel(hariLagi int) string {
+	switch hariLagi {
+	case 0:
+		return "jatuh tempo hari ini"
+	case 1:
+		return "jatuh tempo besok"
+	default:
+		return fmt.Sprintf("jatuh tempo %d hari lagi", hariLagi)
+	}
+}
+
 func viewCard(st CardStatus, today time.Time) CardView {
 	w := st.Wallet
 	v := CardView{
