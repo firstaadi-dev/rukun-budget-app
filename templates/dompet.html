@@ -28,11 +28,15 @@
 
             <div class="wallet-isi">
               {{template "kartu-isi" .Card}}
+              {{/* Bentuknya tombol, sama seperti pasangan Edit dan Hapus di
+                   halaman detail transaksi: dua tautan telanjang bersebelahan
+                   terbaca sebagai keterangan, bukan sebagai dua tindakan yang
+                   salah satunya menghapus dompet. */}}
               <div class="kk-kaki">
-                <a class="linkish" href="/dompet/{{.ID}}/ubah">Ubah dompet</a>
+                <a class="btn btn-secondary" href="/dompet/{{.ID}}/ubah">Ubah dompet</a>
                 <form method="post" action="/dompet/{{.ID}}/hapus"
                       onsubmit="return confirm('Hapus dompet {{.Name}}? Tindakan ini tidak bisa dibatalkan.')">
-                  <button type="submit" class="linkish m-out">Hapus</button>
+                  <button type="submit" class="btn btn-danger">Hapus</button>
                 </form>
               </div>
             </div>

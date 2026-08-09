@@ -381,7 +381,20 @@ a { color: var(--color-accent-700); }
 .wallet-drop { gap: 0; }
 .wallet-drop > summary { display: flex; cursor: pointer; list-style: none; }
 .wallet-drop > summary::-webkit-details-marker { display: none; }
-.wallet-drop .chev { display: flex; flex-shrink: 0; opacity: 0.5; transition: transform 0.15s; }
+/* Chevron dan tombol hapus menempati kolom terakhir yang sama, satu per jenis
+   baris. Kotaknya disamakan dengan .btn-icon: chevron yang cuma selebar
+   ikonnya menggeser nominal di sebelah kiri sejauh selisihnya, dan dua baris
+   bersebelahan lalu berhenti di garis yang berbeda. */
+.wallet-drop .chev {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: transform 0.15s;
+}
 .wallet-drop[open] .chev { transform: rotate(180deg); }
 .wallet-isi {
   display: flex;
@@ -514,3 +527,12 @@ a.seg-opt.on { background: var(--color-accent-100); color: var(--color-accent-70
 .m-out { color: var(--money-out); }
 .m-accent { color: var(--color-accent-700); }
 .m-neutral { color: var(--color-text); }
+
+/* Varian merah dari .btn-primary, untuk tindakan yang menghapus. Berkotak,
+   bukan polos: tombol tanpa bingkai di sebelah tombol berbingkai tetap terbaca
+   sebagai tulisan biasa, dan yang satu ini justru yang paling perlu terlihat
+   sebagai tombol sebelum ditekan. Ditaruh di sini, bukan di classical.css,
+   karena --money-out bagian dari palet uang yang tinggal di berkas ini. */
+.btn-danger { color: var(--money-out); border-color: var(--money-out); }
+.btn-danger:hover { background: color-mix(in srgb, var(--money-out) 12%, transparent); }
+.btn-danger:active { background: color-mix(in srgb, var(--money-out) 22%, transparent); }
