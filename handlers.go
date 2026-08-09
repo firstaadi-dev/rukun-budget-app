@@ -407,15 +407,24 @@ type TxFilterOpt struct {
 // txParams: penyaring yang boleh menempel di URL daftar transaksi. Didaftar
 // tertutup supaya parameter asing tidak ikut terbawa dari satu tautan ke
 // tautan berikutnya.
-var txParams = []string{"jenis", "kategori", "periode", "cari"}
+var txParams = []string{"jenis", "kategori", "periode", "dari", "sampai", "cari"}
+
+// txWaktu: penyaring waktu, yang ketiganya menjawab pertanyaan yang sama lewat
+// jalan berbeda. Mengganti salah satunya harus melepas dua sisanya — kalau
+// tidak, rentang khusus yang masih menempel akan mengalahkan bulan yang baru
+// saja dipilih, dan tautannya seolah tidak melakukan apa-apa.
+var txWaktu = map[string]bool{"periode": true, "dari": true, "sampai": true}
 
 // txURL merakit URL daftar transaksi dengan satu penyaring diganti. Halaman ini
-// punya empat penyaring yang saling menumpuk, dan menautkan salah satunya tanpa
+// punya penyaring yang saling menumpuk, dan menautkan salah satunya tanpa
 // membawa yang lain akan diam-diam melepas penyaring yang sedang dipakai.
 func txURL(q url.Values, key, val string) string {
 	out := url.Values{}
 	for _, k := range txParams {
-		if v := q.Get(k); v != "" && k != key {
+		if k == key || (txWaktu[key] && txWaktu[k]) {
+			continue
+		}
+		if v := q.Get(k); v != "" {
 			out.Set(k, v)
 		}
 	}
@@ -458,7 +467,25 @@ func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 	q.Set("jenis", filter)
 	q.Set("cari", cari)
 
-	periode := bacaPeriode(q.Get("periode"), a.today())
+	periode := bacaPeriode(q.Get("periode"), q.Get("dari"), q.Get("sampai"), a.today())
+	// Penyaring waktu ikut dirapikan sebelum tautannya dirakit. Yang menang
+	// dipasang dalam bentuk yang sudah dibetulkan — tanggal tertukar sudah
+	// dibalik di bacaPeriode — dan yang kalah dibuang supaya tidak diam-diam
+	// terbawa lalu mengalahkan pilihan berikutnya.
+	for k := range txWaktu {
+		q.Del(k)
+	}
+	switch {
+	case periode.Rentang:
+		q.Set("dari", periode.Dari)
+		q.Set("sampai", periode.Sampai)
+	case periode.Semua:
+		q.Set("periode", periodeSemua)
+	case !periode.BulanIni:
+		// Bulan berjalan sengaja tidak dipasang: tanpa parameter, tautannya
+		// tetap menunjuk "bulan ini" juga setelah tanggal berganti bulan.
+		q.Set("periode", periode.Nilai)
+	}
 
 	// Diminta satu lebih banyak dari batasnya: kelebihan satu baris itulah yang
 	// memberi tahu bahwa daftarnya terpotong. Tanpa itu, 200 hasil pas tidak

@@ -293,10 +293,34 @@ yang sedang dipilih, dan kalau tidak ada hasilnya, layar kosongnya menawarkan pe
 yang sama di seluruh waktu. Menyetel pencarian supaya diam-diam melompati periode akan
 lebih membingungkan: hasil yang muncul di luar bulan yang tertulis di layar.
 
-Keempat penyaring — jenis, kategori, periode, pencarian — saling menumpuk, dan setiap
-tautan di halaman itu dirakit oleh `txURL` yang membawa serta penyaring lain yang sedang
-aktif. Parameternya didaftar tertutup di `txParams`, jadi parameter asing tidak ikut
-menempel dari satu tautan ke tautan berikutnya.
+**Rentang tanggal sendiri** untuk yang tidak jatuh rapi di batas bulan — sebuah
+perjalanan, satu minggu belanja, periode tagihan kartu. Pintunya nama periodenya
+sendiri: menekan "Agustus 2026" membuka panel tanggal tepat di bawahnya. Panelnya
+`<details>` biasa, jadi buka-tutupnya jalan tanpa JS; skrip di `app.js` cuma menutupnya
+saat ditekan di luar atau saat Escape, dan itu kenyamanan, bukan syarat. Panelnya
+mengambang di atas daftar, tidak mendorongnya turun — yang sedang dilihat orangnya justru
+daftar itu. Dipasang lewat `?dari=` dan
+`?sampai=`, keduanya `YYYY-MM-DD` dan keduanya ikut terhitung; `sampai` yang inklusif di
+layar digeser sehari jadi `To` yang eksklusif di query, satu kali di `bacaRentang`, bukan
+di setiap pemanggil. Salah satunya boleh dikosongkan: yang terisi Dari saja berarti sejak
+tanggal itu tanpa batas akhir, dan sebaliknya.
+
+Dua hal sengaja tidak ditolak. Tanggal yang tertukar dibalik, bukan dibiarkan
+menghasilkan daftar kosong — rentang yang dimaksud sudah jelas, dan daftar kosong terbaca
+sebagai catatan hilang. Tanggal yang tidak terbaca sama sekali jatuh ke bulan berjalan,
+sama seperti nilai `periode` yang salah ketik.
+
+Rentang khusus tidak punya panah bulan tetangga. Panah pada rentang harus melangkah
+sejauh rentangnya sendiri, dan "bulan berikutnya" dari 3–17 Juli tidak punya jawaban yang
+bisa ditebak orang yang menekannya.
+
+Kelima penyaring — jenis, kategori, periode, rentang, pencarian — saling menumpuk, dan
+setiap tautan di halaman itu dirakit oleh `txURL` yang membawa serta penyaring lain yang
+sedang aktif. Parameternya didaftar tertutup di `txParams`, jadi parameter asing tidak
+ikut menempel dari satu tautan ke tautan berikutnya. Ketiga penyaring waktu — `periode`,
+`dari`, `sampai` — dikecualikan dari aturan itu dan justru saling melepas: ketiganya
+menjawab pertanyaan yang sama, dan rentang yang masih menempel akan mengalahkan bulan
+yang baru dipilih, membuat tautannya seolah tidak melakukan apa-apa.
 
 ## Keputusan yang penting dipahami sebelum mengubah kode
 

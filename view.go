@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -68,28 +69,52 @@ const periodeSemua = "semua"
 type Periode struct {
 	Nilai string // seperti yang dipasang di URL: "2026-08" atau "semua"
 	Label string
+	// Frasa: Label yang sudah siap dipakai di tengah kalimat, lengkap dengan
+	// kata depannya. "di Agustus 2026" tapi "sejak 1 Juli 2026" — rentang yang
+	// terbuka di satu ujung tidak bisa memakai kata depan yang sama.
+	Frasa string
 	From  time.Time // inklusif
 	To    time.Time // eksklusif
 	Semua bool
+	// Bulan: satu bulan penuh, satu-satunya bentuk yang punya tetangga di kiri
+	// dan kanannya. Ketiganya — Bulan, Semua, Rentang — saling meniadakan.
+	Bulan bool
 	// BulanIni: yang sedang dilihat memang bulan berjalan. Dipakai untuk
 	// memutuskan perlu tidaknya tautan kembali.
 	BulanIni bool
+	// Rentang: yang sedang dilihat rentang tanggal pilihan sendiri, bukan satu
+	// bulan penuh. Dari dan Sampai keduanya inklusif dan ditulis seperti yang
+	// dipasang di URL, karena keduanya juga yang mengisi ulang kolom tanggalnya.
+	// Salah satunya boleh kosong: rentang yang terbuka di satu ujung tetap
+	// rentang.
+	Rentang      bool
+	Dari, Sampai string
 	// Prev dan Next: nilai periode bulan tetangga. Melangkah maju tidak dibatasi
 	// bulan berjalan — transaksi boleh bertanggal di depan, dan menutup jalan ke
 	// sana akan menyembunyikannya persis seperti pemotongan 200 baris dulu.
+	// Keduanya kosong saat yang dilihat rentang khusus: langkah sebesar apa yang
+	// dimaksud "bulan berikutnya" dari 3–17 Juli tidak punya jawaban yang jelas.
 	Prev string
 	Next string
 }
 
-const formatPeriode = "2006-01"
+const (
+	formatPeriode = "2006-01"
+	formatTanggal = "2006-01-02"
+)
 
 // bacaPeriode menerjemahkan parameter URL jadi rentang tanggal. Kosong atau
 // tidak terbaca berarti bulan berjalan: penyaring yang salah ketik sebaiknya
 // jatuh ke tampilan bawaan, bukan ke daftar kosong yang terlihat seperti data
 // hilang.
-func bacaPeriode(nilai string, today time.Time) Periode {
+func bacaPeriode(nilai, dari, sampai string, today time.Time) Periode {
+	// Rentang khusus menang atas periode bulanan. Keduanya menjawab pertanyaan
+	// yang sama, dan yang tanggalnya ditulis sendiri adalah yang lebih spesifik.
+	if p, ok := bacaRentang(dari, sampai, today.Location()); ok {
+		return p
+	}
 	if nilai == periodeSemua {
-		return Periode{Nilai: periodeSemua, Label: "Seluruh waktu", Semua: true}
+		return Periode{Nilai: periodeSemua, Label: "Seluruh waktu", Frasa: "di seluruh catatan", Semua: true}
 	}
 	awal := awalBulan(today)
 	if t, err := time.ParseInLocation(formatPeriode, nilai, today.Location()); err == nil {
@@ -98,12 +123,67 @@ func bacaPeriode(nilai string, today time.Time) Periode {
 	return Periode{
 		Nilai:    awal.Format(formatPeriode),
 		Label:    namaBulan(awal),
+		Frasa:    "di " + namaBulan(awal),
 		From:     awal,
 		To:       awal.AddDate(0, 1, 0),
+		Bulan:    true,
 		BulanIni: awal.Equal(awalBulan(today)),
 		Prev:     awal.AddDate(0, -1, 0).Format(formatPeriode),
 		Next:     awal.AddDate(0, 1, 0).Format(formatPeriode),
 	}
+}
+
+// bacaRentang menerjemahkan sepasang tanggal jadi periode. Salah satunya boleh
+// kosong; kalau keduanya kosong atau tidak terbaca, tidak ada rentang sama
+// sekali dan periode bulanan yang berlaku.
+//
+// Sampai ditulis inklusif karena begitulah orang membacanya — "sampai 15
+// Agustus" berarti tanggal 15 ikut — sedangkan To yang dikirim ke query
+// eksklusif. Selisih satu hari itu diselesaikan di sini, satu kali, bukan di
+// setiap pemanggil.
+func bacaRentang(dari, sampai string, loc *time.Location) (Periode, bool) {
+	d, adaD := bacaTanggal(dari, loc)
+	s, adaS := bacaTanggal(sampai, loc)
+	if !adaD && !adaS {
+		return Periode{}, false
+	}
+	// Tanggal yang tertukar dibetulkan, bukan ditolak: urutan terbalik
+	// menghasilkan daftar kosong yang terbaca sebagai catatan hilang, padahal
+	// rentang yang dimaksud sudah jelas.
+	if adaD && adaS && s.Before(d) {
+		d, s = s, d
+	}
+	p := Periode{Rentang: true}
+	switch {
+	case adaD && adaS:
+		p.From, p.To = d, s.AddDate(0, 0, 1)
+		p.Dari, p.Sampai = d.Format(formatTanggal), s.Format(formatTanggal)
+		// Sehari disebut sekali saja. "7 Agustus 2026 – 7 Agustus 2026" benar,
+		// tapi membuat orang membaca dua kali untuk menyadari tidak ada yang
+		// berbeda di antara keduanya.
+		if d.Equal(s) {
+			p.Label = tanggalPendek(d)
+		} else {
+			p.Label = tanggalPendek(d) + " – " + tanggalPendek(s)
+		}
+		p.Frasa = "di " + p.Label
+	case adaD:
+		p.From = d
+		p.Dari = d.Format(formatTanggal)
+		p.Label = "Sejak " + tanggalPendek(d)
+		p.Frasa = "sejak " + tanggalPendek(d)
+	default:
+		p.To = s.AddDate(0, 0, 1)
+		p.Sampai = s.Format(formatTanggal)
+		p.Label = "Sampai " + tanggalPendek(s)
+		p.Frasa = "sampai " + tanggalPendek(s)
+	}
+	return p, true
+}
+
+func bacaTanggal(s string, loc *time.Location) (time.Time, bool) {
+	t, err := time.ParseInLocation(formatTanggal, strings.TrimSpace(s), loc)
+	return t, err == nil
 }
 
 // ---------- view model ----------

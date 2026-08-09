@@ -423,8 +423,19 @@ a.seg-opt.on { background: var(--color-accent-100); color: var(--color-accent-70
   gap: var(--space-2);
   flex-wrap: wrap;
 }
-.filter-row select { flex: 1; min-width: 160px; }
-.filter-row input[type="search"] { flex: 2; min-width: 180px; }
+/* Label dan kolomnya berpindah baris bersama-sama. Dibiarkan lepas, di layar
+   sempit labelnya tertinggal di ujung baris sebelumnya dan menempel ke kolom
+   yang salah — "Kategori" berdiri di sebelah kotak pencarian. */
+.pasang {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 190px;
+}
+.pasang .input { flex: 1; min-width: 0; }
+/* Kolom pencarian dapat ruang lebih: isinya kalimat, bukan satu pilihan. */
+.pasang-lebar { flex: 2; min-width: 220px; }
 
 /* Pemilih periode. Nama bulannya yang jadi jangkar, panah di kedua sisinya,
    dan jalan keluar ke seluruh waktu didorong ke ujung supaya tidak terbaca
@@ -440,6 +451,41 @@ a.seg-opt.on { background: var(--color-accent-100); color: var(--color-accent-70
   font-size: 18px;
 }
 .periode-semua { margin-left: auto; }
+
+/* Nama periodenya sekaligus tombol pemilih rentang. Segitiga bawaan <details>
+   diganti chevron supaya seragam dengan ikon lain, dan panelnya mengambang di
+   atas daftar — bukan mendorongnya turun, karena yang sedang dilihat orangnya
+   justru daftar itu. */
+.periode-menu { position: relative; }
+.periode-menu > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  list-style: none;
+}
+.periode-menu > summary::-webkit-details-marker { display: none; }
+.periode-menu > summary .ic {
+  width: 15px;
+  height: 15px;
+  opacity: 0.5;
+  transition: transform 0.15s;
+}
+.periode-menu[open] > summary .ic { transform: rotate(180deg); }
+.periode-pop {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 280px;
+  /* Panel mengambang harus buram: .card sendiri berlatar transparan, dan daftar
+     di bawahnya akan tembus. */
+  background: var(--color-surface);
+  max-width: calc(100vw - 40px);
+}
+.periode-pop form { display: flex; flex-direction: column; gap: var(--space-3); }
+.periode-pop-catatan { margin: 0; }
+.periode-pop-kaki { display: flex; align-items: center; gap: var(--space-3); }
 
 /* Pemilih jenis berdiri sendiri di atas form, bukan bagian dari .stack-nya. */
 .seg + form { margin-top: var(--space-4); }

@@ -12,13 +12,53 @@
   {{/* Periode berdiri paling atas karena ia yang paling menentukan isi daftar:
        sisanya menyaring di dalam rentang yang dipilih di sini. */}}
   <div class="periode">
-    {{if .Periode.Semua}}
-      <span class="periode-label">Seluruh waktu</span>
-      <a class="small" href="{{.URLBulanIni}}">Kembali ke bulan ini</a>
-    {{else}}
+    {{/* Panah hanya ada pada bulan. Pada rentang khusus, panah harus melangkah
+         sejauh rentangnya sendiri, dan "bulan berikutnya" dari 3–17 Juli tidak
+         punya jawaban yang bisa ditebak orang yang menekannya. */}}
+    {{if .Periode.Bulan}}
       <a class="btn btn-ghost btn-icon" href="{{.URLPrev}}" aria-label="Bulan sebelumnya">&lsaquo;</a>
-      <span class="periode-label">{{.Periode.Label}}</span>
+    {{end}}
+
+    {{/* Nama periodenya sekaligus tombolnya: menekan "Agustus 2026" membuka
+         pemilih rentang tanggal tepat di bawahnya. Digantung di <details>, jadi
+         buka-tutupnya tetap jalan tanpa JS — skripnya cuma menutup panel saat
+         ditekan di luar, dan itu kenyamanan, bukan syarat. */}}
+    <details class="periode-menu">
+      <summary class="periode-label" aria-label="Ubah periode">
+        {{.Periode.Label}}{{template "icon-chev"}}
+      </summary>
+      <div class="periode-pop card elev-md">
+        <form method="get" action="/transaksi">
+          <input type="hidden" name="jenis" value="{{.Filter}}">
+          <input type="hidden" name="kategori" value="{{.Kategori}}">
+          <input type="hidden" name="cari" value="{{.Cari}}">
+          <div class="field">
+            <label for="dari">Dari</label>
+            <input class="input" id="dari" name="dari" type="date" value="{{.Periode.Dari}}">
+          </div>
+          <div class="field">
+            <label for="sampai">Sampai</label>
+            <input class="input" id="sampai" name="sampai" type="date" value="{{.Periode.Sampai}}">
+          </div>
+          <p class="text-muted small periode-pop-catatan">Salah satunya boleh
+            dikosongkan — ujung yang kosong berarti tanpa batas. Kedua tanggal
+            ikut terhitung.</p>
+          <div class="periode-pop-kaki">
+            <button type="submit" class="btn btn-primary">Terapkan</button>
+            {{if .Periode.Rentang}}
+              <a class="small" href="{{.URLBulanIni}}">Hapus rentang</a>
+            {{end}}
+          </div>
+        </form>
+      </div>
+    </details>
+
+    {{if .Periode.Bulan}}
       <a class="btn btn-ghost btn-icon" href="{{.URLNext}}" aria-label="Bulan berikutnya">&rsaquo;</a>
+    {{else}}
+      <a class="small" href="{{.URLBulanIni}}">Kembali ke bulan ini</a>
+    {{end}}
+    {{if not .Periode.Semua}}
       <a class="small periode-semua" href="{{.URLSemua}}">Seluruh waktu</a>
     {{end}}
   </div>
@@ -34,19 +74,31 @@
        di balik noscript: kolom teks butuh cara mengirim yang terlihat. */}}
   <form method="get" action="/transaksi" class="filter-row" data-auto-submit>
     <input type="hidden" name="jenis" value="{{.Filter}}">
-    <input type="hidden" name="periode" value="{{.Periode.Nilai}}">
-    <label for="cari" class="text-muted small">Cari</label>
-    <input class="input" id="cari" name="cari" type="search" value="{{.Cari}}"
-           placeholder="Catatan, kategori, pihak, atau dompet">
-    <label for="kategori" class="text-muted small">Kategori</label>
-    <select class="input" id="kategori" name="kategori">
-      <option value="">Semua kategori</option>
-      {{range $.Categories}}
-        <option value="{{.Name}}" {{if eq $.Kategori .Name}}selected{{end}}>
-          {{.Name}} · {{if eq .Kind "income"}}masuk{{else}}keluar{{end}}
-        </option>
-      {{end}}
-    </select>
+    {{if .Periode.Rentang}}
+      <input type="hidden" name="dari" value="{{.Periode.Dari}}">
+      <input type="hidden" name="sampai" value="{{.Periode.Sampai}}">
+    {{else}}
+      <input type="hidden" name="periode" value="{{.Periode.Nilai}}">
+    {{end}}
+    {{/* Label dan kolomnya dibungkus jadi satu supaya keduanya berpindah baris
+         bersama-sama. Dibiarkan lepas, di layar sempit "Kategori" tertinggal di
+         ujung baris sebelumnya dan berdiri di sebelah kotak pencarian. */}}
+    <span class="pasang pasang-lebar">
+      <label for="cari" class="text-muted small">Cari</label>
+      <input class="input" id="cari" name="cari" type="search" value="{{.Cari}}"
+             placeholder="Catatan, kategori, pihak, atau dompet">
+    </span>
+    <span class="pasang">
+      <label for="kategori" class="text-muted small">Kategori</label>
+      <select class="input" id="kategori" name="kategori">
+        <option value="">Semua kategori</option>
+        {{range $.Categories}}
+          <option value="{{.Name}}" {{if eq $.Kategori .Name}}selected{{end}}>
+            {{.Name}} · {{if eq .Kind "income"}}masuk{{else}}keluar{{end}}
+          </option>
+        {{end}}
+      </select>
+    </span>
     <button type="submit" class="btn btn-secondary">Terapkan</button>
   </form>
 
@@ -60,7 +112,8 @@
        dulu menghilang tanpa ada yang menyadarinya. */}}
   {{if .Terpotong}}
     <p class="banner">Menampilkan {{.Batas}} transaksi terbaru dari periode ini saja.
-      Persempit dengan pencarian, kategori, atau pilih bulan tertentu untuk melihat sisanya.</p>
+      Persempit dengan pencarian, kategori, satu bulan tertentu, atau rentang tanggal
+      sendiri untuk melihat sisanya.</p>
   {{end}}
 
   {{if .Groups}}
@@ -72,11 +125,11 @@
     {{end}}
   {{else if .Cari}}
     <p class="empty">Tidak ada transaksi yang cocok dengan &ldquo;{{.Cari}}&rdquo;
-      {{if .Periode.Semua}}di seluruh catatan{{else}}di {{.Periode.Label}}{{end}}.
+      {{.Periode.Frasa}}.
       {{if not .Periode.Semua}}<a href="{{.URLSemua}}">Cari di seluruh waktu</a>{{else}}<a href="{{.URLTanpaCari}}">Hapus pencarian</a>{{end}}</p>
   {{else}}
     <p class="empty">Belum ada transaksi
-      {{if .Periode.Semua}}yang tercatat{{else}}di {{.Periode.Label}}{{end}}{{if .Kategori}} untuk kategori itu{{end}}.
+      {{if .Periode.Semua}}yang tercatat{{else}}{{.Periode.Frasa}}{{end}}{{if .Kategori}} untuk kategori itu{{end}}.
       {{if not .Periode.Semua}}<a href="{{.URLSemua}}">Lihat seluruh waktu</a>{{end}}</p>
   {{end}}
 </div>

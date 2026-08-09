@@ -370,6 +370,23 @@ $$('[data-auto-submit] select').forEach((sel) => {
   sel.addEventListener('change', () => sel.form.submit());
 });
 
+// ---------- panel periode: menutup sendiri ----------
+
+// <details> mengurus buka-tutupnya sendiri, jadi panel ini tetap bisa dipakai
+// tanpa file ini. Yang ditambahkan di sini cuma kebiasaan panel mengambang:
+// menutup saat ditekan di luar atau saat Escape. Tanpa itu ia tetap terbuka
+// menutupi daftar sampai judulnya ditekan lagi.
+$$('.periode-menu').forEach((menu) => {
+  document.addEventListener('click', (e) => {
+    if (menu.open && !menu.contains(e.target)) menu.open = false;
+  });
+  menu.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !menu.open) return;
+    menu.open = false;
+    $('summary', menu).focus();
+  });
+});
+
 // ---------- PWA ----------
 
 if ('serviceWorker' in navigator) {

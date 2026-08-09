@@ -83,7 +83,7 @@ func TestPagesRender(t *testing.T) {
 			"Title": "Transaksi", "Nav": "transaksi", "Filter": "",
 			"Filters":  txFilterOptions(url.Values{}, ""),
 			"Kategori": "", "Categories": []Category{{ID: 1, Kind: "expense", Name: "Belanja"}},
-			"Cari": "", "Periode": bacaPeriode("", today),
+			"Cari": "", "Periode": bacaPeriode("", "", "", today),
 			"URLPrev": "/transaksi?periode=2026-07", "URLNext": "/transaksi?periode=2026-09",
 			"URLSemua": "/transaksi?periode=semua", "URLBulanIni": "/transaksi",
 			"URLTanpaCari": "/transaksi", "URLTanpaKategori": "/transaksi",
@@ -97,12 +97,25 @@ func TestPagesRender(t *testing.T) {
 			"Title": "Transaksi", "Nav": "transaksi", "Filter": "",
 			"Filters":  txFilterOptions(url.Values{"cari": {"listrik"}}, ""),
 			"Kategori": "", "Categories": []Category{{ID: 1, Kind: "expense", Name: "Belanja"}},
-			"Cari": "listrik", "Periode": bacaPeriode("", today),
+			"Cari": "listrik", "Periode": bacaPeriode("", "", "", today),
 			"URLPrev": "/transaksi?cari=listrik&periode=2026-07", "URLNext": "/transaksi?cari=listrik&periode=2026-09",
 			"URLSemua": "/transaksi?cari=listrik&periode=semua", "URLBulanIni": "/transaksi?cari=listrik",
 			"URLTanpaCari": "/transaksi", "URLTanpaKategori": "/transaksi?cari=listrik",
 			"Terpotong": true, "Batas": txListLimit,
 		}, "Cari di seluruh waktu"},
+
+		// Rentang tanggal sendiri: blok periodenya yang ketiga, tanpa panah
+		// bulan, dan kolom tanggalnya harus terisi ulang dengan rentang yang
+		// sedang berlaku.
+		{"transaksi.html", map[string]any{
+			"Title": "Transaksi", "Nav": "transaksi", "Filter": "",
+			"Filters":  txFilterOptions(url.Values{"dari": {"2026-07-03"}, "sampai": {"2026-08-17"}}, ""),
+			"Kategori": "", "Categories": []Category{{ID: 1, Kind: "expense", Name: "Belanja"}},
+			"Cari": "", "Periode": bacaPeriode("", "2026-07-03", "2026-08-17", today),
+			"URLSemua": "/transaksi?periode=semua", "URLBulanIni": "/transaksi",
+			"URLTanpaCari": "/transaksi", "URLTanpaKategori": "/transaksi",
+			"Groups": groupTxs(views),
+		}, "3 Juli 2026 – 17 Agustus 2026"},
 
 		{"transaksi_form.html", map[string]any{
 			"Title": "Catat Pengeluaran", "Nav": "transaksi", "Back": "/transaksi",
