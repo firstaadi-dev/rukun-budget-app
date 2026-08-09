@@ -191,6 +191,9 @@ func groupTxs(vs []TxView) []TxGroup {
 	return out
 }
 
+// Bergabung: tanggal anggota ini mulai terdaftar, seperti yang dibaca user.
+func (m Member) Bergabung() string { return tanggalPendek(m.CreatedAt) }
+
 // ---------- ringkasan dashboard ----------
 
 type Summary struct {

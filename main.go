@@ -186,6 +186,11 @@ func (a *App) routes() http.Handler {
 	auth("GET /hutang/pihak/{id}/bayar", a.payForm)
 	auth("POST /hutang/pihak/{id}/bayar", a.payCreate)
 
+	auth("GET /pengaturan", a.settings)
+	auth("POST /pengaturan/sandi", a.changePassword)
+	auth("POST /pengaturan/anggota/{id}/nonaktif", a.memberDisable)
+	auth("POST /pengaturan/anggota/{id}/aktif", a.memberEnable)
+
 	auth("GET /kategori", a.categoryList)
 	auth("GET /kategori/baru", a.categoryForm)
 	auth("POST /kategori/baru", a.categoryCreate)

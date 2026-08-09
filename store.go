@@ -557,6 +557,100 @@ type User struct {
 	Name       string
 	FamilyID   int64
 	FamilyName string
+	// Kepala: anggota pertama keluarga ini, yaitu yang dibuat bersama
+	// keluarganya lewat API admin. Dialah satu-satunya yang boleh menonaktifkan
+	// anggota lain. Perannya diturunkan dari urutan pendaftaran, bukan disimpan
+	// sebagai kolom sendiri: dengan begitu tidak ada keluarga yang bisa
+	// kehilangan kepalanya karena satu baris data salah ubah.
+	Kepala bool
+	// Disabled: aksesnya sudah dicabut. Sesi yang sudah berjalan ikut mati
+	// karena SessionUser menyaringnya.
+	Disabled bool
+}
+
+// Member: satu anggota beserta jejaknya, untuk halaman pengaturan.
+type Member struct {
+	User
+	CreatedAt time.Time
+	// Txs: jumlah transaksi yang pernah dicatatnya. Ditampilkan supaya jelas
+	// bahwa menonaktifkan anggota tidak menghapus apa pun yang sudah dicatat.
+	Txs int
+}
+
+// kepalaKeluarga: potongan yang menandai anggota pertama sebuah keluarga.
+const kepalaKeluarga = `u.id = (SELECT min(id) FROM users WHERE family_id = u.family_id)`
+
+// Members mengurut sesuai urutan pendaftaran, jadi kepala keluarga selalu di
+// atas dan anggota yang baru masuk selalu di bawah.
+func (s *Store) Members(ctx context.Context, familyID int64) ([]Member, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT u.id, u.name, u.created_at, u.disabled_at IS NOT NULL, `+kepalaKeluarga+`,
+		       (SELECT count(*) FROM transactions t
+		        WHERE t.family_id = u.family_id AND t.created_by = u.id)
+		FROM users u WHERE u.family_id = $1 ORDER BY u.id`, familyID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []Member
+	for rows.Next() {
+		m := Member{User: User{FamilyID: familyID}}
+		if err := rows.Scan(&m.ID, &m.Name, &m.CreatedAt, &m.Disabled, &m.Kepala, &m.Txs); err != nil {
+			return nil, err
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
+}
+
+// PasswordHash dipakai untuk memastikan yang mengganti sandi memang tahu sandi
+// lamanya. Tanpa itu, perangkat yang tertinggal dalam keadaan login bisa
+// mengunci pemiliknya sendiri keluar dari akunnya.
+func (s *Store) PasswordHash(ctx context.Context, familyID, id int64) (string, error) {
+	var hash string
+	err := s.db.QueryRow(ctx,
+		`SELECT password_hash FROM users WHERE id = $1 AND family_id = $2`, id, familyID).Scan(&hash)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", ErrNotFound
+	}
+	return hash, err
+}
+
+func (s *Store) SetPassword(ctx context.Context, familyID, id int64, hash string) error {
+	tag, err := s.db.Exec(ctx,
+		`UPDATE users SET password_hash = $1 WHERE id = $2 AND family_id = $3`, hash, id, familyID)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return err
+}
+
+// SetMemberActive mencabut atau memulihkan akses seorang anggota. Kepala
+// keluarga dikecualikan di query-nya sendiri, bukan hanya di handler: keluarga
+// yang kepalanya nonaktif tidak punya siapa pun yang bisa memulihkannya lagi.
+func (s *Store) SetMemberActive(ctx context.Context, familyID, id int64, aktif bool) error {
+	var waktu any
+	if !aktif {
+		waktu = time.Now()
+	}
+	tag, err := s.db.Exec(ctx, `
+		UPDATE users u SET disabled_at = $1
+		WHERE u.id = $2 AND u.family_id = $3 AND NOT (`+kepalaKeluarga+`)`, waktu, id, familyID)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return err
+}
+
+// DeleteUserSessions memutus seluruh sesi seorang anggota di semua perangkat.
+// Dipanggil setelah sandi diganti dan setelah akses dicabut — tanpa ini,
+// keduanya baru benar-benar berlaku sebulan kemudian saat sesi lamanya habis.
+func (s *Store) DeleteUserSessions(ctx context.Context, familyID, userID int64) error {
+	_, err := s.db.Exec(ctx, `
+		DELETE FROM sessions s USING users u
+		WHERE s.user_id = u.id AND u.id = $1 AND u.family_id = $2`, userID, familyID)
+	return err
 }
 
 func (s *Store) CreateUser(ctx context.Context, familyID int64, name, hash string) (int64, error) {
@@ -573,10 +667,11 @@ func (s *Store) UserByName(ctx context.Context, familyID int64, name string) (Us
 	var u User
 	var hash string
 	err := s.db.QueryRow(ctx, `
-		SELECT u.id, u.name, u.family_id, f.name, u.password_hash
+		SELECT u.id, u.name, u.family_id, f.name, u.password_hash,
+		       u.disabled_at IS NOT NULL, `+kepalaKeluarga+`
 		FROM users u JOIN families f ON f.id = u.family_id
 		WHERE u.family_id = $1 AND lower(u.name) = lower($2)`, familyID, name).
-		Scan(&u.ID, &u.Name, &u.FamilyID, &u.FamilyName, &hash)
+		Scan(&u.ID, &u.Name, &u.FamilyID, &u.FamilyName, &hash, &u.Disabled, &u.Kepala)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, "", ErrNotFound
 	}
@@ -598,15 +693,20 @@ func (s *Store) CreateSession(ctx context.Context, token string, userID int64, u
 // SessionUser mengembalikan anggota beserta keluarganya. Dari sinilah familyID
 // yang dipakai seluruh handler berasal — tidak pernah dari parameter URL atau
 // isian form, yang bisa dikarang siapa saja.
+//
+// Anggota nonaktif disaring di sini, bukan di tiap handler. Setiap permintaan
+// melewati satu query ini, jadi mencabut akses langsung berlaku di semua
+// perangkatnya pada permintaan berikutnya — bukan sebulan lagi saat sesinya
+// kedaluwarsa sendiri.
 func (s *Store) SessionUser(ctx context.Context, token string) (User, error) {
 	var u User
 	err := s.db.QueryRow(ctx, `
-		SELECT u.id, u.name, u.family_id, f.name
+		SELECT u.id, u.name, u.family_id, f.name, `+kepalaKeluarga+`
 		FROM sessions s
 		JOIN users u ON u.id = s.user_id
 		JOIN families f ON f.id = u.family_id
-		WHERE s.token = $1 AND s.expires_at > now()`, token).
-		Scan(&u.ID, &u.Name, &u.FamilyID, &u.FamilyName)
+		WHERE s.token = $1 AND s.expires_at > now() AND u.disabled_at IS NULL`, token).
+		Scan(&u.ID, &u.Name, &u.FamilyID, &u.FamilyName, &u.Kepala)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrNotFound
 	}

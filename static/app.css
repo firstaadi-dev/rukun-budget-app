@@ -33,7 +33,7 @@ a { color: var(--color-accent-700); }
   position: fixed;
   inset: auto 0 0 0;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   background: var(--color-surface);
   border-top: 1px solid var(--color-divider);
   padding-bottom: env(safe-area-inset-bottom);
@@ -363,6 +363,13 @@ a { color: var(--color-accent-700); }
 
 .cat-item { flex-direction: row; align-items: center; gap: 12px; }
 .cat-item form { display: flex; }
+
+.anggota-item { flex-direction: row; align-items: center; gap: 8px; flex-wrap: wrap; }
+.anggota-item form { display: flex; margin-left: auto; }
+/* Anggota yang aksesnya dicabut tetap terbaca, hanya mundur ke belakang:
+   namanya masih menempel di transaksi yang pernah dicatatnya. */
+.anggota-mati .row-title { text-decoration: line-through; }
+.anggota-mati { opacity: 0.7; }
 
 .wallet-item { flex-direction: row; align-items: center; gap: 12px; }
 .wallet-amt { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 14px; }

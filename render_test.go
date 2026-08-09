@@ -156,6 +156,19 @@ func TestPagesRender(t *testing.T) {
 			"Wallets": viewWallets(wallets), "Currencies": Currencies,
 		}, "Catat Pembayaran"},
 
+		// Dilihat sebagai kepala keluarga: hanya dia yang melihat tombol
+		// pencabutan akses, jadi hanya dari sudut ini blok itu ikut terender.
+		{"pengaturan.html", map[string]any{
+			"Title": "Akun", "Nav": "akun",
+			"User": User{ID: 1, Name: "Ayah", FamilyID: 1, FamilyName: "Keluarga Santoso", Kepala: true},
+			"Members": []Member{
+				{User: User{ID: 1, Name: "Ayah", Kepala: true}, CreatedAt: today.AddDate(0, -6, 0), Txs: 42},
+				{User: User{ID: 2, Name: "Ibu"}, CreatedAt: today.AddDate(0, -3, 0), Txs: 17},
+				{User: User{ID: 3, Name: "Anak Sulung", Disabled: true}, CreatedAt: today},
+			},
+			"Sukses": pesanSukses["nonaktif"],
+		}, "Cabut akses"},
+
 		{"masuk.html", map[string]any{"NoChrome": true,
 			"Form": map[string]string{"Kode": "abcde-fghij-klmno"}}, "Kode Keluarga"},
 		{"daftar.html", map[string]any{"NoChrome": true,
@@ -169,7 +182,10 @@ func TestPagesRender(t *testing.T) {
 			t.Errorf("%s: template tidak ditemukan", c.page)
 			continue
 		}
-		c.data["User"] = User{ID: 1, Name: "Ayah", FamilyID: 1, FamilyName: "Keluarga Santoso"}
+		// Halaman yang perannya menentukan isi layar membawa User-nya sendiri.
+		if _, ok := c.data["User"]; !ok {
+			c.data["User"] = User{ID: 1, Name: "Ayah", FamilyID: 1, FamilyName: "Keluarga Santoso"}
+		}
 		if _, ok := c.data["Family"]; !ok {
 			c.data["Family"] = "Keluarga Santoso"
 		}

@@ -158,6 +158,42 @@ diperlakukan sebagai rahasia keluarga:
 Setiap pendaftaran baru dicatat di log (`anggota baru terdaftar: ... di keluarga ...`).
 Kalau muncul nama yang tidak dikenal, kode keluarga itu sudah bocor.
 
+## Akun dan anggota
+
+Halaman **Akun** (`/pengaturan`) mengurus dua hal yang sebelumnya tidak punya jalan sama
+sekali dari dalam aplikasi: mengganti kata sandi sendiri, dan mencabut akses anggota yang
+sudah tidak lagi bagian dari keluarga. Sebelum ini sandi yang bocor hanya bisa diganti
+lewat akses langsung ke database, dan memutar kode undangan cuma menutup pendaftaran baru
+— sesi yang sudah berjalan tetap hidup tiga puluh hari penuh.
+
+Halaman ini juga satu-satunya jalan menuju **Keluar** di ponsel. Sidebar yang memuat
+tombol itu baru muncul mulai lebar 900px, jadi selama ini pengguna ponsel tidak punya
+cara keluar dari aplikasinya sendiri.
+
+**Ganti sandi tetap meminta sandi lama** meski yang meminta jelas-jelas sudah punya sesi.
+Tanpa itu, satu perangkat yang tertinggal dalam keadaan login cukup untuk mengunci
+pemiliknya keluar dari akunnya sendiri. Setelah sandinya diganti, **seluruh sesi anggota
+itu dihapus** dan perangkat yang sedang dipakai langsung diberi sesi pengganti. Sandi
+diganti biasanya justru karena yang lama diduga bocor; tanpa langkah itu, sandi barunya
+tidak mengusir siapa pun.
+
+**Anggota dinonaktifkan, tidak dihapus.** `transactions.created_by` menunjuk ke barisnya
+untuk mengisi "Dicatat oleh", dan menghapus anggota berarti menghapus jejak siapa mencatat
+apa — persis hal yang paling dibutuhkan saat ada yang perlu ditelusuri belakangan. Yang
+dicabut adalah aksesnya: `disabled_at` terisi, seluruh sesinya dihapus, dan `SessionUser`
+menyaringnya sehingga pencabutan berlaku di semua perangkatnya pada permintaan berikutnya.
+
+Penyaring itu ada di satu tempat saja, dan hilangnya tidak menimbulkan error apa pun —
+anggota yang sudah dicabut cuma diam-diam tetap bisa masuk. `anggota_test.go` menjaganya
+secara mekanis, sama seperti `tenant_test.go` menjaga penyaring `family_id`.
+
+**Yang boleh mencabut hanya kepala keluarga**, yaitu anggota pertama — yang dibuat
+bersama keluarganya lewat API admin. Perannya diturunkan dari urutan pendaftaran, bukan
+disimpan sebagai kolom sendiri, jadi tidak ada keluarga yang bisa kehilangan kepalanya
+karena satu baris data salah ubah. Kepala keluarga sendiri tidak bisa dinonaktifkan oleh
+siapa pun, dan itu dijaga di query `SetMemberActive`, bukan cuma di handler: keluarga yang
+kepalanya ikut nonaktif tidak menyisakan siapa pun yang bisa memulihkan anggota lain.
+
 ## Kartu kredit dan PayLater
 
 Keduanya jenis dompet yang berbeda hanya pada nama dan daftar penyedianya; di seluruh
@@ -302,6 +338,7 @@ view.go        view model dan pelabelan tanggal
 auth.go        sesi cookie, bcrypt, login dan pendaftaran per keluarga
 kartu.go       siklus tagihan kartu kredit: tanggal cetak, jatuh tempo, tagihan
 hutang.go      handler hutang piutang dan pembayaran per pihak
+anggota.go     halaman akun: ganti sandi, dan pencabutan akses anggota
 templates/     layout + satu berkas per halaman
 static/        CSS design system Classical, app.css, app.js, ikon, manifest
 ```
@@ -309,8 +346,13 @@ static/        CSS design system Classical, app.css, app.js, ikon, manifest
 ## Yang sengaja belum ada
 
 Realtime sync, mode offline, laporan dan grafik lintas bulan, ekspor, anggaran per
-kategori, cicilan berjadwal, bunga kartu kredit, dan peran/izin per anggota. Semuanya
-ditambahkan kalau memang terasa kurang setelah dipakai, bukan sebelumnya.
+kategori, cicilan berjadwal, dan bunga kartu kredit. Semuanya ditambahkan kalau memang
+terasa kurang setelah dipakai, bukan sebelumnya.
+
+Peran per anggota juga masih sebatas satu pembedaan: kepala keluarga boleh mencabut akses,
+selebihnya semua anggota sama persis. Belum ada anggota yang hanya bisa melihat, atau yang
+dibatasi ke dompet tertentu. Satu pembedaan itu ada karena pencabutan akses memang tidak
+boleh bisa dilakukan siapa saja — bukan karena sistem izin sudah mulai dibangun.
 
 Pengingat jatuh tempo di atas juga sebatas yang terlihat saat aplikasi dibuka. Notifikasi
 yang mendorong diri sendiri ke ponsel butuh push server dan izin per perangkat — belum

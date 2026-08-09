@@ -112,6 +112,14 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		fail()
 		return
 	}
+	// Diperiksa sesudah sandinya cocok, bukan sebelum. Pesannya spesifik, dan
+	// yang spesifik hanya boleh terbaca oleh orang yang memang pemilik akunnya
+	// — kalau tidak, ia jadi cara menebak nama anggota keluarga lain.
+	if u.Disabled {
+		a.renderAuth(w, r, "masuk.html", form,
+			"Akses akun ini sudah dicabut oleh kepala keluarga.")
+		return
+	}
 	a.setCookie(w, r, familyCookie, family.SignupCode, familyTTL)
 	a.startSession(w, r, u.ID)
 }
@@ -165,13 +173,23 @@ func (a *App) register(w http.ResponseWriter, r *http.Request) {
 	a.startSession(w, r, id)
 }
 
-func (a *App) startSession(w http.ResponseWriter, r *http.Request, userID int64) {
+// newSession memberi perangkat ini sesi baru. Dipisah dari startSession karena
+// ganti sandi juga memakainya: seluruh sesi lama dihapus dulu, lalu perangkat
+// yang sedang dipakai diberi sesi pengganti supaya tidak ikut terlempar keluar.
+func (a *App) newSession(w http.ResponseWriter, r *http.Request, userID int64) error {
 	token := newToken()
 	if err := a.store.CreateSession(r.Context(), token, userID, time.Now().Add(sessionTTL)); err != nil {
+		return err
+	}
+	a.setCookie(w, r, sessionCookie, token, sessionTTL)
+	return nil
+}
+
+func (a *App) startSession(w http.ResponseWriter, r *http.Request, userID int64) {
+	if err := a.newSession(w, r, userID); err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	a.setCookie(w, r, sessionCookie, token, sessionTTL)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 

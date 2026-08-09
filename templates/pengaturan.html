@@ -1,0 +1,89 @@
+{{define "content"}}
+<div class="stack-lg">
+  <div class="page-head">
+    <h4>Akun</h4>
+  </div>
+
+  {{if .Sukses}}<p class="banner" role="status">{{.Sukses}}</p>{{end}}
+
+  {{/* Sekaligus satu-satunya tombol Keluar yang bisa dijangkau dari ponsel:
+       sidebar yang memuatnya baru muncul mulai lebar 900px. */}}
+  <section class="card elev-sm">
+    <div class="card-kicker">Masuk sebagai</div>
+    <div class="mid-figure">{{.User.Name}}</div>
+    <div class="card-body small text-muted">
+      {{.Family}}{{if .User.Kepala}} · kepala keluarga{{end}}
+    </div>
+    <form method="post" action="/keluar">
+      <button type="submit" class="btn btn-secondary btn-block">Keluar</button>
+    </form>
+  </section>
+
+  <section>
+    <div class="sec-head"><h6>Ganti Kata Sandi</h6></div>
+    <form method="post" action="/pengaturan/sandi" class="stack-sm">
+      <div class="field">
+        <label for="sandi_lama">Kata Sandi Sekarang</label>
+        <input class="input" id="sandi_lama" name="sandi_lama" type="password"
+               required autocomplete="current-password">
+      </div>
+      <div class="field">
+        <label for="sandi_baru">Kata Sandi Baru</label>
+        <input class="input" id="sandi_baru" name="sandi_baru" type="password"
+               required minlength="8" autocomplete="new-password">
+        <p class="hint">Minimal 8 karakter.</p>
+      </div>
+      <div class="field">
+        <label for="sandi_ulang">Ulangi Kata Sandi Baru</label>
+        <input class="input" id="sandi_ulang" name="sandi_ulang" type="password"
+               required minlength="8" autocomplete="new-password">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Simpan Kata Sandi</button>
+      <p class="hint">Perangkat lain yang masih login akan diminta masuk ulang. Perangkat
+        yang sedang dipakai ini tetap masuk.</p>
+    </form>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h6>Anggota Keluarga</h6>
+      <span class="text-muted small">{{len .Members}} orang</span>
+    </div>
+    <div class="stack-sm">
+      {{range .Members}}
+        <div class="card anggota-item{{if .Disabled}} anggota-mati{{end}}">
+          <span class="row-main">
+            <span class="row-title">{{.Name}}</span>
+            <span class="row-sub text-muted">
+              Bergabung {{.Bergabung}} ·
+              {{if .Txs}}{{.Txs}} transaksi dicatat{{else}}belum mencatat transaksi{{end}}
+            </span>
+          </span>
+          {{if .Kepala}}<span class="tag tag-neutral tiny">kepala</span>{{end}}
+          {{if .Disabled}}<span class="tag tag-outline tiny m-out">nonaktif</span>{{end}}
+
+          {{/* Kepala keluarga tidak muncul di sini bahkan untuk dirinya sendiri:
+               keluarga yang kepalanya ikut nonaktif tidak menyisakan siapa pun
+               yang bisa memulihkan anggota lain. */}}
+          {{if and $.User.Kepala (not .Kepala)}}
+            <form method="post"
+                  action="/pengaturan/anggota/{{.ID}}/{{if .Disabled}}aktif{{else}}nonaktif{{end}}"
+                  {{if not .Disabled}}onsubmit="return confirm('Cabut akses {{.Name}}? Ia langsung keluar dari semua perangkatnya, dan catatannya tetap utuh.')"{{end}}>
+              <button type="submit" class="linkish">
+                {{if .Disabled}}Pulihkan{{else}}Cabut akses{{end}}
+              </button>
+            </form>
+          {{end}}
+        </div>
+      {{end}}
+    </div>
+    {{if .User.Kepala}}
+      <p class="hint">Mencabut akses membuat anggota tidak bisa masuk lagi dan langsung
+        memutus sesinya di semua perangkat. Yang sudah pernah dicatatnya tidak dihapus —
+        termasuk namanya di "Dicatat oleh" tiap transaksi.</p>
+    {{else}}
+      <p class="hint">Hanya kepala keluarga yang bisa mengubah akses anggota.</p>
+    {{end}}
+  </section>
+</div>
+{{end}}

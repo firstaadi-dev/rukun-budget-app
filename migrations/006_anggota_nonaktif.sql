@@ -1,0 +1,11 @@
+-- Anggota yang sudah tidak lagi bagian dari keluarga harus bisa dicabut
+-- aksesnya. Sebelum ini tidak ada caranya sama sekali: memutar kode undangan
+-- hanya menutup pendaftaran baru, sementara sesi yang sudah berjalan tetap
+-- hidup tiga puluh hari dan sandinya tidak bisa diganti dari dalam aplikasi.
+--
+-- Dinonaktifkan, bukan dihapus. transactions.created_by menunjuk ke baris ini
+-- untuk mengisi "Dicatat oleh", dan foreign key gabungannya menolak penghapusan
+-- selama masih ada transaksi yang menyebutnya. Menghapus anggota berarti
+-- menghapus jejak siapa mencatat apa — persis hal yang paling dibutuhkan saat
+-- ada yang perlu ditelusuri belakangan.
+ALTER TABLE users ADD COLUMN disabled_at TIMESTAMPTZ;
