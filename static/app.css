@@ -33,7 +33,9 @@ a { color: var(--color-accent-700); }
   position: fixed;
   inset: auto 0 0 0;
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  /* Tujuh kolom, dan itu batasnya. Di layar 360px tiap kolom tinggal 51px —
+     cukup untuk ikon dan label sependek "Investasi", tidak untuk yang kedelapan. */
+  grid-template-columns: repeat(7, 1fr);
   background: var(--color-surface);
   border-top: 1px solid var(--color-divider);
   padding-bottom: env(safe-area-inset-bottom);
@@ -46,11 +48,20 @@ a { color: var(--color-accent-700); }
   justify-content: center;
   gap: 3px;
   min-height: var(--tap);
-  padding: 8px 4px;
-  font-size: 10.5px;
+  padding: 8px 2px;
+  font-size: 10px;
   color: var(--color-text);
   opacity: 0.6;
   text-decoration: none;
+}
+/* Label tab tidak boleh membungkus jadi dua baris: tingginya lalu berbeda-beda
+   dan seluruh baris tab ikut bergoyang. Yang tidak muat dipotong, bukan
+   dilipat. */
+.tabbar a span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .tabbar a .ic { width: 19px; height: 19px; }
 .tabbar a.on { opacity: 1; color: var(--color-accent-700); }
@@ -61,7 +72,16 @@ a { color: var(--color-accent-700); }
   gap: 10px;
   margin-bottom: var(--space-4);
 }
-.topbar h5 { margin: 0; }
+/* Judul dibiarkan turun ke baris berikutnya, bukan dipotong. Sebagai anak
+   flex, min-width bawaannya auto — ia menolak menyusut di bawah lebar teksnya
+   dan meluber keluar layar, lalu terpotong di tepi tanpa tanda apa pun. Nama
+   seperti "SP Funds S&P 500 Sharia Industrial Exchange Traded Fund" kehilangan
+   justru bagian yang membedakannya dari saudaranya. */
+.topbar h5 {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
 .back {
   display: flex;
   align-items: center;
@@ -140,7 +160,8 @@ a { color: var(--color-accent-700); }
   gap: var(--space-3);
   flex-wrap: wrap;
 }
-.page-head h4 { margin: 0; }
+/* Alasan min-width yang sama dengan .topbar h5 di atas. */
+.page-head h4 { margin: 0; min-width: 0; overflow-wrap: break-word; }
 
 .sec-head {
   display: flex;
@@ -582,3 +603,42 @@ a.seg-opt.on { background: var(--color-accent-100); color: var(--color-accent-70
 .btn-danger { color: var(--money-out); border-color: var(--money-out); }
 .btn-danger:hover { background: color-mix(in srgb, var(--money-out) 12%, transparent); }
 .btn-danger:active { background: color-mix(in srgb, var(--money-out) 22%, transparent); }
+
+/* ---------- investasi ---------- */
+
+/* Nilai sekarang berdiri paling depan, selisih tepat di bawahnya. Yang ingin
+   diketahui saat membuka halaman ini bukan berapa yang sudah dikeluarkan,
+   melainkan apakah yang dikeluarkan itu sedang bertambah atau menyusut. */
+.inv-selisih {
+  margin: 0;
+  font-size: 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.inv-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-text);
+  text-decoration: none;
+}
+.inv-angka {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+  text-align: right;
+}
+.inv-nilai { font-size: 14px; }
+
+/* Kotak centang berdampingan dengan labelnya, bukan di atasnya seperti label
+   kolom lain. */
+.checkline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}

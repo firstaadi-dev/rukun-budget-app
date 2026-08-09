@@ -1,0 +1,127 @@
+{{define "content"}}
+<div class="stack">
+  {{/* Jenis dipilih lewat tautan, bukan radio: tiap jenis punya kolom yang
+       berbeda, dan menampilkan ketiganya sekaligus akan meminta pecahan gram
+       kepada orang yang sedang mencatat saham. Sama seperti form transaksi,
+       yang juga berganti bentuk lewat ?jenis=. */}}
+  {{if not .ID}}
+    <nav class="seg">
+      {{range $.Kinds}}
+        <a class="seg-opt{{if eq $.Form.jenis .Value}} on{{end}}"
+           href="/investasi/baru?jenis={{.Value}}">{{.Label}}</a>
+      {{end}}
+    </nav>
+  {{end}}
+
+  <form method="post" action="{{.Action}}" class="stack">
+    <input type="hidden" name="jenis" value="{{.Form.jenis}}">
+
+    {{if .Error}}<p class="banner m-out">{{.Error}}</p>{{end}}
+
+    {{/* Nama hanya diketik untuk emas, yang memang tidak punya kode. Saham dan
+         reksadana mengambil namanya dari kode bursa atau daftar NAB, di server
+         — diisi di browser, ia bergantung pada balasan pencarian yang kebetulan
+         sudah sampai, dan memilih dari daftar lebih cepat daripada jaringan. */}}
+    {{if eq .Form.jenis "gold"}}
+      <div class="field">
+        <label for="nama">Merek</label>
+        <input class="input" id="nama" name="nama" required value="{{.Form.nama}}"
+               placeholder="Antam">
+      </div>
+    {{end}}
+
+    {{if eq .Form.jenis "gold"}}
+      <div class="field">
+        <label for="varian">Pecahan</label>
+        <input class="input" id="varian" name="varian" value="{{.Form.varian}}" placeholder="10 gram">
+        <p class="hint">Keping 1 gram dan 10 gram dicatat sebagai dua posisi terpisah:
+          preminya berbeda, dan harga jualnya kembali juga berbeda. Kosongkan kalau
+          tidak ingin dipisah.</p>
+      </div>
+    {{else}}
+      <input type="hidden" name="varian" value="{{.Form.varian}}">
+    {{end}}
+
+    {{if eq .Form.jenis "stock"}}
+      {{/* Kolom simbol sekaligus kolom pencarian. Mengetik "voo" atau
+           "vanguard s&p" memunculkan pilihan lengkap dengan namanya, dan
+           memilih salah satunya mengisi kolom Nama di atas. Tanpa file JS-nya,
+           kolom ini tetap kolom teks biasa yang bisa diisi sendiri. */}}
+      <div class="field">
+        <label for="simbol">Simbol</label>
+        <input class="input" id="simbol" name="simbol" required value="{{.Form.simbol}}"
+               list="cari-simbol" autocomplete="off" autocapitalize="characters"
+               placeholder="VOO, QQQ, atau ketik namanya"
+               data-cari="stock">
+        <datalist id="cari-simbol"></datalist>
+        <p class="hint">Ketik kode atau namanya, lalu pilih dari daftar yang muncul.
+          Nama posisinya diambil sendiri dari kode ini, begitu juga harganya —
+          penutupan terakhir di bursa.</p>
+      </div>
+    {{else if eq .Form.jenis "gold"}}
+      <div class="field">
+        <label class="checkline">
+          <input type="checkbox" name="simbol" value="GC=F" {{if .Form.simbol}}checked{{end}}>
+          Ikuti harga emas dunia
+        </label>
+        <p class="hint">Harga emas dunia per gram, bukan harga gerai Antam. Gerai menjual
+          di atas harga ini dan membeli kembali di bawahnya, jadi angkanya perkiraan
+          kasar. Lepas centangnya kalau ingin mengisi harga buyback sendiri.</p>
+      </div>
+    {{else}}
+      {{/* Untuk reksadana, "simbol"-nya adalah namanya persis seperti tertulis di
+           daftar NAB. Karena itu ia harus dipilih, bukan diketik: satu huruf
+           berbeda berarti NAB-nya tidak akan pernah ketemu. */}}
+      <div class="field">
+        <label for="simbol">Reksadana</label>
+        <input class="input" id="simbol" name="simbol" required value="{{.Form.simbol}}"
+               list="cari-simbol" autocomplete="off"
+               placeholder="Ketik nama reksadananya"
+               data-cari="fund">
+        <datalist id="cari-simbol"></datalist>
+        <p class="hint">Pilih dari daftar yang muncul saat mengetik. Nama itu sekaligus
+          nama posisinya, dan NAB-nya dicocokkan dari nama yang sama — karena itu harus
+          persis.</p>
+      </div>
+    {{end}}
+
+    <div class="field">
+      <label for="mata_uang">Mata Uang</label>
+      <select class="input" id="mata_uang" name="mata_uang">
+        {{range $.Currencies}}
+          <option value="{{.Code}}" {{if eq $.Form.mata_uang .Code}}selected{{end}}>{{.Code}} — {{.Name}}</option>
+        {{end}}
+      </select>
+      <p class="hint">Mata uang harga dan modalnya. Saham Amerika biasanya USD,
+        emas dan reksadana Indonesia IDR.</p>
+    </div>
+
+    {{if ne .Form.jenis "gold"}}
+      <div class="field">
+        <label for="dompet">Dompet Broker</label>
+        <select class="input" id="dompet" name="dompet">
+          <option value="0">— belum ada —</option>
+          {{range $.Brokers}}
+            <option value="{{.ID}}" {{if eq $.Form.dompet (printf "%d" .ID)}}selected{{end}}>
+              {{.Name}} · {{.Currency}}
+            </option>
+          {{end}}
+        </select>
+        <p class="hint">Dompet tempat saldo topup mengendap sebelum dibelanjakan.
+          Belum ada? Buat dompet berjenis Broker di halaman Dompet, lalu topup dari
+          rekeningmu lewat transfer — kurs dan biayanya tercatat di sana.</p>
+      </div>
+    {{else}}
+      <input type="hidden" name="dompet" value="0">
+    {{end}}
+
+    <div class="field">
+      <label for="catatan">Catatan</label>
+      <input class="input" id="catatan" name="catatan" value="{{.Form.catatan}}"
+             placeholder="Opsional">
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-block">Simpan Posisi</button>
+  </form>
+</div>
+{{end}}

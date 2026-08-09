@@ -8,6 +8,8 @@ kurs otomatis dari API.
 Fase 3: multi-tenant — satu deployment melayani banyak keluarga, dengan data yang
 terpisah penuh.
 Fase 4: siklus tagihan kartu kredit, dan pencatatan hutang piutang per pihak.
+Fase 5: investasi — emas batangan, saham dan ETF Amerika, serta reksadana Indonesia,
+dengan harga pasar yang diambil sendiri.
 
 Satu binary Go: server, template HTML, dan seluruh aset statis ikut ter-embed.
 Tidak ada build frontend, tidak ada `node_modules`, tidak ada framework JS.
@@ -74,6 +76,8 @@ service ke `plan: starter` di `render.yaml`.
 | `APP_TZ` | tidak | Zona waktu untuk "Hari ini". Default `Asia/Jakarta`. |
 | `PORT` | tidak | Default `8080`. Diisi otomatis oleh Render. |
 | `RATES_URL` | tidak | Sumber kurs. Default open.er-api.com; isi `off` untuk mematikan. |
+| `HARGA_URL` | tidak | Sumber harga saham, ETF, dan emas. Default endpoint chart Yahoo Finance; isi `off` untuk mematikan. |
+| `NAB_URL` | tidak | Sumber NAB reksadana. Default Infovesta; isi `off` untuk mematikan. |
 
 ## PWA
 
@@ -268,6 +272,179 @@ yang punya dompet menurunkannya dari dompet itu, supaya tidak ada dua sumber keb
 Pembayaran yang melebihi sisa saldo ditolak. Tanpa itu, salah ketik satu nol membuat
 saldo hutang berbalik jadi piutang dan tidak ada yang menyadarinya.
 
+## Investasi
+
+Tiga jenis yang bisa dicatat: **emas batangan**, **saham dan ETF Amerika**, dan
+**reksadana Indonesia**. Ketiganya berbentuk sama — sejumlah unit yang dimiliki, modal
+yang sudah dikeluarkan, dan harga pasar yang bergerak sendiri — jadi ketiganya memakai
+satu tabel `investments`, bukan tiga. Yang berbeda cuma satuannya (gram, lembar, unit),
+cara harganya didapat, dan dari mana uangnya diambil.
+
+**Pembelian menumpang `transactions`, bukan tabel sendiri.** Alasannya sama dengan hutang
+piutang: saldo dompet diturunkan dari satu query di `walletSelect`, dan sumber kedua yang
+juga menggerakkan saldo akan menyimpang tanpa ketahuan. Jenisnya `invest_buy`, dengan
+kolom `investment_id` dan `qty_e8`. Di daftar transaksi ia bernada netral, bukan
+"keluar" — uangnya memang meninggalkan dompet, tapi tidak habis; ia berubah bentuk jadi
+sesuatu yang masih dimiliki, persis seperti transfer antar dompet.
+
+**Satu posisi per identitas.** Untuk emas, identitasnya merek *dan* pecahan: keping 1
+gram dan 10 gram jadi dua posisi terpisah karena preminya berbeda dan harga jualnya
+kembali juga berbeda. Menggabungkan keduanya akan menyembunyikan selisih yang nyata.
+
+### Saldo broker, dan mengapa ia dompet
+
+Saham dan reksadana dibeli dari saldo yang sudah lebih dulu ditopup ke brokernya. Saldo
+itu dompet sungguhan — uangnya sudah keluar dari bank, sudah kena kurs dan biaya
+transfer, tapi belum jadi aset apa pun — jadi ia jenis dompet sendiri (`broker`). Tanpa
+dompet itu, uang yang mengendap di broker akan hilang dari catatan sampai ia terpakai
+membeli sesuatu.
+
+Topupnya **tidak butuh jenis transaksi baru**: ia transfer antar dompet yang sudah ada,
+lengkap dengan kurs dan biaya adminnya. Dana yang masuk ke dompet broker sudah final, dan
+selisihnya tercatat sebagai biaya admin — persis alur yang diminta, dan persis yang sudah
+dilakukan transfer lintas mata uang sejak fase 1.
+
+Pembelian hanya menerima dompet yang mata uangnya sama dengan posisinya. Membeli posisi
+dolar langsung dari dompet rupiah butuh kurs, dan kurs pada pembelian aset bukan hal yang
+bisa ditebak belakangan dari dua angka yang tersimpan — itulah gunanya topup lebih dulu.
+
+**Harga satuan mengisi biaya sendiri.** Form pembelian terisi lebih dulu dengan harga
+yang berlaku sekarang — penutupan terakhir untuk saham dan ETF, NAB untuk reksadana,
+harga emas dunia per gram untuk emas. Mengetik kuantitas mengisi totalnya; membetulkan
+total jadi yang benar-benar keluar membuat selisihnya jatuh ke Biaya, dan itulah komisi
+broker, spread, atau premi cetak. Biaya juga boleh diketik sendiri, dan harga satuannya
+yang lalu menyesuaikan.
+
+Ketiganya terikat satu persamaan — `total = kuantitas × harga satuan + biaya` — dengan
+urutan menang yang sama persis dengan biaya admin di form transfer: isian orangnya
+dipakai kalau ada, kalau kosong dihitung dari harga satuan. Karena aturan itu ada di
+server, form ini tetap utuh tanpa JS; yang hilang cuma angkanya muncul sambil diketik.
+
+**Boleh tanpa dompet.** Emas yang dibeli bertahun-tahun sebelum aplikasi ini dipakai tetap
+perlu tercatat, dan memaksanya menunjuk sebuah dompet akan mengurangi saldo hari ini
+karena uang yang keluar jauh di masa lalu. Pilihan "Tanpa dompet" mencatat kepemilikannya
+tanpa menyentuh saldo mana pun, sama seperti hutang yang tidak pernah masuk rekening.
+
+### Angka yang eksak
+
+Kuantitas disimpan sebagai `int64` berskala 1e8, bukan pecahan biner: 0,1 lembar tidak
+punya wakil eksak di `float64`, dan galatnya menumpuk di penjumlahan lot lalu tidak bisa
+dilacak balik. Delapan desimal menampung unit reksadana yang lazim empat desimal dan saham
+pecahan yang lazim enam.
+
+Harga satuan disimpan empat desimal **lebih halus** dari satuan terkecil mata uangnya —
+enam desimal untuk rupiah. NAB reksadana lazim ditulis empat desimal, dan membulatkannya
+ke rupiah penuh menghapus persis perbedaan antar hari yang ingin dilihat. Di layar,
+desimal tambahan itu hanya ditulis selama harganya masih di bawah 10.000 satuan mayor;
+pada harga emas sejuta rupiah per gram ia cuma derau.
+
+### Harga pasar
+
+Sumbernya endpoint chart Yahoo Finance: tanpa API key, tanpa pendaftaran, dan menyebut
+mata uang kuotasinya sendiri sehingga tidak perlu ditebak dari simbolnya. Yang dipakai
+penutupan terakhir, bukan harga berjalan — bursa Amerika tutup saat sebagian besar
+keluarga di sini melihat layarnya, dan angka yang bergerak tiap detik tidak mengubah satu
+pun keputusan yang diambil dari halaman ini.
+
+| Jenis | Sumber harga | Catatan |
+|---|---|---|
+| Saham & ETF | Yahoo Finance, simbol bursa (`VOO`, `QQQ`, `AAPL`) | langsung, mata uang kuotasi biasanya USD |
+| Emas | Yahoo Finance, `GC=F` | per troy ounce → per gram, lalu dikonversi ke mata uang posisinya |
+| Reksadana | Infovesta, dicocokkan dari nama | 1.293 reksadana, enam kategori, NAB harian |
+
+Keduanya keluar sebagai satu peta yang dikunci simbol, jadi yang membacanya tidak perlu
+tahu dari mana angkanya datang. Bentroknya tidak mungkin: kode bursa dan nama reksadana
+tidak pernah sama.
+
+Emas butuh dua konversi sekaligus: troy ounce jadi gram (31,1034768 gram, eksak menurut
+definisi), lalu dolar jadi rupiah lewat kurs yang sudah ada. Tanpa keduanya tidak ada satu
+pun posisi emas rupiah yang bisa mengikuti harga pasar. Kalau kursnya tidak diketahui,
+harga pasarnya **dilewati**, bukan dipajang apa adanya: angka dolar yang tampil sebagai
+rupiah lebih buruk daripada tidak ada angka sama sekali.
+
+### NAB reksadana
+
+Reksadana Indonesia tidak punya API resmi yang terbuka. Dua API komunitas yang beredar
+(`bibit-reksadana`, `ojk-invest-api`) sudah mati saat fitur ini dibuat, dan OJK sendiri
+hanya menerbitkan HTML bulanan. Yang dipakai sekarang **Infovesta**, satu-satunya yang
+menerbitkan NAB harian seluruh reksadana Indonesia dalam bentuk yang bisa dibaca mesin.
+
+Yang dibaca fragmen HTML di `/index/mutualfund/{kategori}/2` — tabel yang dipakai halaman
+datanya sendiri, bukan API dengan kontrak yang dijanjikan siapa pun. Enam kategori (pasar
+uang, pendapatan tetap, campuran, saham, ETF, indeks) berisi sekitar 1.293 reksadana.
+
+Perlu diketahui sebelum mengubahnya:
+
+- **Ini menempel pada bentuk tabel orang lain.** Nama di kolom ketiga, NAB/UP di keempat.
+  Kalau tabelnya berubah, pengambilannya gagal dan yang tampil NAB isian sendiri.
+- **Pengambilannya sengaja hemat**: enam permintaan per 12 jam untuk seluruh deployment,
+  bukan satu per halaman yang dibuka. NAB memang cuma berubah sekali sehari sesudah bursa
+  tutup. Ini satu-satunya sumber di aplikasi ini yang punya penyegar latar seperti kurs —
+  daftarnya sama untuk semua keluarga, jadi tidak perlu menunggu ada yang membuka halaman.
+- **Tanggal NAB tidak ikut diterbitkan** di tabelnya. Yang dicatat waktu pengambilan, dan
+  labelnya di layar mengatakan "diambil", bukan "per".
+- **Mata uangnya ditebak dari nama.** Yang berdenominasi dolar menyebut "USD" di
+  belakang namanya, dan itu satu-satunya petunjuk yang ada. Salah tebak tertahan lapis
+  berikutnya, yang menolak kuotasi bermata uang beda dari posisinya.
+- **Posisi reksadana dicocokkan lewat nama persis**, dinormalkan huruf besar-kecil dan
+  spasinya. Karena itu namanya dipilih dari daftar, bukan diketik — satu huruf berbeda
+  berarti NAB-nya tidak akan pernah ketemu.
+
+### Mencari simbol, dan nama yang tidak diketik
+
+Posisi saham dan reksadana **tidak punya kolom nama**. Yang diisi cuma kodenya; namanya
+diambil di server — dari kuotasi bursanya untuk saham dan ETF, dari daftar NAB untuk
+reksadana. Emas tetap mengetik mereknya, karena ia memang tidak punya kode.
+
+Sebelumnya nama adalah kolom sendiri yang diisi skrip di browser begitu hasil pencarian
+sampai. Itu balapan yang sering kalah: memilih dari daftar lebih cepat daripada jaringan,
+dan yang tersimpan posisi tanpa nama. Memindahkannya ke server menghapus balapannya, bukan
+memperkecil peluangnya — di sana kodenya sudah ada di tangan, dan tidak ada yang perlu
+ditunggu.
+
+Nama saham datang dari endpoint kuotasi yang sama dengan harganya, bukan permintaan kedua:
+`shortName` sudah ikut di balasan yang memang harus diambil. Tiga hasilnya dibedakan —
+kode dikenal memberi nama resmi, kode salah ketik **ditolak sebelum tersimpan** (posisinya
+tidak akan pernah dapat harga, dan mengetahuinya sekarang lebih baik), dan sumber yang
+sedang mati membiarkan kodenya sendiri jadi nama sementara supaya pencatatan tidak
+terhenti oleh kegagalan jaringan orang lain.
+
+Mengetik di kolom simbol tetap memunculkan pilihan lengkap dengan namanya. Untuk saham dan
+ETF pencariannya ke Yahoo — "voo" maupun "vanguard s&p" sama-sama menemukan VOO, karena
+orang mengingat salah satu dari keduanya. Untuk reksadana pencariannya ke daftar NAB yang
+sudah ada di memori, tanpa menyentuh jaringan sama sekali. Bedanya sekarang, daftar itu
+alat bantu memilih kode — bukan sumber nama yang tersimpan.
+
+`/investasi/cari` adalah satu-satunya endpoint JSON di aplikasi ini; sisanya HTML.
+Pengecualiannya dibayar setimpal: tanpa itu, mencatat sebuah ETF berarti mengetik ulang
+kode dan namanya dari ingatan, dan kode yang salah satu huruf menghasilkan posisi yang
+harganya tidak pernah datang tanpa penjelasan apa pun. Kripto dan indeks disaring dari
+hasilnya — fase ini hanya menjanjikan saham dan ETF, dan pilihan yang tidak bisa dipakai
+lebih buruk daripada daftar yang lebih pendek.
+
+Tanpa `app.js`, kolomnya tetap kolom teks biasa yang bisa diisi sendiri — dan karena
+namanya tidak lagi bergantung pada skrip, posisinya tetap tersimpan lengkap.
+
+### Yang perlu diketahui tentang ketiga sumber
+
+1. **Emas dunia bukan harga gerai Antam.** Gerai menjual di atas harga ini dan membeli
+   kembali di bawahnya, jadi angkanya perkiraan kasar. Yang ingin nilai jual sebenarnya
+   mengisi harga buyback sendiri.
+2. **Tidak satu pun dari ketiganya API resmi.** Yahoo dan Infovesta sama-sama bisa berubah
+   sewaktu-waktu tanpa pemberitahuan. Karena itu setiap posisi tetap boleh menyimpan harga
+   isian sendiri, dan kegagalan pengambilan tidak pernah mengosongkan layar: yang tampil
+   harga terakhir yang diketahui, lengkap dengan kapan ia diambil. Ketiganya juga bisa
+   dimatikan lewat `HARGA_URL=off` dan `NAB_URL=off`.
+3. **Keduanya dipakai atas nama pemakaian pribadi keluarga**, dengan permintaan sesedikit
+   mungkin dan User-Agent yang menyebut aplikasinya. Kalau Rukun dipakai lebih luas dari
+   itu, sumbernya perlu ditinjau ulang — data pasar berlisensi, dan tidak ada satu pun dari
+   keduanya yang memberi izin tertulis untuk dipakai ulang.
+
+Harga bursa tidak punya penyegar latar, karena yang perlu diambil cuma simbol yang
+benar-benar dimiliki seseorang — dan daftar itu hanya diketahui saat halamannya dibuka.
+Simbol yang belum pernah diambil dijemput saat itu juga dalam anggaran waktu yang dijepit;
+yang sudah punya nilai tapi mulai basi dikembalikan apa adanya dan disegarkan di latar.
+
 ## Daftar transaksi: periode dan pencarian
 
 **Bawaannya bulan berjalan.** Sebelum ini daftarnya tak berperiode tapi dipotong di 200
@@ -388,6 +565,9 @@ handlers.go    handler HTTP dan validasi form
 store.go       akses database (pgx)
 money.go       nominal int64, kurs sebagai rasio, format Indonesia
 rates.go       kurs pasar dari API, cache di memori, gabung dengan kurs transfer
+harga.go       harga saham, ETF, dan emas dunia; cache di memori, plus pencarian ticker
+nab.go         NAB seluruh reksadana Indonesia; penyegar latar, cache dan pencarian di memori
+investasi.go   model posisi dan lot, kuantitas eksak, untung-rugi, handler
 view.go        view model dan pelabelan tanggal
 auth.go        sesi cookie, bcrypt, login dan pendaftaran per keluarga
 kartu.go       siklus tagihan kartu kredit: tanggal cetak, jatuh tempo, tagihan
@@ -402,6 +582,14 @@ static/        CSS design system Classical, app.css, app.js, ikon, manifest
 Realtime sync, mode offline, laporan dan grafik lintas bulan, ekspor, anggaran per
 kategori, cicilan berjadwal, dan bunga kartu kredit. Semuanya ditambahkan kalau memang
 terasa kurang setelah dipakai, bukan sebelumnya.
+
+Investasi fase 1 hanya mencatat pembelian. **Penjualan belum ada**, jadi posisi yang
+sudah dilepas belum bisa ditutup dan keuntungan yang sudah direalisasi belum punya
+tempat. Itu bukan kelalaian: penjualan membawa serta pemilihan lot mana yang dilepas
+(FIFO, rata-rata, atau pilih sendiri), dan pilihan itu menentukan angka untung-rugi yang
+dilaporkan — terlalu menentukan untuk diputuskan sambil lalu. Dividen dan pemecahan
+saham juga belum ada, dengan alasan yang sama: keduanya mengubah kuantitas atau modal
+lot lama, bukan menambah lot baru.
 
 Peran per anggota juga masih sebatas satu pembedaan: kepala keluarga boleh mencabut akses,
 selebihnya semua anggota sama persis. Belum ada anggota yang hanya bisa melihat, atau yang

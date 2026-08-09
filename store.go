@@ -57,7 +57,7 @@ func (w Wallet) SisaLimitMinor() int64 { return max(0, w.LimitMinor-w.TerpakaiMi
 
 var walletTypeLabel = map[string]string{
 	"cash": "Tunai", "bank": "Bank", "credit": "Kartu Kredit",
-	"ewallet": "E-Wallet", "paylater": "PayLater",
+	"ewallet": "E-Wallet", "paylater": "PayLater", "broker": "Broker",
 }
 
 func (w Wallet) TypeLabel() string { return walletTypeLabel[w.Type] }
@@ -67,7 +67,7 @@ func (w Wallet) Subtitle() string {
 	if w.Provider == "" {
 		return w.TypeLabel()
 	}
-	if w.Type == "bank" || w.IsCredit() {
+	if w.Type == "bank" || w.Type == "broker" || w.IsCredit() {
 		return w.Provider + " · " + w.TypeLabel()
 	}
 	return w.Provider
@@ -136,7 +136,7 @@ func (s *Store) CreateWallet(ctx context.Context, familyID int64, w Wallet) (int
 		`INSERT INTO wallets (family_id, name, type, provider, currency, initial_balance_minor,
 		                      settlement_day, payment_day, credit_limit_minor)
 		 VALUES ($1, $2, $3, NULLIF($4, ''), $5, $6,
-		         NULLIF($7, 0), NULLIF($8, 0), NULLIF($9, 0)::BIGINT) RETURNING id`,
+		         NULLIF($7, 0), NULLIF($8, 0), NULLIF($9::BIGINT, 0)) RETURNING id`,
 		familyID, w.Name, w.Type, w.Provider, w.Currency, w.InitialMinor,
 		w.SettlementDay, w.PaymentDay, w.LimitMinor).Scan(&id)
 	return id, err
@@ -147,7 +147,7 @@ func (s *Store) UpdateWallet(ctx context.Context, familyID int64, w Wallet) erro
 		`UPDATE wallets SET name = $1, type = $2, provider = NULLIF($3, ''),
 		        currency = $4, initial_balance_minor = $5,
 		        settlement_day = NULLIF($6, 0), payment_day = NULLIF($7, 0),
-		        credit_limit_minor = NULLIF($8, 0)::BIGINT
+		        credit_limit_minor = NULLIF($8::BIGINT, 0)
 		 WHERE id = $9 AND family_id = $10`,
 		w.Name, w.Type, w.Provider, w.Currency, w.InitialMinor,
 		w.SettlementDay, w.PaymentDay, w.LimitMinor, w.ID, familyID)
@@ -197,9 +197,15 @@ type Tx struct {
 	AdminFee     int64
 	PartyID      int64
 	PartyName    string
-	Note         string
-	CreatedBy    string
-	CreatedAt    time.Time
+	// InvestmentID dan QtyE8 hanya terisi untuk invest_buy: posisi yang dibeli
+	// dan berapa unit yang didapat. Kuantitasnya berskala 1e8, lihat
+	// investasi.go.
+	InvestmentID   int64
+	InvestmentName string
+	QtyE8          int64
+	Note           string
+	CreatedBy      string
+	CreatedAt      time.Time
 }
 
 // Jenis hutang piutang. debt_* menyangkut kewajiban kita, loan_* menyangkut
@@ -250,11 +256,15 @@ SELECT t.id, t.kind, t.occurred_on,
        COALESCE(t.to_wallet_id, 0), COALESCE(w2.name, ''), COALESCE(w2.currency, ''),
        COALESCE(t.amount_in_minor, 0), t.admin_fee_minor,
        COALESCE(t.party_id, 0), COALESCE(p.name, ''),
+       COALESCE(t.investment_id, 0),
+       COALESCE(iv.name || CASE WHEN iv.varian = '' THEN '' ELSE ' · ' || iv.varian END, ''),
+       COALESCE(t.qty_e8, 0),
        t.note, COALESCE(u.name, ''), t.created_at
 FROM transactions t
 LEFT JOIN wallets w ON w.id = t.wallet_id
 LEFT JOIN wallets w2 ON w2.id = t.to_wallet_id
 LEFT JOIN parties p ON p.id = t.party_id
+LEFT JOIN investments iv ON iv.id = t.investment_id
 LEFT JOIN users u ON u.id = t.created_by
 WHERE t.family_id = $1`
 
@@ -266,6 +276,7 @@ func scanTxs(rows pgx.Rows) ([]Tx, error) {
 		if err := rows.Scan(&t.ID, &t.Kind, &t.Date, &t.WalletID, &t.WalletName, &t.WalletCur,
 			&t.AmountMinor, &t.Category, &t.ToWalletID, &t.ToWalletName, &t.ToWalletCur,
 			&t.AmountInMino, &t.AdminFee, &t.PartyID, &t.PartyName,
+			&t.InvestmentID, &t.InvestmentName, &t.QtyE8,
 			&t.Note, &t.CreatedBy, &t.CreatedAt); err != nil {
 			return nil, err
 		}
@@ -287,6 +298,9 @@ type TxFilter struct {
 	// Cari dicocokkan ke catatan, kategori, nama pihak, dan nama dompet —
 	// keempat tempat nama sebuah transaksi bisa diingat kembali.
 	Cari string
+	// Investment menyaring lot satu posisi investasi. Nol berarti tidak
+	// menyaring apa-apa.
+	Investment int64
 	// Limit 0 berarti tanpa batas.
 	Limit int
 }
@@ -299,7 +313,9 @@ func (s *Store) Transactions(ctx context.Context, familyID int64, f TxFilter) ([
 	                  AND ($6 = '' OR t.note ILIKE '%' || $6 || '%'
 	                              OR t.category ILIKE '%' || $6 || '%'
 	                              OR p.name ILIKE '%' || $6 || '%'
-	                              OR w.name ILIKE '%' || $6 || '%')
+	                              OR w.name ILIKE '%' || $6 || '%'
+	                              OR iv.name ILIKE '%' || $6 || '%')
+	                  AND ($7 = 0 OR t.investment_id = $7)
 	                  ORDER BY t.occurred_on DESC, t.id DESC`
 	kinds := f.Kinds
 	if kinds == nil {
@@ -314,9 +330,9 @@ func (s *Store) Transactions(ctx context.Context, familyID int64, f TxFilter) ([
 	if !f.To.IsZero() {
 		to = f.To
 	}
-	args := []any{familyID, kinds, f.Category, from, to, f.Cari}
+	args := []any{familyID, kinds, f.Category, from, to, f.Cari, f.Investment}
 	if f.Limit > 0 {
-		q += " LIMIT $7"
+		q += " LIMIT $8"
 		args = append(args, f.Limit)
 	}
 	rows, err := s.db.Query(ctx, q, args...)
@@ -346,22 +362,25 @@ func (s *Store) CreateTx(ctx context.Context, familyID int64, t Tx, userID int64
 	err := s.db.QueryRow(ctx,
 		`INSERT INTO transactions
 		   (family_id, kind, occurred_on, wallet_id, currency, amount_minor, category,
-		    to_wallet_id, amount_in_minor, admin_fee_minor, party_id, note, created_by)
-		 VALUES ($1, $2, $3, NULLIF($4, 0)::BIGINT, NULLIF($5, '')::CHAR(3), $6, NULLIF($7, ''),
-		         NULLIF($8, 0)::BIGINT, NULLIF($9, 0)::BIGINT, $10, NULLIF($11, 0)::BIGINT, $12, $13)
+		    to_wallet_id, amount_in_minor, admin_fee_minor, party_id,
+		    investment_id, qty_e8, note, created_by)
+		 VALUES ($1, $2, $3, NULLIF($4::BIGINT, 0), NULLIF($5, '')::CHAR(3), $6, NULLIF($7, ''),
+		         NULLIF($8::BIGINT, 0), NULLIF($9::BIGINT, 0), $10, NULLIF($11::BIGINT, 0),
+		         NULLIF($12::BIGINT, 0), NULLIF($13::BIGINT, 0), $14, $15)
 		 RETURNING id`,
 		familyID, t.Kind, t.Date, t.WalletID, t.currencyKolom(), t.AmountMinor, t.Category,
-		t.ToWalletID, t.AmountInMino, t.AdminFee, t.PartyID, t.Note, userID).Scan(&id)
+		t.ToWalletID, t.AmountInMino, t.AdminFee, t.PartyID,
+		t.InvestmentID, t.QtyE8, t.Note, userID).Scan(&id)
 	return id, err
 }
 
 func (s *Store) UpdateTx(ctx context.Context, familyID int64, t Tx) error {
 	tag, err := s.db.Exec(ctx,
-		`UPDATE transactions SET occurred_on = $1, wallet_id = NULLIF($2, 0)::BIGINT,
+		`UPDATE transactions SET occurred_on = $1, wallet_id = NULLIF($2::BIGINT, 0),
 		        currency = NULLIF($3, '')::CHAR(3), amount_minor = $4,
-		        category = NULLIF($5, ''), to_wallet_id = NULLIF($6, 0)::BIGINT,
-		        amount_in_minor = NULLIF($7, 0)::BIGINT, admin_fee_minor = $8,
-		        party_id = NULLIF($9, 0)::BIGINT, note = $10
+		        category = NULLIF($5, ''), to_wallet_id = NULLIF($6::BIGINT, 0),
+		        amount_in_minor = NULLIF($7::BIGINT, 0), admin_fee_minor = $8,
+		        party_id = NULLIF($9::BIGINT, 0), note = $10
 		 WHERE id = $11 AND kind = $12 AND family_id = $13`,
 		t.Date, t.WalletID, t.currencyKolom(), t.AmountMinor, t.Category, t.ToWalletID,
 		t.AmountInMino, t.AdminFee, t.PartyID, t.Note, t.ID, t.Kind, familyID)
@@ -1056,4 +1075,143 @@ func (s *Store) CardBalances(ctx context.Context, familyID, walletID int64, sett
 		               AND t.kind IN ('income', 'debt_in', 'loan_in')), 0)`,
 		familyID, walletID, settlement).Scan(&atSettlement, &creditsSince)
 	return atSettlement, creditsSince, err
+}
+
+// ---------- Investasi ----------
+
+// Kuantitas dan modal sebuah posisi dijumlahkan dari lot-nya di sini, tidak
+// pernah disimpan sebagai kolom — alasan yang sama dengan saldo dompet: kolom
+// ringkasan bisa melenceng dari catatannya tanpa menimbulkan error apa pun.
+//
+// Subquery lot-nya menyaring investment_id saja, tanpa family_id. Itu aman
+// karena foreign key gabungan di migrasi 007 menolak transaksi yang menunjuk
+// posisi milik keluarga lain, jadi seluruh lot sebuah posisi pasti sekeluarga
+// dengannya. Penyaring keluarganya sendiri menempel di potongan ini, sama
+// seperti walletSelect; pemanggil menambah syarat lain dengan AND mulai dari $2.
+const investSelect = `
+SELECT i.id, i.kind, i.name, i.varian, i.symbol, i.currency,
+       COALESCE(i.wallet_id, 0), COALESCE(w.name, ''),
+       COALESCE(i.manual_price_e4, 0), i.manual_price_on,
+       i.note, i.created_at,
+       COALESCE((SELECT SUM(t.qty_e8) FROM transactions t WHERE t.investment_id = i.id), 0),
+       COALESCE((SELECT SUM(t.amount_minor) FROM transactions t WHERE t.investment_id = i.id), 0),
+       COALESCE((SELECT SUM(t.admin_fee_minor) FROM transactions t WHERE t.investment_id = i.id), 0),
+       (SELECT COUNT(*) FROM transactions t WHERE t.investment_id = i.id),
+       (SELECT MAX(t.occurred_on) FROM transactions t WHERE t.investment_id = i.id)
+FROM investments i
+LEFT JOIN wallets w ON w.id = i.wallet_id
+WHERE i.family_id = $1`
+
+func scanInvestments(rows pgx.Rows) ([]Investment, error) {
+	defer rows.Close()
+	var out []Investment
+	for rows.Next() {
+		var v Investment
+		// Dua tanggal yang boleh kosong: harga isian sendiri yang belum pernah
+		// diisi, dan pembelian terakhir pada posisi yang lotnya belum ada.
+		var hargaOn, lastBuy *time.Time
+		if err := rows.Scan(&v.ID, &v.Kind, &v.Name, &v.Varian, &v.Symbol, &v.Currency,
+			&v.WalletID, &v.WalletName, &v.ManualPriceE4, &hargaOn,
+			&v.Note, &v.CreatedAt,
+			&v.QtyE8, &v.ModalMinor, &v.FeeMinor, &v.Lots, &lastBuy); err != nil {
+			return nil, err
+		}
+		if hargaOn != nil {
+			v.ManualPriceOn = *hargaOn
+		}
+		if lastBuy != nil {
+			v.LastBuy = *lastBuy
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+// Investments: seluruh posisi keluarga, dikelompokkan per jenis.
+//
+// Urutan jenisnya ditulis eksplisit, bukan mengikuti abjad nilai internalnya:
+// diurut abjad, 'fund' jatuh paling atas dan halamannya dibuka oleh Reksadana
+// tanpa alasan yang bisa dijelaskan ke siapa pun.
+func (s *Store) Investments(ctx context.Context, familyID int64) ([]Investment, error) {
+	rows, err := s.db.Query(ctx, investSelect+`
+		ORDER BY CASE i.kind WHEN 'gold' THEN 1 WHEN 'stock' THEN 2 ELSE 3 END,
+		         i.name, i.varian`, familyID)
+	if err != nil {
+		return nil, err
+	}
+	return scanInvestments(rows)
+}
+
+func (s *Store) Investment(ctx context.Context, familyID, id int64) (Investment, error) {
+	rows, err := s.db.Query(ctx, investSelect+" AND i.id = $2", familyID, id)
+	if err != nil {
+		return Investment{}, err
+	}
+	vs, err := scanInvestments(rows)
+	if err != nil {
+		return Investment{}, err
+	}
+	if len(vs) == 0 {
+		return Investment{}, ErrNotFound
+	}
+	return vs[0], nil
+}
+
+func (s *Store) CreateInvestment(ctx context.Context, familyID int64, v Investment) (int64, error) {
+	var id int64
+	err := s.db.QueryRow(ctx, `
+		INSERT INTO investments
+		  (family_id, kind, name, varian, symbol, currency, wallet_id,
+		   manual_price_e4, manual_price_on, note)
+		VALUES ($1, $2, $3, $4, $5, $6, NULLIF($7::BIGINT, 0),
+		        NULLIF($8::BIGINT, 0), $9, $10)
+		RETURNING id`,
+		familyID, v.Kind, v.Name, v.Varian, v.Symbol, v.Currency, v.WalletID,
+		v.ManualPriceE4, nullDate(v.ManualPriceOn), v.Note).Scan(&id)
+	return id, err
+}
+
+func (s *Store) UpdateInvestment(ctx context.Context, familyID int64, v Investment) error {
+	tag, err := s.db.Exec(ctx, `
+		UPDATE investments
+		   SET name = $3, varian = $4, symbol = $5, currency = $6,
+		       wallet_id = NULLIF($7::BIGINT, 0),
+		       manual_price_e4 = NULLIF($8::BIGINT, 0), manual_price_on = $9, note = $10
+		 WHERE family_id = $1 AND id = $2`,
+		familyID, v.ID, v.Name, v.Varian, v.Symbol, v.Currency, v.WalletID,
+		v.ManualPriceE4, nullDate(v.ManualPriceOn), v.Note)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// DeleteInvestment menolak posisi yang masih punya lot. Menghapusnya berarti
+// menghapus pembelian yang sudah menggerakkan saldo dompet, dan saldo itu akan
+// melompat tanpa ada transaksi yang menjelaskannya.
+func (s *Store) DeleteInvestment(ctx context.Context, familyID, id int64) error {
+	tag, err := s.db.Exec(ctx, `
+		DELETE FROM investments i
+		 WHERE i.family_id = $1 AND i.id = $2
+		   AND NOT EXISTS (SELECT 1 FROM transactions t WHERE t.investment_id = i.id)`,
+		familyID, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// nullDate mengirim tanggal kosong sebagai NULL. Tanpa ini ia tersimpan sebagai
+// 1 Januari tahun 1, yang tetap terbaca sebagai tanggal dan ikut tampil.
+func nullDate(t time.Time) any {
+	if t.IsZero() {
+		return nil
+	}
+	return t
 }

@@ -41,6 +41,29 @@ func TestPagesRender(t *testing.T) {
 	}
 	form := map[string]string{"jenis": "bank", "mata_uang": "IDR", "saldo_awal": "0", "tanggal": "2026-08-07"}
 
+	// Tiga posisi investasi: emas berharga isian sendiri, saham berharga pasar,
+	// dan reksadana yang belum punya harga sama sekali.
+	emas := Investment{
+		ID: 1, Kind: "gold", Name: "Antam", Varian: "10 gram", Currency: "IDR",
+		QtyE8: 20 * qtyScale, ModalMinor: 1_200_000_000, Lots: 1,
+		ManualPriceE4: 2_000_000_00 * priceScale, ManualPriceOn: today,
+	}
+	lotEmas := Tx{
+		ID: 9, Kind: "invest_buy", Date: today.AddDate(0, -4, 0), WalletCur: "IDR",
+		AmountMinor: 1_200_000_000, InvestmentID: 1, InvestmentName: "Antam · 10 gram",
+		QtyE8: 20 * qtyScale, CreatedBy: "Ayah", CreatedAt: today,
+	}
+	invs := []Investment{
+		emas,
+		{ID: 2, Kind: "stock", Name: "Vanguard S&P 500 ETF", Symbol: "VOO", Currency: "USD",
+			WalletID: 9, WalletName: "IBKR", QtyE8: 3 * qtyScale, ModalMinor: 213_000, Lots: 1},
+		{ID: 3, Kind: "fund", Name: "Sucorinvest Money Market", Currency: "IDR",
+			QtyE8: 1000 * qtyScale, ModalMinor: 100_000_000, Lots: 1},
+	}
+	invViews := viewInvests(invs,
+		map[string]Kuotasi{"VOO": {PriceE4: 710_71 * priceScale, Currency: "USD", At: today}},
+		rates, today)
+
 	cases := []struct {
 		page string
 		data map[string]any
@@ -116,6 +139,61 @@ func TestPagesRender(t *testing.T) {
 			"URLTanpaCari": "/transaksi", "URLTanpaKategori": "/transaksi",
 			"Groups": groupTxs(views),
 		}, "3 Juli 2026 – 17 Agustus 2026"},
+
+		// Investasi: tiga jenis dengan kolom yang berbeda-beda, dan satu posisi
+		// tanpa harga sama sekali — cabang yang paling mudah terlewat karena ia
+		// yang tampil saat posisi baru saja dibuat.
+		{"investasi.html", map[string]any{
+			"Title": "Investasi", "Nav": "investasi",
+			"Groups": groupInvests(invViews), "Summary": summarizeInvests(invViews, rates, "IDR"),
+			"Kinds": investKinds, "HargaError": false,
+		}, "Antam · 10 gram"},
+
+		{"investasi.html", map[string]any{
+			"Title": "Investasi", "Nav": "investasi",
+			"Groups": nil, "Summary": InvestSummary{}, "Kinds": investKinds, "HargaError": true,
+		}, "Belum ada posisi investasi"},
+
+		{"investasi_form.html", map[string]any{
+			"Title": "Posisi Baru", "Nav": "investasi", "Back": "/investasi",
+			"Action": "/investasi/baru", "ID": int64(0),
+			"Form":  map[string]string{"jenis": "gold", "mata_uang": "IDR"},
+			"Kinds": investKinds, "Currencies": Currencies,
+			"Brokers": []Wallet{{ID: 9, Name: "Bibit", Type: "broker", Currency: "IDR"}},
+			"Unit":    "gram",
+		}, "Pecahan"},
+
+		{"investasi_form.html", map[string]any{
+			"Title": "Posisi Baru", "Nav": "investasi", "Back": "/investasi",
+			"Action": "/investasi/baru", "ID": int64(0),
+			"Form":  map[string]string{"jenis": "stock", "mata_uang": "USD", "simbol": "VOO"},
+			"Kinds": investKinds, "Currencies": Currencies,
+			"Brokers": []Wallet{{ID: 9, Name: "IBKR", Type: "broker", Currency: "USD"}},
+			"Unit":    "lembar",
+		}, "Nama posisinya diambil sendiri dari kode ini"},
+
+		// Reksadana: tidak ada kolom nama sama sekali, cuma pencarian NAB.
+		{"investasi_form.html", map[string]any{
+			"Title": "Posisi Baru", "Nav": "investasi", "Back": "/investasi",
+			"Action": "/investasi/baru", "ID": int64(0),
+			"Form":  map[string]string{"jenis": "fund", "mata_uang": "IDR"},
+			"Kinds": investKinds, "Currencies": Currencies,
+			"Brokers": []Wallet{{ID: 9, Name: "Bibit", Type: "broker", Currency: "IDR"}},
+			"Unit":    "unit",
+		}, "dicocokkan dari nama yang sama"},
+
+		{"investasi_detail.html", map[string]any{
+			"Title": "Antam · 10 gram", "Nav": "investasi", "Back": "/investasi",
+			"Inv": invViews[0], "Lots": viewLots([]Tx{lotEmas}, emas),
+			"HargaForm": map[string]string{"harga": "2.000.000", "tanggal": "2026-08-07"},
+		}, "Riwayat Pembelian"},
+
+		{"investasi_beli.html", map[string]any{
+			"Title": "Catat Pembelian", "Nav": "investasi", "Back": "/investasi/1",
+			"Action": "/investasi/1/beli", "Inv": emas, "Unit": "gram",
+			"Form":    map[string]string{"tanggal": "2026-08-07", "dompet": "0"},
+			"Wallets": wallets,
+		}, "Tanpa dompet"},
 
 		{"transaksi_form.html", map[string]any{
 			"Title": "Catat Pengeluaran", "Nav": "transaksi", "Back": "/transaksi",

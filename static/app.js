@@ -67,7 +67,12 @@ function bersihkanAngka(s) {
 // user sebagai pemisah desimal, titik disisipkan sendiri sebagai pemisah
 // ribuan. Titik yang diketik user diserap, bukan diartikan desimal — kalau
 // tidak, mengetik "1." pada "1.234" akan berubah jadi "1," di tengah jalan.
-function pisahRibuan(s) {
+//
+// maks membatasi angka di belakang koma. Dua untuk nominal uang, tapi kuantitas
+// menyimpan delapan dan harga satuan empat lebih halus dari satuan terkecil
+// mata uangnya — memotongnya di dua akan memangkas "1.234,5678" jadi
+// "1.234,56" sambil diketik, dan yang tersimpan bukan yang dimaksud.
+function pisahRibuan(s, maks = 2) {
   const negatif = s.startsWith('-');
   const isi = negatif ? s.slice(1) : s;
 
@@ -75,7 +80,7 @@ function pisahRibuan(s) {
   const koma = isi.indexOf(',');
   if (koma >= 0) {
     bulat = isi.slice(0, koma);
-    desimal = isi.slice(koma + 1).replace(/[.,]/g, '').slice(0, 2);
+    desimal = isi.slice(koma + 1).replace(/[.,]/g, '').slice(0, maks);
   }
   bulat = bulat.replace(/[.,]/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
@@ -119,7 +124,7 @@ $$('input[inputmode="decimal"]').forEach((el) => {
 
   el.addEventListener('input', () => {
     const asli = el.value;
-    const hasil = pisahRibuan(bersihkanAngka(asli));
+    const hasil = pisahRibuan(bersihkanAngka(asli), Number(el.dataset.desimal) || 2);
     if (hasil === asli) return;
     const pos = el.selectionStart ?? asli.length;
     const penting = hitungPenting(asli.slice(0, pos));
@@ -392,3 +397,147 @@ $$('.periode-menu').forEach((menu) => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
 }
+
+// ---------- pencarian simbol di form investasi ----------
+
+// Mengetik kode saham atau nama reksadana memunculkan pilihan lengkap dengan
+// namanya. Nama posisinya sendiri tidak diisi di sini melainkan di server, dari
+// kode yang tersimpan — dulu diisi dari sini, dan itu balapan yang sering kalah
+// karena memilih dari daftar lebih cepat daripada balasan pencariannya sampai.
+// Tanpa file ini kolom simbolnya tetap kolom teks biasa.
+$$('[data-cari]').forEach((input) => {
+  const list = input.list;
+  if (!list) return;
+  const jenis = input.dataset.cari;
+  let tunda = 0;
+  let terakhir = '';
+
+  const isiDaftar = (items) => {
+    list.replaceChildren();
+    for (const it of items) {
+      const opt = document.createElement('option');
+      opt.value = it.simbol;
+      // Label muncul di sebelah nilainya pada peramban desktop; di ponsel ia
+      // diabaikan, dan nilainya sendiri sudah cukup menjelaskan.
+      opt.label = it.nama + (it.info ? ' — ' + it.info : '');
+      list.appendChild(opt);
+    }
+  };
+
+  const cari = async () => {
+    const q = input.value.trim();
+    if (q.length < 2 || q === terakhir) return;
+    terakhir = q;
+    try {
+      const r = await fetch('/investasi/cari?jenis=' + encodeURIComponent(jenis) +
+        '&q=' + encodeURIComponent(q), { headers: { Accept: 'application/json' } });
+      if (!r.ok) return;
+      isiDaftar(await r.json());
+    } catch {
+      // Jaringan sedang tidak bisa dipakai. Kolomnya tetap bisa diketik sendiri,
+      // jadi tidak ada yang perlu dikatakan di sini.
+    }
+  };
+
+  // Ditunda supaya tiap huruf tidak jadi satu permintaan sendiri.
+  input.addEventListener('input', () => {
+    clearTimeout(tunda);
+    tunda = setTimeout(cari, 250);
+  });
+});
+
+// ---------- form pembelian investasi: harga satuan, total, dan biaya ----------
+
+// Ketiganya terikat satu persamaan: total = kuantitas × harga satuan + biaya.
+// Mengubah salah satunya menghitung ulang yang lain, seperti kurs dan biaya
+// admin di form transfer. Server menghitungnya lagi dengan aturan yang sama,
+// jadi form ini tetap benar tanpa file ini — yang hilang cuma angkanya muncul
+// sambil diketik.
+(function beliForm() {
+  const form = $('[data-beli-form]');
+  if (!form) return;
+
+  const qtyEl = $('[data-beli-qty]', form);
+  const hargaEl = $('[data-beli-harga]', form);
+  const totalEl = $('[data-beli-total]', form);
+  const biayaEl = $('[data-beli-biaya]', form);
+  if (!qtyEl || !hargaEl || !totalEl || !biayaEl) return;
+
+  const cur = form.dataset.currency || 'IDR';
+  // Berapa desimal yang boleh diketik di kolom harga mengikuti mata uangnya —
+  // enam untuk rupiah dan dolar, empat untuk yen. Dipasang dari sini supaya
+  // template tidak perlu tahu tabel eksponen mata uang.
+  hargaEl.dataset.desimal = String(exp(cur) + 4);
+  // Kuantitas menyimpan delapan desimal dan harga satuan empat lebih halus
+  // dari satuan terkecil mata uangnya; parseNum hanya membaca dua, jadi
+  // keduanya butuh pembaca sendiri yang mengikuti ParseQty dan ParsePriceE4.
+  const parseDes = (s, maks) => {
+    s = String(s || '').replace(/\s/g, '');
+    if (!s || /[^\d.,]/.test(s)) return null;
+    let whole = s, frac = '';
+    const i = Math.max(s.lastIndexOf('.'), s.lastIndexOf(','));
+    if (i >= 0) {
+      const d = s.length - i - 1;
+      const ribuan = s[i] === '.' && d === 3;
+      if (d >= 1 && d <= maks && !ribuan) { whole = s.slice(0, i); frac = s.slice(i + 1); }
+    }
+    whole = whole.replace(/[.,]/g, '');
+    if (!/^\d*$/.test(whole) || !/^\d*$/.test(frac)) return null;
+    if (whole === '' && frac === '') return null;
+    const v = Number((whole || '0') + '.' + (frac || '0'));
+    return Number.isFinite(v) ? v : null;
+  };
+  const qty = () => parseDes(qtyEl.value, 8);
+  const harga = () => parseDes(hargaEl.value, exp(cur) + 4);
+  const total = () => parseNum(totalEl.value);
+
+  // Yang terakhir disentuh orangnya menang; yang satunya lagi yang dihitung.
+  // Tanpa aturan ini keduanya saling menimpa dan tidak ada yang bisa diketik.
+  let derive = 'biaya';
+
+  // fmtHarga menulis harga satuan dengan desimal halusnya, tanpa nol di ekor.
+  // fmtPlain membulatkan ke satuan terkecil mata uangnya, dan NAB reksadana
+  // kehilangan justru angka yang membedakannya dari kemarin.
+  function fmtHarga(v) {
+    const maks = exp(cur) + 4;
+    const [w, f = ''] = v.toFixed(maks).split('.');
+    const ekor = f.replace(/0+$/, '');
+    return w.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + (ekor ? ',' + ekor : '');
+  }
+
+  // Biaya negatif tidak dikosongkan diam-diam: ia berarti harga dikali
+  // kuantitas melebihi totalnya, dan menyembunyikannya cuma menunda kabar
+  // yang tetap akan datang dari server.
+  function tulis(el, v) {
+    const baru = v === null ? '' : fmtPlain(v, cur);
+    if (el.value !== baru) el.value = baru;
+  }
+
+  function recalc() {
+    const q = qty(), h = harga(), t = total();
+
+    // Total masih kosong: diisikan dari kuantitas dikali harga. Itu tebakan
+    // yang hampir selalu benar, dan yang membelinya dengan komisi tinggal
+    // membetulkan totalnya — selisihnya lalu jatuh ke biaya sendiri.
+    if (q !== null && h !== null && totalEl.value.trim() === '') {
+      tulis(totalEl, q * h);
+      derive = 'biaya';
+    }
+
+    if (derive === 'harga') {
+      const t2 = total(), b = parseNum(biayaEl.value);
+      if (q !== null && q > 0 && t2 !== null && b !== null && t2 - b >= 0) {
+        hargaEl.value = fmtHarga((t2 - b) / q);
+      }
+      return;
+    }
+    const t3 = total();
+    if (q === null || h === null || t3 === null) return;
+    tulis(biayaEl, t3 - q * h);
+  }
+
+  qtyEl.addEventListener('input', () => { derive = 'biaya'; recalc(); });
+  hargaEl.addEventListener('input', () => { derive = 'biaya'; recalc(); });
+  totalEl.addEventListener('input', () => { derive = 'biaya'; recalc(); });
+  biayaEl.addEventListener('input', () => { derive = 'harga'; recalc(); });
+})();

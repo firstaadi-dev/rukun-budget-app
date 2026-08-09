@@ -1,0 +1,93 @@
+{{define "content"}}
+<form method="post" action="{{.Action}}" class="stack"
+      data-beli-form data-currency="{{.Inv.Currency}}">
+  {{if .Error}}<p class="banner m-out">{{.Error}}</p>{{end}}
+
+  <p class="note">Mencatat pembelian <strong>{{.Inv.Label}}</strong>, dalam {{.Inv.Currency}}.</p>
+
+  <div class="field">
+    <label for="tanggal">Tanggal</label>
+    <input class="input" id="tanggal" name="tanggal" type="date" required value="{{.Form.tanggal}}">
+  </div>
+
+  <div class="field">
+    <label for="kuantitas">Kuantitas</label>
+    <div class="input-affix">
+      <input class="input" id="kuantitas" name="kuantitas" required inputmode="decimal"
+             pattern="[0-9.,]*" title="Hanya angka, titik, dan koma" value="{{.Form.kuantitas}}"
+             data-desimal="8" data-beli-qty>
+      <span class="affix">{{.Unit}}</span>
+    </div>
+    <p class="hint">Berapa {{.Unit}} yang didapat dari pembelian ini.
+      {{if eq .Inv.Kind "gold"}}Dua keping 10 gram berarti 20.{{end}}</p>
+  </div>
+
+  {{/* Harga satuan berdiri sebelum totalnya, mengikuti urutan orang membeli:
+       sekian lembar di harga sekian, lalu yang benar-benar keluar dari dompet.
+       Selisih keduanya jatuh ke Biaya di bawah — itulah komisi broker, spread,
+       atau premi cetak, tergantung apa yang sedang dicatat. */}}
+  <div class="field">
+    <label for="harga">Harga per {{.Unit}}
+      {{if .Form.harga_asal}}<span class="text-muted small">· {{.Form.harga_asal}}</span>{{end}}</label>
+    <div class="input-affix">
+      <span class="affix">{{symbol .Inv.Currency}}</span>
+      <input class="input" id="harga" name="harga" inputmode="decimal"
+             pattern="[0-9.,]*" title="Hanya angka, titik, dan koma"
+             value="{{.Form.harga}}" data-beli-harga>
+    </div>
+    <p class="hint">{{if .Form.harga}}Terisi harga yang berlaku sekarang — ganti kalau
+      pembelianmu di harga lain.{{else}}Harga waktu membeli, bukan harga sekarang.{{end}}</p>
+  </div>
+
+  <div class="field">
+    <label for="total">Total Dibayar</label>
+    <div class="input-affix">
+      <span class="affix">{{symbol .Inv.Currency}}</span>
+      <input class="input" id="total" name="total" required inputmode="decimal"
+             pattern="-?[0-9.,]*" title="Hanya angka, titik, dan koma" value="{{.Form.total}}"
+             data-beli-total>
+    </div>
+    <p class="hint">Seluruh yang keluar, biaya sudah termasuk di dalamnya.</p>
+  </div>
+
+  <div class="field">
+    <label for="biaya">Biaya</label>
+    <div class="input-affix">
+      <span class="affix">{{symbol .Inv.Currency}}</span>
+      <input class="input" id="biaya" name="biaya" inputmode="decimal"
+             pattern="-?[0-9.,]*" title="Hanya angka, titik, dan koma" value="{{.Form.biaya}}"
+             data-beli-biaya>
+    </div>
+    <p class="hint">Selisih total dibayar dengan kuantitas dikali harga satuan — komisi
+      broker, spread, atau premi cetak. Terhitung sendiri, tapi boleh diubah; harga
+      satuannya yang lalu menyesuaikan.</p>
+  </div>
+
+  <div class="field">
+    <label for="dompet">Dibayar Dari</label>
+    <select class="input" id="dompet" name="dompet">
+      <option value="0">Tanpa dompet</option>
+      {{range $.Wallets}}
+        <option value="{{.ID}}" {{if eq $.Form.dompet (printf "%d" .ID)}}selected{{end}}>
+          {{.Name}} · {{.Subtitle}}
+        </option>
+      {{end}}
+    </select>
+    {{/* "Tanpa dompet" bukan kelalaian yang dimaafkan, melainkan pilihan yang
+         dibutuhkan: emas yang dibeli bertahun-tahun sebelum aplikasi ini dipakai
+         tetap perlu tercatat, dan memaksanya menunjuk sebuah dompet akan
+         mengurangi saldo hari ini karena uang yang keluar jauh di masa lalu. */}}
+    <p class="hint">Hanya dompet ber-{{.Inv.Currency}} yang bisa dipilih; saldonya akan
+      berkurang sebesar total di atas. Pilih <em>Tanpa dompet</em> untuk mencatat
+      pembelian lama yang uangnya sudah keluar sebelum dompet ini ada — kepemilikannya
+      tercatat, saldo tidak tersentuh.</p>
+  </div>
+
+  <div class="field">
+    <label for="catatan">Catatan</label>
+    <input class="input" id="catatan" name="catatan" value="{{.Form.catatan}}" placeholder="Opsional">
+  </div>
+
+  <button type="submit" class="btn btn-primary btn-block">Simpan Pembelian</button>
+</form>
+{{end}}

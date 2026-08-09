@@ -1,0 +1,99 @@
+{{define "content"}}
+<div class="stack">
+  {{/* Nama posisinya sudah berdiri di topbar bersama tombol kembali; menulisnya
+       lagi di sini cuma membuat layar mengulang dirinya sendiri. */}}
+  <div class="card elev-sm">
+    <span class="card-kicker">{{.Inv.KindLabel}}</span>
+    <p class="big-figure">{{if .Inv.AdaHarga}}{{.Inv.Nilai}}{{else}}{{.Inv.Modal}}{{end}}</p>
+    {{if .Inv.AdaHarga}}
+      <p class="inv-selisih m-{{.Inv.Tone}}">{{.Inv.Selisih}}
+        {{if .Inv.Persen}}<span class="text-muted small">({{.Inv.Persen}})</span>{{end}}</p>
+    {{else}}
+      <p class="hint">Belum ada harga, jadi yang tampil modalnya sendiri.</p>
+    {{end}}
+
+    <div class="hr"></div>
+    <div class="dl"><span class="text-muted">Dimiliki</span><span>{{.Inv.Qty}} {{.Inv.UnitLabel}}</span></div>
+      <div class="dl"><span class="text-muted">Modal</span><span>{{.Inv.Modal}}</span></div>
+      <div class="dl"><span class="text-muted">Modal per {{.Inv.UnitLabel}}</span><span>{{.Inv.ModalUnit}}</span></div>
+      <div class="dl"><span class="text-muted">Harga per {{.Inv.UnitLabel}}</span><span>{{.Inv.Harga}}</span></div>
+      {{if .Inv.HargaAsal}}
+        <div class="dl"><span class="text-muted">Sumber harga</span><span>{{.Inv.HargaAsal}}</span></div>
+      {{end}}
+      {{if .Inv.Fee}}
+        <div class="dl"><span class="text-muted">Biaya beli</span><span>{{.Inv.Fee}}</span></div>
+      {{end}}
+      {{if .Inv.WalletName}}
+        <div class="dl"><span class="text-muted">Dompet broker</span><span>{{.Inv.WalletName}}</span></div>
+      {{end}}
+      {{if .Inv.Note}}
+        <div class="dl"><span class="text-muted">Catatan</span><span class="dl-long">{{.Inv.Note}}</span></div>
+      {{end}}
+  </div>
+
+  {{/* Harga isian sendiri tersedia untuk semua posisi, bukan cuma yang tanpa
+       simbol: ia yang dipakai saat sumber harganya sedang tidak bisa dihubungi,
+       dan untuk emas ia satu-satunya cara mencatat harga buyback yang
+       sebenarnya. */}}
+  <details class="card elev-sm" {{if not .Inv.PakaiPasar}}open{{end}}>
+    <summary class="linkish">Isi harga sendiri</summary>
+    <form method="post" action="/investasi/{{.Inv.ID}}/harga" class="rentang-form">
+      <span class="pasang">
+        <label for="harga" class="text-muted small">Harga per {{.Inv.UnitLabel}}</label>
+        <div class="input-affix">
+          <span class="affix">{{symbol .Inv.Currency}}</span>
+          <input class="input" id="harga" name="harga" inputmode="decimal" pattern="[0-9.,]*"
+                 title="Hanya angka, titik, dan koma" value="{{.HargaForm.harga}}">
+        </div>
+      </span>
+      <span class="pasang">
+        <label for="tanggal_harga" class="text-muted small">Per tanggal</label>
+        <input class="input" id="tanggal_harga" name="tanggal" type="date" value="{{.HargaForm.tanggal}}">
+      </span>
+      <button type="submit" class="btn btn-secondary">Simpan Harga</button>
+    </form>
+    <p class="hint">Kosongkan harganya untuk melepas isian ini.
+      {{if .Inv.PakaiPasar}}Selama harga pasarnya bisa diambil, harga pasar yang dipakai.{{end}}</p>
+  </details>
+
+  <section>
+    <div class="sec-head">
+      <h6>Riwayat Pembelian</h6>
+      <a href="/investasi/{{.Inv.ID}}/beli" class="btn btn-primary">Catat Beli{{template "icon-plus"}}</a>
+    </div>
+    {{if .Lots}}
+      <div class="rows">
+        {{range .Lots}}
+          <div class="row">
+            <span class="row-ic m-accent">{{template "icon-invest"}}</span>
+            <span class="row-main">
+              <span class="row-title">{{.Qty}} · {{.PerUnit}} per {{$.Inv.UnitLabel}}</span>
+              <span class="row-sub text-muted">{{.Wallet}} · {{.DateLabel}}{{if .Fee}} · biaya {{.Fee}}{{end}}</span>
+            </span>
+            <span class="row-amt">{{.Total}}</span>
+          </div>
+        {{end}}
+      </div>
+    {{else}}
+      <p class="empty">Belum ada pembelian tercatat.
+        <a href="/investasi/{{.Inv.ID}}/beli">Catat yang pertama</a></p>
+    {{end}}
+  </section>
+
+  <div class="detail-actions">
+    <a href="/investasi/{{.Inv.ID}}/ubah" class="btn btn-secondary">Ubah Posisi</a>
+    {{/* Posisi yang sudah punya lot tidak bisa dihapus: pembeliannya sudah
+         menggerakkan saldo dompet, dan menghilangkannya membuat saldo melompat
+         tanpa ada transaksi yang menjelaskannya. */}}
+    {{if .Lots}}
+      <span class="hint">Hapus pembeliannya dulu dari halaman Transaksi kalau posisi ini
+        ingin dihapus.</span>
+    {{else}}
+      <form method="post" action="/investasi/{{.Inv.ID}}/hapus"
+            onsubmit="return confirm('Hapus posisi {{.Inv.Label}}?')">
+        <button type="submit" class="btn btn-danger">Hapus</button>
+      </form>
+    {{end}}
+  </div>
+</div>
+{{end}}

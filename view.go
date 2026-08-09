@@ -268,6 +268,21 @@ func viewTx(t Tx, today time.Time) TxView {
 	}
 
 	switch t.Kind {
+	case "invest_buy":
+		// Nadanya netral, bukan "keluar". Uangnya memang meninggalkan dompet,
+		// tapi ia tidak habis — ia berubah bentuk jadi sesuatu yang masih
+		// dimiliki, persis seperti transfer antar dompet.
+		v.ShortDesc = "Beli " + t.InvestmentName
+		v.Desc = v.ShortDesc + " — " + FormatQty(t.QtyE8)
+		if t.Note != "" {
+			v.Desc += " — " + t.Note
+		}
+		v.WalletLabel = t.WalletName
+		if !t.HasWallet() {
+			v.WalletLabel = "tanpa dompet"
+		}
+		v.Amount = "-" + Format(t.AmountMinor, t.WalletCur)
+		v.Tone = "neutral"
 	case "transfer":
 		v.Desc = t.Note
 		if v.Desc == "" {

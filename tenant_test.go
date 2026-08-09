@@ -20,7 +20,7 @@ func TestSetiapQueryDataMenyaringFamilyID(t *testing.T) {
 	// Tabel yang isinya milik satu keluarga. sessions dan schema_migrations
 	// tidak ada di sini: sesi terhubung ke keluarga lewat users, dan tabel
 	// migrasi memang milik seluruh deployment.
-	tabelData := []string{"wallets", "transactions", "categories"}
+	tabelData := []string{"wallets", "transactions", "categories", "investments"}
 
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "store.go", nil, 0)

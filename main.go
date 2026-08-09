@@ -27,13 +27,15 @@ var templateFS embed.FS
 var staticFS embed.FS
 
 type App struct {
-	store   *Store
-	pages   map[string]*template.Template
-	ver     string      // sidik jari aset statis, dipakai sebagai penanda versi di URL
-	rateSrc *rateSource // kurs pasar dari API, boleh kosong kalau dimatikan
-	loc     *time.Location
-	base    string // mata uang dasar untuk total di dashboard
-	admin   string // token API admin; kosong berarti API admin mati total
+	store    *Store
+	pages    map[string]*template.Template
+	ver      string       // sidik jari aset statis, dipakai sebagai penanda versi di URL
+	rateSrc  *rateSource  // kurs pasar dari API, boleh kosong kalau dimatikan
+	hargaSrc *hargaSource // harga saham, ETF, dan emas; boleh kosong kalau dimatikan
+	nabSrc   *nabSource   // NAB reksadana Indonesia; boleh kosong kalau dimatikan
+	loc      *time.Location
+	base     string // mata uang dasar untuk total di dashboard
+	admin    string // token API admin; kosong berarti API admin mati total
 }
 
 // parsePages menggabungkan layout dengan tiap halaman secara terpisah, supaya
@@ -113,6 +115,27 @@ func main() {
 		log.Print("pengambilan kurs dimatikan (RATES_URL=off)")
 	}
 
+	// Harga pasar tidak punya penyegar latar seperti kurs: yang perlu diambil
+	// cuma simbol yang benar-benar dimiliki seseorang, dan daftar itu hanya
+	// diketahui saat halamannya dibuka.
+	if u := env("HARGA_URL", defaultHargaURL); u != "off" {
+		app.hargaSrc = newHargaSource(u)
+	} else {
+		app.hargaSrc = newHargaSource("")
+		log.Print("pengambilan harga pasar dimatikan (HARGA_URL=off)")
+	}
+
+	// NAB justru punya penyegar latar, tidak seperti harga bursa: daftarnya
+	// satu untuk seluruh deployment dan tidak bergantung siapa yang membuka
+	// halaman, jadi enam permintaan sehari sudah melayani semuanya.
+	if u := env("NAB_URL", defaultNABURL); u != "off" {
+		app.nabSrc = newNABSource(u)
+		go app.nabSrc.keep(ctx)
+	} else {
+		app.nabSrc = newNABSource("")
+		log.Print("pengambilan NAB reksadana dimatikan (NAB_URL=off)")
+	}
+
 	go app.purgeSessionsDaily(ctx)
 
 	addr := ":" + env("PORT", "8080")
@@ -176,6 +199,18 @@ func (a *App) routes() http.Handler {
 	auth("GET /dompet/{id}/ubah", a.walletForm)
 	auth("POST /dompet/{id}/ubah", a.walletUpdate)
 	auth("POST /dompet/{id}/hapus", a.walletDelete)
+
+	auth("GET /investasi", a.investList)
+	auth("GET /investasi/cari", a.investCari)
+	auth("GET /investasi/baru", a.investForm)
+	auth("POST /investasi/baru", a.investCreate)
+	auth("GET /investasi/{id}", a.investDetail)
+	auth("GET /investasi/{id}/ubah", a.investForm)
+	auth("POST /investasi/{id}/ubah", a.investUpdate)
+	auth("POST /investasi/{id}/hapus", a.investDelete)
+	auth("POST /investasi/{id}/harga", a.investPrice)
+	auth("GET /investasi/{id}/beli", a.investBuyForm)
+	auth("POST /investasi/{id}/beli", a.investBuyCreate)
 
 	auth("GET /hutang", a.debtList)
 	auth("GET /hutang/baru", a.debtForm)

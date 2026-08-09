@@ -118,11 +118,17 @@ var walletProviders = map[string][]string{
 	"ewallet":  {"GoPay", "OVO", "DANA", "ShopeePay", "LinkAja", "Jago"},
 	"paylater": {"GoPayLater", "SPayLater", "Kredivo", "Akulaku", "Traveloka PayLater", "Indodana", "Atome"},
 	"cash":     {},
+	// Saldo yang mengendap di broker sebelum jadi aset. Daftarnya campuran
+	// broker saham luar negeri dan penyedia reksadana lokal, karena keduanya
+	// sama saja bentuknya: uang yang sudah keluar dari bank tapi belum jadi
+	// apa-apa.
+	"broker": {"Interactive Brokers", "Charles Schwab", "Pluang", "Nanovest", "Stockbit Sekuritas",
+		"Bibit", "Bareksa", "Ajaib"},
 }
 
 var walletTypes = []struct{ Value, Label string }{
 	{"cash", "Tunai"}, {"bank", "Bank"}, {"credit", "Kredit"},
-	{"ewallet", "E-Wallet"}, {"paylater", "PayLater"},
+	{"ewallet", "E-Wallet"}, {"paylater", "PayLater"}, {"broker", "Broker"},
 }
 
 // kreditType: jenis dompet yang punya limit dan siklus tagihan.
@@ -385,11 +391,12 @@ var kindLabel = map[string]string{
 	"expense": "Pengeluaran", "income": "Pemasukan", "transfer": "Transfer",
 	"debt_in": "Hutang", "debt_pay": "Bayar Hutang",
 	"loan_out": "Piutang", "loan_in": "Terima Piutang",
+	"invest_buy": "Beli Investasi",
 }
 
 var txFilters = []struct{ Value, Label string }{
 	{"", "Semua"}, {"expense", "Keluar"}, {"income", "Masuk"},
-	{"transfer", "Transfer"}, {"hutang", "Hutang"},
+	{"transfer", "Transfer"}, {"hutang", "Hutang"}, {"invest_buy", "Investasi"},
 }
 
 // txListLimit membatasi satu halaman daftar transaksi. Sebulan yang menembus
@@ -457,9 +464,10 @@ func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 	kategori := q.Get("kategori")
 	cari := strings.TrimSpace(q.Get("cari"))
 
-	// Transfer dan hutang piutang tidak punya kategori: menyaring keduanya
-	// sekaligus selalu kosong, jadi memilih kategori melepas filter jenis itu.
-	if kategori != "" && (filter == "transfer" || filter == "hutang") {
+	// Transfer, hutang piutang, dan pembelian investasi tidak punya kategori:
+	// menyaring keduanya sekaligus selalu kosong, jadi memilih kategori melepas
+	// filter jenis itu.
+	if kategori != "" && (filter == "transfer" || filter == "hutang" || filter == "invest_buy") {
 		filter = ""
 	}
 	// Nilai yang sudah dibetulkan dikembalikan ke q, karena dari sanalah semua

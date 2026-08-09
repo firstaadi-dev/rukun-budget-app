@@ -28,6 +28,7 @@
         <a href="/dompet" class="{{if eq .Nav "dompet"}}on{{end}}">{{template "icon-wallet"}}Dompet</a>
         <a href="/transaksi" class="{{if eq .Nav "transaksi"}}on{{end}}">{{template "icon-list"}}Transaksi</a>
         <a href="/hutang" class="{{if eq .Nav "hutang"}}on{{end}}">{{template "icon-hutang"}}Hutang</a>
+        <a href="/investasi" class="{{if eq .Nav "investasi"}}on{{end}}">{{template "icon-invest"}}Investasi</a>
         <a href="/kategori" class="{{if eq .Nav "kategori"}}on{{end}}">{{template "icon-tag"}}Kategori</a>
         <a href="/pengaturan" class="{{if eq .Nav "akun"}}on{{end}}">{{template "icon-user"}}Akun</a>
       </nav>
@@ -54,6 +55,7 @@
       <a href="/dompet" class="{{if eq .Nav "dompet"}}on{{end}}">{{template "icon-wallet"}}<span>Dompet</span></a>
       <a href="/transaksi" class="{{if eq .Nav "transaksi"}}on{{end}}">{{template "icon-list"}}<span>Transaksi</span></a>
       <a href="/hutang" class="{{if eq .Nav "hutang"}}on{{end}}">{{template "icon-hutang"}}<span>Hutang</span></a>
+      <a href="/investasi" class="{{if eq .Nav "investasi"}}on{{end}}">{{template "icon-invest"}}<span>Investasi</span></a>
       <a href="/kategori" class="{{if eq .Nav "kategori"}}on{{end}}">{{template "icon-tag"}}<span>Kategori</span></a>
       {{/* Di ponsel sidebar tidak pernah tampil, jadi ini satu-satunya jalan
            menuju akun sendiri — dan satu-satunya jalan keluar dari aplikasi. */}}
@@ -76,6 +78,7 @@
 {{define "icon-transfer"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>{{end}}
 
 {{define "icon-hutang"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>{{end}}
+{{define "icon-invest"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>{{end}}
 {{define "icon-chev"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>{{end}}
 {{define "icon-user"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>{{end}}
 {{define "icon-kartu"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>{{end}}
@@ -155,6 +158,7 @@
   {{if eq . "cash"}}{{template "icon-cash"}}
   {{else if eq . "bank"}}{{template "icon-bank"}}
   {{else if eq . "credit"}}{{template "icon-credit"}}
+  {{else if eq . "broker"}}{{template "icon-invest"}}
   {{else}}{{template "icon-ewallet"}}{{end}}
 {{end}}
 {{define "tx-icon"}}
