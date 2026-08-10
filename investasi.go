@@ -187,6 +187,17 @@ func ModalPerUnitE4(modalMinor, qtyE8 int64) int64 {
 	return n.Quo(n, d).Int64()
 }
 
+// KuantitasDari membalik NilaiMinor: dari nilai yang benar-benar dibayarkan
+// untuk barangnya — total dikurangi biaya — dan harga satuannya, berapa banyak
+// yang didapat.
+//
+// Rumusnya kebetulan sama persis dengan ModalPerUnitE4: di kedua arah, skala
+// harga dan skala kuantitas saling menghabiskan. Dipanggil ulang di sini alih-
+// alih disalin, dengan nama yang menyebut apa yang sedang dihitung.
+func KuantitasDari(nilaiMinor, priceE4 int64) int64 {
+	return ModalPerUnitE4(nilaiMinor, priceE4)
+}
+
 // PerGramE4 mengubah harga per troy ounce jadi harga per gram. Emas dunia
 // dikuotasi per troy ounce, sedangkan emas batangan di sini selalu disebut per
 // gram, dan pembagian itu tidak boleh tersebar ke banyak tempat.
@@ -938,36 +949,65 @@ func readLot(r *http.Request, v Investment, loc *time.Location) (Tx, map[string]
 	}
 	t.Date = tanggal
 
-	qty, err := ParseQty(f["kuantitas"])
-	if err != nil {
-		return t, f, errors.New("Kuantitas tidak valid: " + err.Error() + ".")
-	}
-	t.QtyE8 = qty
-
 	total, err := ParseAmount(f["total"], v.Currency)
 	if err != nil || total <= 0 {
 		return t, f, errors.New("Total yang dibayar harus angka lebih dari nol.")
 	}
 	t.AmountMinor = total
 
-	// Biaya: pakai isian user kalau ada, kalau kosong hitung dari harga satuan.
-	// Urutan yang sama dengan biaya admin di form transfer — dan dengan itu,
-	// form ini tetap utuh tanpa JS: mengisi harga satuan saja sudah cukup.
-	switch {
-	case f["biaya"] != "":
-		biaya, err := ParseAmount(f["biaya"], v.Currency)
-		if err != nil || biaya < 0 {
+	// Total, kuantitas, harga satuan, dan biaya terikat satu persamaan:
+	// total = kuantitas × harga + biaya. Total selalu diisi, jadi yang tersisa
+	// dua arah, dan keduanya bekerja di sini juga tanpa JS:
+	//
+	//   kuantitas ada  -> biaya yang dihitung, dari harga satuannya
+	//   kuantitas kosong -> kuantitas yang dihitung, dari harga dan biayanya
+	//
+	// Biaya kosong berbeda dari biaya nol. Nol adalah jawaban — pembelian tanpa
+	// komisi sama sekali — dan dengan kuantitas kosong ia justru yang membuat
+	// kuantitasnya bisa dihitung. Kosong berarti belum dijawab.
+	biayaDiisi := f["biaya"] != ""
+	var biaya int64
+	if biayaDiisi {
+		if biaya, err = ParseAmount(f["biaya"], v.Currency); err != nil || biaya < 0 {
 			return t, f, errors.New("Biaya harus angka nol atau lebih.")
 		}
-		t.AdminFee = biaya
-	case f["harga"] != "":
-		e4, err := ParsePriceE4(f["harga"], v.Currency)
-		if err != nil {
+	}
+
+	var hargaE4 int64
+	if f["harga"] != "" {
+		if hargaE4, err = ParsePriceE4(f["harga"], v.Currency); err != nil {
 			return t, f, errors.New("Harga per " + v.Unit() + " tidak valid.")
 		}
-		t.AdminFee = total - NilaiMinor(e4, qty)
-		if t.AdminFee < 0 {
-			return t, f, errors.New("Harga per " + v.Unit() + " dikali kuantitasnya melebihi total yang dibayar. Periksa ketiganya.")
+	}
+
+	if f["kuantitas"] != "" {
+		qty, err := ParseQty(f["kuantitas"])
+		if err != nil {
+			return t, f, errors.New("Kuantitas tidak valid: " + err.Error() + ".")
+		}
+		t.QtyE8 = qty
+		switch {
+		case biayaDiisi:
+			t.AdminFee = biaya
+		case hargaE4 > 0:
+			t.AdminFee = total - NilaiMinor(hargaE4, qty)
+			if t.AdminFee < 0 {
+				return t, f, errors.New("Harga per " + v.Unit() + " dikali kuantitasnya melebihi total yang dibayar. Periksa ketiganya.")
+			}
+		}
+	} else {
+		if hargaE4 <= 0 || !biayaDiisi {
+			return t, f, errors.New("Isi kuantitasnya, atau isi harga per " + v.Unit() +
+				" dan biayanya supaya kuantitas bisa dihitung sendiri. Biaya nol tetap harus ditulis 0.")
+		}
+		if biaya >= total {
+			return t, f, errors.New("Biaya harus lebih kecil dari total yang dibayar — biaya sudah termasuk di dalamnya.")
+		}
+		t.AdminFee = biaya
+		t.QtyE8 = KuantitasDari(total-biaya, hargaE4)
+		if t.QtyE8 <= 0 {
+			return t, f, errors.New("Total dikurangi biaya terlalu kecil untuk harga per " +
+				v.Unit() + " itu — kuantitasnya jadi nol.")
 		}
 	}
 	// Biaya sudah termasuk di total, sama seperti biaya admin pada transfer.

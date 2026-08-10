@@ -409,6 +409,86 @@ func TestReadLotBiayaDariHarga(t *testing.T) {
 	}
 }
 
+// Arah sebaliknya: kuantitas dikosongkan, dan ia yang dihitung dari total,
+// biaya, dan harga satuannya. Begitulah emas dan reksadana dibeli — dengan
+// nominal bulat, dan kuantitas yang baru ketahuan belakangan.
+func TestReadLotKuantitasDariBiaya(t *testing.T) {
+	jkt := time.FixedZone("WIB", 7*3600)
+	dana := Investment{ID: 2, Kind: "fund", Currency: "IDR"}
+
+	baca := func(isi url.Values) (Tx, error) {
+		r := httptest.NewRequest("POST", "/investasi/2/beli", strings.NewReader(isi.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		tx, _, err := readLot(r, dana, jkt)
+		return tx, err
+	}
+	dasar := func() url.Values {
+		return url.Values{"tanggal": {"2026-08-09"}, "dompet": {"0"}}
+	}
+
+	// Rp1.000.000 dibayar, Rp2.500 komisinya, NAB Rp1.980,69 —
+	// Rp997.500 / 1.980,69 = 503,6122... unit.
+	f := dasar()
+	f.Set("total", "1.000.000")
+	f.Set("biaya", "2.500")
+	f.Set("harga", "1.980,69")
+	tx, err := baca(f)
+	if err != nil {
+		t.Fatalf("kuantitas dari biaya: %v", err)
+	}
+	if mau := KuantitasDari(99_750_000, 1_980_69*priceScale); tx.QtyE8 != mau {
+		t.Errorf("kuantitas = %d, mau %d", tx.QtyE8, mau)
+	}
+	if tx.AdminFee != 250_000 || tx.AmountMinor != 100_000_000 {
+		t.Errorf("biaya %d total %d, mau 250000 dan 100000000", tx.AdminFee, tx.AmountMinor)
+	}
+
+	// Biaya nol adalah jawaban, bukan kolom kosong: seluruh total jadi barang.
+	f = dasar()
+	f.Set("total", "1.000.000")
+	f.Set("biaya", "0")
+	f.Set("harga", "1.980,69")
+	nol, err := baca(f)
+	if err != nil {
+		t.Fatalf("biaya nol: %v", err)
+	}
+	if nol.AdminFee != 0 {
+		t.Errorf("biaya = %d, mau 0", nol.AdminFee)
+	}
+	if mau := KuantitasDari(100_000_000, 1_980_69*priceScale); nol.QtyE8 != mau {
+		t.Errorf("kuantitas dengan biaya nol = %d, mau %d", nol.QtyE8, mau)
+	}
+	if nol.QtyE8 <= tx.QtyE8 {
+		t.Error("biaya nol harusnya dapat lebih banyak daripada biaya Rp2.500")
+	}
+
+	// Biaya kosong bukan biaya nol: tanpa kuantitas, tidak ada yang bisa
+	// dihitung, dan menebaknya nol berarti menyimpan kuantitas karangan.
+	f = dasar()
+	f.Set("total", "1.000.000")
+	f.Set("harga", "1.980,69")
+	if _, err := baca(f); err == nil {
+		t.Error("kuantitas dan biaya sama-sama kosong diterima, mau ditolak")
+	}
+
+	// Tanpa harga satuan pun tidak ada yang bisa dihitung.
+	f = dasar()
+	f.Set("total", "1.000.000")
+	f.Set("biaya", "0")
+	if _, err := baca(f); err == nil {
+		t.Error("tanpa harga satuan diterima, mau ditolak")
+	}
+
+	// Biaya menghabiskan totalnya: tidak ada yang dibeli.
+	f = dasar()
+	f.Set("total", "1.000.000")
+	f.Set("biaya", "1.000.000")
+	f.Set("harga", "1.980,69")
+	if _, err := baca(f); err == nil {
+		t.Error("biaya sebesar total diterima, mau ditolak")
+	}
+}
+
 // Nama posisi diambil dari kode bursanya di server, bukan diisi skrip di
 // browser. Tiga jalannya harus dibedakan: kode yang dikenal memberi nama resmi,
 // kode yang salah ketik ditolak sebelum tersimpan, dan sumber yang sedang mati

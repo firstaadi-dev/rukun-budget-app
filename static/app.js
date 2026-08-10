@@ -495,12 +495,12 @@ $$('[data-cari]').forEach((input) => {
   // Tanpa aturan ini keduanya saling menimpa dan tidak ada yang bisa diketik.
   let derive = 'biaya';
 
-  // fmtHarga menulis harga satuan dengan desimal halusnya, tanpa nol di ekor.
-  // fmtPlain membulatkan ke satuan terkecil mata uangnya, dan NAB reksadana
-  // kehilangan justru angka yang membedakannya dari kemarin.
-  function fmtHarga(v) {
-    const maks = exp(cur) + 4;
-    const [w, f = ''] = v.toFixed(maks).split('.');
+  // fmtQty menulis kuantitas dengan delapan desimalnya, tanpa nol di ekor —
+  // cerminan FormatQty di investasi.go. fmtPlain membulatkan ke satuan terkecil
+  // mata uang, dan pecahan unit yang didapat dari nominal bulat justru hilang
+  // di situ.
+  function fmtQty(v) {
+    const [w, f = ''] = v.toFixed(8).split('.');
     const ekor = f.replace(/0+$/, '');
     return w.replace(/\B(?=(\d{3})+(?!\d))/g, '.') + (ekor ? ',' + ekor : '');
   }
@@ -524,10 +524,15 @@ $$('[data-cari]').forEach((input) => {
       derive = 'biaya';
     }
 
-    if (derive === 'harga') {
+    // Biaya yang diketik sendiri menghitung kuantitasnya: "habis segini,
+    // komisinya segini, di harga segini — dapat berapa" adalah cara emas dan
+    // reksadana dibeli, dengan nominal bulat dan kuantitas yang baru ketahuan
+    // belakangan. Biaya nol dihitung, bukan diabaikan: nol adalah jawaban, dan
+    // kolom kosong yang belum dijawab yang tidak menghitung apa-apa.
+    if (derive === 'qty') {
       const t2 = total(), b = parseNum(biayaEl.value);
-      if (q !== null && q > 0 && t2 !== null && b !== null && t2 - b >= 0) {
-        hargaEl.value = fmtHarga((t2 - b) / q);
+      if (h !== null && h > 0 && t2 !== null && b !== null && t2 - b > 0) {
+        qtyEl.value = fmtQty((t2 - b) / h);
       }
       return;
     }
@@ -539,5 +544,5 @@ $$('[data-cari]').forEach((input) => {
   qtyEl.addEventListener('input', () => { derive = 'biaya'; recalc(); });
   hargaEl.addEventListener('input', () => { derive = 'biaya'; recalc(); });
   totalEl.addEventListener('input', () => { derive = 'biaya'; recalc(); });
-  biayaEl.addEventListener('input', () => { derive = 'harga'; recalc(); });
+  biayaEl.addEventListener('input', () => { derive = 'qty'; recalc(); });
 })();
