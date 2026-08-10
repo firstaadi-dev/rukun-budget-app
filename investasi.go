@@ -561,7 +561,7 @@ func groupInvests(vs []InvestView) []InvestGroup {
 // sebagai satu peta yang dikunci simbol, karena yang membacanya tidak perlu
 // tahu dari mana angkanya datang — bentroknya pun tidak mungkin, kode bursa
 // dan nama reksadana tidak pernah sama.
-func (a *App) kuotasi(ctx context.Context, vs []Investment) map[string]Kuotasi {
+func (a *App) kuotasiLangsung(ctx context.Context, vs []Investment) map[string]Kuotasi {
 	var bursa []string
 	out := map[string]Kuotasi{}
 	for _, v := range vs {
@@ -580,6 +580,104 @@ func (a *App) kuotasi(ctx context.Context, vs []Investment) map[string]Kuotasi {
 		out[sym] = k
 	}
 	return out
+}
+
+// kuotasi menambahkan lapis simpanan di atas kuotasiLangsung: yang berhasil
+// didapat disimpan, yang tidak diisi dari yang tersimpan.
+//
+// Lapis inilah yang membuat janji di layar — "harga terakhir yang sempat
+// diambil" — tetap benar sesudah instance-nya tidur dan bangun lagi dengan
+// memori kosong. Sebelum ini, cold start berarti tidak ada harga sama sekali,
+// persis saat sumbernya sedang menolak.
+//
+// Kegagalan menyimpan atau membaca hanya dicatat, tidak menghentikan apa pun:
+// harga adalah pelengkap, dan halaman investasi tetap berguna tanpa satu pun
+// angka pasar — nilainya lalu dihitung sebesar modalnya sendiri.
+func (a *App) kuotasi(ctx context.Context, vs []Investment) map[string]Kuotasi {
+	out := a.kuotasiLangsung(ctx, vs)
+
+	if len(out) > 0 {
+		if err := a.store.SaveQuotes(ctx, out); err != nil {
+			log.Printf("menyimpan harga: %v", err)
+		}
+	}
+
+	var hilang []string
+	for _, v := range vs {
+		if v.Symbol != "" && !out[v.Symbol].Ada() {
+			hilang = append(hilang, v.Symbol)
+		}
+	}
+	if len(hilang) == 0 {
+		return out
+	}
+	simpanan, err := a.store.Quotes(ctx, hilang)
+	if err != nil {
+		log.Printf("membaca harga tersimpan: %v", err)
+		return out
+	}
+	for sym, k := range simpanan {
+		out[sym] = k
+	}
+	return out
+}
+
+// segarkanHargaHarian menjemput seluruh simbol yang dimiliki keluarga mana pun,
+// sekali sehari tepat lewat tengah malam waktu aplikasi.
+//
+// Jam itu dipilih karena bursa Amerika sudah tutup dan NAB hari itu sudah
+// terbit, jadi satu pengambilan sudah mewakili seluruh harinya — dan karena
+// tidak ada yang sedang membuka halaman, jadi permintaannya tidak menahan siapa
+// pun kalau sumbernya lambat.
+func (a *App) segarkanHargaHarian(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(sampaiTengahMalam(time.Now().In(a.loc))):
+		}
+
+		simbol, err := a.store.SimbolDipakai(ctx)
+		if err != nil {
+			log.Printf("harga harian: membaca daftar simbol: %v", err)
+			continue
+		}
+		var bursa []string
+		for sym, kind := range simbol {
+			if kind != "fund" {
+				bursa = append(bursa, sym)
+			}
+		}
+
+		a.hargaSrc.segarkan(ctx, bursa)
+
+		// Reksadana punya penyegarnya sendiri tiap dua belas jam; yang perlu di
+		// sini cuma menyalin NAB yang sudah ada ke simpanan, bersama harga bursa
+		// yang baru saja dijemput.
+		simpan := a.hargaSrc.harga(ctx, bursa)
+		if simpan == nil {
+			simpan = map[string]Kuotasi{}
+		}
+		for sym, kind := range simbol {
+			if kind != "fund" {
+				continue
+			}
+			if k, ok := a.nabSrc.nab(sym); ok {
+				simpan[sym] = k
+			}
+		}
+		if err := a.store.SaveQuotes(ctx, simpan); err != nil {
+			log.Printf("harga harian: menyimpan: %v", err)
+			continue
+		}
+		log.Printf("harga harian: %d dari %d simbol tersimpan", len(simpan), len(simbol))
+	}
+}
+
+// sampaiTengahMalam: sisa waktu menuju pukul 00:00 berikutnya.
+func sampaiTengahMalam(now time.Time) time.Duration {
+	besok := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).AddDate(0, 0, 1)
+	return besok.Sub(now)
 }
 
 func (a *App) investList(w http.ResponseWriter, r *http.Request) {

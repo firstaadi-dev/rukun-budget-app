@@ -77,7 +77,32 @@ service ke `plan: starter` di `render.yaml`.
 | `PORT` | tidak | Default `8080`. Diisi otomatis oleh Render. |
 | `RATES_URL` | tidak | Sumber kurs. Default open.er-api.com; isi `off` untuk mematikan. |
 | `HARGA_URL` | tidak | Sumber harga saham, ETF, dan emas. Default endpoint chart Yahoo Finance; isi `off` untuk mematikan. |
+| `HARGA_URL_CADANGAN` | tidak | Host kedua Yahoo, dipakai saat yang pertama gagal. Default query2; isi `off` untuk mematikan. |
+| `HARGA_TWELVE_KEY` | tidak | Kunci [Twelve Data](https://twelvedata.com/pricing), sumber harga ketiga. Kosong berarti sumber itu mati. Lihat di bawah. |
 | `NAB_URL` | tidak | Sumber NAB reksadana. Default Infovesta; isi `off` untuk mematikan. |
+
+### Kalau harga pasar sering gagal
+
+Yahoo membatasi permintaan per alamat IP, dan Render memakai alamat bersama —
+jadi `429 Too Many Requests` bisa datang meski aplikasi ini cuma mengambil
+belasan simbol sehari. Kedua host Yahoo biasanya menolak bersamaan, jadi
+`HARGA_URL_CADANGAN` saja tidak selalu menolong.
+
+Jalan keluarnya `HARGA_TWELVE_KEY`. Daftar gratis di
+[twelvedata.com](https://twelvedata.com/pricing) — tier gratisnya tanpa kartu —
+lalu isi kuncinya di environment. Batasnya dihitung per akun, bukan per alamat
+IP, jadi tetangga di Render tidak ikut menghabiskannya. Selama kosong, aplikasi
+tetap berjalan seperti biasa, hanya tanpa sumber ketiga.
+
+Dua hal yang tetap bekerja walau seluruh sumber sedang menolak:
+
+- Harga yang pernah berhasil diambil tersimpan di database, bukan cuma di
+  memori — instance yang tidur lalu bangun tidak kehilangannya.
+- Tiap posisi boleh menyimpan harga yang diisi sendiri, lewat tombol di halaman
+  detail investasi. Itu tidak bergantung sumber mana pun.
+
+Seluruh harga juga dijemput ulang sekali sehari pada pukul 00:00 waktu `APP_TZ`,
+saat bursa sudah tutup dan tidak ada yang sedang membuka halaman.
 
 ## PWA
 

@@ -1202,6 +1202,119 @@ func (s *Store) CardBalances(ctx context.Context, familyID, walletID int64, sett
 	return atSettlement, creditsSince, err
 }
 
+// ---------- Harga tersimpan ----------
+
+// Tiga metode di bawah ini satu-satunya yang tidak mengambil familyID, dan itu
+// disengaja — lihat alasannya di migrasi 009. Isinya harga pasar, bukan catatan
+// siapa pun.
+
+// Quotes membaca harga tersimpan untuk simbol yang diminta. Yang tidak ada
+// tidak muncul di hasilnya, bukan muncul sebagai nol.
+func (s *Store) Quotes(ctx context.Context, symbols []string) (map[string]Kuotasi, error) {
+	if len(symbols) == 0 {
+		return nil, nil
+	}
+	rows, err := s.db.Query(ctx,
+		`SELECT symbol, price_e4, currency, quoted_at, name, fetched_at
+		   FROM quotes WHERE symbol = ANY($1)`, symbols)
+	if err != nil {
+		return nil, err
+	}
+	return scanQuotes(rows)
+}
+
+func scanQuotes(rows pgx.Rows) (map[string]Kuotasi, error) {
+	defer rows.Close()
+	out := map[string]Kuotasi{}
+	for rows.Next() {
+		var sym string
+		var k Kuotasi
+		var quotedAt *time.Time
+		var fetchedAt time.Time
+		if err := rows.Scan(&sym, &k.PriceE4, &k.Currency, &quotedAt, &k.Nama, &fetchedAt); err != nil {
+			return nil, err
+		}
+		if quotedAt != nil {
+			k.At = *quotedAt
+		} else {
+			k.At, k.Diambil = fetchedAt, true
+		}
+		out[sym] = k
+	}
+	return out, rows.Err()
+}
+
+// AllQuotes membaca seluruh harga tersimpan, dipakai sekali saat start untuk
+// mengisi cache di memori. Tanpa ini, instance yang baru bangun tidak tahu mata
+// uang satu simbol pun — dan tanpa mata uang, pengambilan borongan yang murah
+// itu tidak bisa dipakai sama sekali. Lihat hargaSource.seed.
+func (s *Store) AllQuotes(ctx context.Context) (map[string]Kuotasi, error) {
+	rows, err := s.db.Query(ctx,
+		`SELECT symbol, price_e4, currency, quoted_at, name, fetched_at FROM quotes`)
+	if err != nil {
+		return nil, err
+	}
+	return scanQuotes(rows)
+}
+
+// SaveQuotes menyimpan harga yang baru didapat, menimpa yang lama.
+//
+// Dipanggil tiap kali halaman investasi dibuka, termasuk saat angkanya datang
+// dari cache di memori dan sama persis dengan yang tersimpan. Menulis ulang
+// nilai yang sama memang mubazir, tapi satu keluarga cuma punya belasan posisi
+// dan membedakannya butuh membaca dulu — dua query untuk menghindari satu.
+func (s *Store) SaveQuotes(ctx context.Context, quotes map[string]Kuotasi) error {
+	batch := &pgx.Batch{}
+	for sym, k := range quotes {
+		if sym == "" || !k.Ada() {
+			continue
+		}
+		// Waktu bursa hanya disimpan kalau sumbernya benar-benar menerbitkannya.
+		var quotedAt any
+		if !k.Diambil && !k.At.IsZero() {
+			quotedAt = k.At
+		}
+		batch.Queue(`
+			INSERT INTO quotes (symbol, price_e4, currency, quoted_at, name, fetched_at)
+			VALUES ($1, $2, $3, $4, $5, now())
+			ON CONFLICT (symbol) DO UPDATE SET
+			  price_e4 = EXCLUDED.price_e4, currency = EXCLUDED.currency,
+			  quoted_at = EXCLUDED.quoted_at, fetched_at = EXCLUDED.fetched_at,
+			  -- Nama hanya diisi, tidak pernah dikosongkan: sumber cadangan
+			  -- tidak selalu menyebutkannya, dan yang sudah diketahui tidak
+			  -- perlu hilang karenanya.
+			  name = COALESCE(NULLIF(EXCLUDED.name, ''), quotes.name)`,
+			sym, k.PriceE4, k.Currency, quotedAt, k.Nama)
+	}
+	if batch.Len() == 0 {
+		return nil
+	}
+	return s.db.SendBatch(ctx, batch).Close()
+}
+
+// SimbolDipakai: seluruh simbol yang dimiliki keluarga mana pun, dipetakan ke
+// jenis posisinya. Lintas keluarga karena yang memanggilnya penyegar harian —
+// ia tidak mewakili satu keluarga pun, dan mengambilnya per keluarga berarti
+// meminta harga yang sama berkali-kali ke sumber yang sedang membatasi kami.
+func (s *Store) SimbolDipakai(ctx context.Context) (map[string]string, error) {
+	rows, err := s.db.Query(ctx,
+		`SELECT DISTINCT symbol, kind FROM investments WHERE symbol <> ''`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := map[string]string{}
+	for rows.Next() {
+		var sym, kind string
+		if err := rows.Scan(&sym, &kind); err != nil {
+			return nil, err
+		}
+		out[sym] = kind
+	}
+	return out, rows.Err()
+}
+
 // ---------- Investasi ----------
 
 // Kuantitas dan modal sebuah posisi dijumlahkan dari lot-nya di sini, tidak

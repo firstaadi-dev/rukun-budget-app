@@ -39,10 +39,19 @@ func TestSetiapQueryDataMenyaringFamilyID(t *testing.T) {
 			!strings.Contains(q, "update") && !strings.Contains(q, "delete") {
 			return true
 		}
-		// Query yang memang lintas keluarga: hanya yang membaca tabel families
-		// itu sendiri, dipakai API admin.
+		// Query yang memang lintas keluarga: yang membaca tabel families itu
+		// sendiri, dipakai API admin.
 		if strings.Contains(q, "from families") || strings.Contains(q, "into families") ||
 			strings.Contains(q, "update families") {
+			return true
+		}
+		// Daftar simbol yang perlu diambil harganya. Ia menyentuh investments,
+		// tapi yang dibacanya cuma kode bursa dan jenis posisinya — bukan berapa
+		// banyak, bukan berapa modalnya, bukan milik siapa. Penyegar harian yang
+		// memanggilnya tidak mewakili satu keluarga pun, dan meminta harga yang
+		// sama sekali per keluarga justru memperbesar kemungkinan ditolak
+		// sumbernya. Lihat SimbolDipakai.
+		if strings.Contains(q, "distinct symbol, kind from investments") {
 			return true
 		}
 		for _, tabel := range tabelData {
@@ -86,6 +95,15 @@ func TestMetodeStoreDataMenerimaFamilyID(t *testing.T) {
 	dikecualikan := map[string]bool{
 		"CreateSession": true, "SessionUser": true, "DeleteSession": true, "PurgeSessions": true,
 		"FamilyByCode": true, "Families": true, "CreateFamily": true, "UpdateFamily": true,
+
+		// Harga pasar, bukan catatan keluarga. Harga SPUS sama untuk siapa pun
+		// yang memegangnya, tidak ada satu pun angka milik keluarga di tabel
+		// quotes, dan menyalinnya per keluarga cuma melipatgandakan permintaan
+		// ke sumber yang memang sedang membatasi kami. Lihat migrasi 009.
+		"Quotes": true, "SaveQuotes": true, "AllQuotes": true,
+		// Membaca investments, tapi hanya kode bursa dan jenis posisinya —
+		// alasan lengkapnya di TestSetiapQueryDataMenyaringFamilyID di atas.
+		"SimbolDipakai": true,
 	}
 
 	fset := token.NewFileSet()

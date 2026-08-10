@@ -34,12 +34,21 @@ const defaultHargaURL = "https://query1.finance.yahoo.com/v8/finance/chart/"
 // keduanya kadang dibatasi terpisah, jadi yang satu masih menjawab saat yang
 // lain sudah 429.
 //
-// Ini peredam, bukan obat. Pembatasannya dihitung per alamat IP dan deploy di
-// Render memakai alamat bersama — 429 datang bukan karena aplikasi ini rakus,
-// melainkan karena tetangganya. Sumber kedua yang benar-benar terpisah semuanya
-// menuntut pendaftaran, dan itu keputusan yang bukan milik berkas ini; sampai
-// ada, jalan keluar yang pasti adalah harga isian sendiri per posisi.
+// Ini peredam, bukan obat: keduanya satu penyedia, dan pembatasannya dihitung
+// per alamat IP. Deploy di Render memakai alamat bersama, jadi 429 datang bukan
+// karena aplikasi ini rakus melainkan karena tetangganya — dan saat batasnya
+// kena, kedua host biasanya menolak bersamaan.
 const defaultCadanganURL = "https://query2.finance.yahoo.com/v8/finance/chart/"
+
+// Twelve Data: sumber ketiga yang benar-benar terpisah, dan satu-satunya jalan
+// keluar nyata dari 429 di atas. Ia menuntut pendaftaran — tier gratisnya tanpa
+// kartu — jadi ia mati sendiri selama HARGA_TWELVE_KEY belum diisi, dan tidak
+// ada yang berubah bagi yang tidak mengisinya.
+//
+// Batasnya dihitung per akun, bukan per alamat IP, jadi tetangga di Render
+// tidak ikut menghabiskannya. Ia juga menyebut mata uang kuotasinya sendiri,
+// sama seperti Yahoo, sehingga tidak ada yang perlu ditebak dari simbolnya.
+const defaultTwelveURL = "https://api.twelvedata.com/quote"
 
 // diam429: sesudah sumber utama membalas 429, ia dilewati selama ini dan
 // permintaan langsung jatuh ke cadangan. Menekan "coba lagi" berulang kali ke
@@ -84,7 +93,10 @@ func (k Kuotasi) Ada() bool { return k.PriceE4 > 0 && k.Currency != "" }
 type hargaSource struct {
 	base     string
 	cadangan string
-	client   *http.Client
+	// twelveURL dan twelveKey: sumber ketiga. Kunci kosong berarti ia mati.
+	twelveURL string
+	twelveKey string
+	client    *http.Client
 
 	mu    sync.RWMutex
 	cache map[string]Kuotasi
@@ -104,12 +116,13 @@ type hargaSource struct {
 
 func newHargaSource(base, cadangan string) *hargaSource {
 	return &hargaSource{
-		base:     base,
-		cadangan: cadangan,
-		client:   &http.Client{Timeout: 10 * time.Second},
-		cache:    map[string]Kuotasi{},
-		ambil:    map[string]time.Time{},
-		jalan:    map[string]bool{},
+		base:      base,
+		cadangan:  cadangan,
+		twelveURL: defaultTwelveURL,
+		client:    &http.Client{Timeout: 10 * time.Second},
+		cache:     map[string]Kuotasi{},
+		ambil:     map[string]time.Time{},
+		jalan:     map[string]bool{},
 	}
 }
 
@@ -134,29 +147,218 @@ type yahooChart struct {
 	} `json:"chart"`
 }
 
-// fetch mencoba host utama dulu, lalu cadangannya. Yang pertama menjawab yang
-// dipakai, dan kalau dua-duanya gagal keduanya ikut di pesan galatnya —
-// "status 429" saja tidak memberi tahu apakah cadangannya sudah dicoba.
+// fetch mencoba ketiga sumber berurutan sampai ada yang menjawab. Yang gagal
+// dicatat semua, lalu ikut di pesan galatnya: "status 429" saja tidak memberi
+// tahu apakah cadangannya sudah dicoba, atau apakah sumber ketiganya memang
+// belum diaktifkan.
 func (s *hargaSource) fetch(ctx context.Context, symbol string) (Kuotasi, error) {
-	utama := "dilewati sementara sesudah 429"
-	if !s.sedangDiam() {
-		k, err := s.fetchYahoo(ctx, s.base, symbol)
-		if err == nil {
-			return k, nil
-		}
-		utama = err.Error()
-	}
-	if s.cadangan == "" {
-		return Kuotasi{}, fmt.Errorf("harga %s gagal — utama: %s; tanpa host cadangan", symbol, utama)
+	var gagal []string
+
+	if s.sedangDiam() {
+		gagal = append(gagal, "utama: dilewati sementara sesudah 429")
+	} else if k, err := s.fetchYahoo(ctx, s.base, symbol); err == nil {
+		return k, nil
+	} else {
+		gagal = append(gagal, "utama: "+err.Error())
 	}
 
-	k, err := s.fetchYahoo(ctx, s.cadangan, symbol)
-	if err == nil {
-		log.Printf("harga %s: host utama gagal (%s), dipakai host cadangan", symbol, utama)
-		return k, nil
+	if s.cadangan != "" {
+		if k, err := s.fetchYahoo(ctx, s.cadangan, symbol); err == nil {
+			log.Printf("harga %s: dipakai host cadangan setelah %s", symbol, strings.Join(gagal, "; "))
+			return k, nil
+		} else {
+			gagal = append(gagal, "cadangan: "+err.Error())
+		}
 	}
-	return Kuotasi{}, fmt.Errorf("harga %s gagal di dua host — utama: %s; cadangan: %v",
-		symbol, utama, err)
+
+	if s.twelveKey == "" {
+		gagal = append(gagal, "twelvedata: HARGA_TWELVE_KEY belum diisi")
+	} else if k, err := s.fetchTwelve(ctx, symbol); err == nil {
+		log.Printf("harga %s: dipakai Twelve Data setelah %s", symbol, strings.Join(gagal, "; "))
+		return k, nil
+	} else {
+		gagal = append(gagal, "twelvedata: "+err.Error())
+	}
+
+	return Kuotasi{}, fmt.Errorf("harga %s gagal di semua sumber — %s", symbol, strings.Join(gagal, "; "))
+}
+
+type twelveQuote struct {
+	Symbol    string `json:"symbol"`
+	Name      string `json:"name"`
+	Currency  string `json:"currency"`
+	Close     string `json:"close"`
+	Timestamp int64  `json:"timestamp"`
+	// Galat dijawab dengan bentuk yang berbeda, di badan yang sama.
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Status  string `json:"status"`
+}
+
+// fetchTwelve mengambil satu kuotasi dari Twelve Data. Simbolnya dipakai apa
+// adanya: kode yang dipahami Yahoo — VOO, SPUS, AAPL — dipahami juga di sini.
+//
+// Emas adalah pengecualiannya. Kontrak berjangka COMEX tidak ada di sini, jadi
+// yang dipakai emas spot XAU/USD: sama-sama dolar per troy ounce, selisihnya
+// beberapa dolar, jauh lebih kecil daripada selisih harga gerai yang memang
+// sudah jadi catatan tersendiri di investasi.go.
+func (s *hargaSource) fetchTwelve(ctx context.Context, symbol string) (Kuotasi, error) {
+	kode := symbol
+	if kode == simbolEmas {
+		kode = "XAU/USD"
+	}
+	u := s.twelveURL + "?symbol=" + url.QueryEscape(kode) + "&apikey=" + url.QueryEscape(s.twelveKey)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return Kuotasi{}, err
+	}
+	req.Header.Set("User-Agent", "Rukun/1.0 (+https://github.com/firsta/rukun)")
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return Kuotasi{}, err
+	}
+	defer resp.Body.Close()
+
+	// Kuncinya ada di URL, jadi pesan galatnya tidak boleh ikut apa adanya ke
+	// layar maupun ke log — yang disebut cuma kode statusnya.
+	if resp.StatusCode != http.StatusOK {
+		return Kuotasi{}, fmt.Errorf("status %d", resp.StatusCode)
+	}
+	var body twelveQuote
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return Kuotasi{}, err
+	}
+	if body.Status == "error" {
+		return Kuotasi{}, fmt.Errorf("kode %d: %s", body.Code, body.Message)
+	}
+
+	// Harganya dikirim sebagai teks, bukan angka.
+	tutup, err := strconv.ParseFloat(strings.TrimSpace(body.Close), 64)
+	if err != nil {
+		return Kuotasi{}, fmt.Errorf("harga penutupan %q tidak terbaca", body.Close)
+	}
+	e4, ok := priceToE4(tutup, body.Currency)
+	if !ok {
+		return Kuotasi{}, fmt.Errorf("nilai %v %s tidak masuk akal", tutup, body.Currency)
+	}
+	k := Kuotasi{PriceE4: e4, Currency: body.Currency,
+		Nama: strings.Join(strings.Fields(body.Name), " ")}
+	if body.Timestamp > 0 {
+		k.At = time.Unix(body.Timestamp, 0).UTC()
+	} else {
+		k.At, k.Diambil = time.Now().UTC(), true
+	}
+	return k, nil
+}
+
+// Endpoint spark menjawab banyak simbol dalam satu permintaan, tanpa kunci.
+// Ini yang membuat satu keluarga dengan sepuluh posisi cukup mengetuk sumbernya
+// sekali, bukan sepuluh kali — dan pembatasan yang dihitung per alamat IP jelas
+// lebih jarang kena dengan sepersepuluh permintaan.
+//
+// Yang tidak dibawanya: mata uang dan nama instrumennya. Karena itu ia hanya
+// dipakai untuk simbol yang mata uangnya sudah diketahui dari pengambilan
+// sebelumnya — cache di memori, yang saat start diisi dari tabel quotes. Simbol
+// yang benar-benar baru tetap lewat endpoint chart satu per satu, sekali saja,
+// dan sesudah itu ikut borongan.
+type yahooSpark map[string]struct {
+	Symbol    string    `json:"symbol"`
+	Timestamp []int64   `json:"timestamp"`
+	Close     []float64 `json:"close"`
+}
+
+// fetchSpark mengambil harga penutupan terakhir untuk banyak simbol sekaligus.
+func (s *hargaSource) fetchSpark(ctx context.Context, base string, symbols []string) (map[string]Kuotasi, error) {
+	// Path-nya bersaudara dengan endpoint chart, satu tingkat di atas nama
+	// akhirnya — sama seperti endpoint pencarian di cariSimbol.
+	u := strings.TrimSuffix(base, "chart/") + "spark?range=5d&interval=1d&symbols=" +
+		url.QueryEscape(strings.Join(symbols, ","))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "Rukun/1.0 (+https://github.com/firsta/rukun)")
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", u, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusTooManyRequests {
+			s.tahan429(resp.Header.Get("Retry-After"))
+		}
+		return nil, fmt.Errorf("status %d dari %s: %s", resp.StatusCode, u, cuplik(resp.Body))
+	}
+
+	var body yahooSpark
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return nil, err
+	}
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := map[string]Kuotasi{}
+	for sym, sp := range body {
+		// Mata uangnya tidak ada di balasan ini, jadi diambil dari yang sudah
+		// diketahui. Yang belum pernah terlihat dilewati — menebaknya berarti
+		// menyimpan harga dengan satuan karangan.
+		lama, ada := s.cache[sym]
+		if !ada || lama.Currency == "" {
+			continue
+		}
+		tutup, waktu, ok := penutupanTerakhir(sp.Close, sp.Timestamp)
+		if !ok {
+			continue
+		}
+		e4, ok := priceToE4(tutup, lama.Currency)
+		if !ok {
+			continue
+		}
+		out[sym] = Kuotasi{PriceE4: e4, Currency: lama.Currency, At: waktu, Nama: lama.Nama}
+	}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("tidak ada simbol terbaca dari %d yang diminta", len(symbols))
+	}
+	return out, nil
+}
+
+// penutupanTerakhir mengambil harga terakhir yang benar-benar ada. Deret dari
+// spark bisa berakhir dengan nol untuk hari bursa yang belum tutup, dan memakai
+// elemen terakhir apa adanya membuat harga jatuh ke nol tiap pagi.
+func penutupanTerakhir(closes []float64, stamps []int64) (float64, time.Time, bool) {
+	for i := len(closes) - 1; i >= 0; i-- {
+		if closes[i] <= 0 {
+			continue
+		}
+		var waktu time.Time
+		if i < len(stamps) && stamps[i] > 0 {
+			waktu = time.Unix(stamps[i], 0).UTC()
+		}
+		return closes[i], waktu, true
+	}
+	return 0, time.Time{}, false
+}
+
+// seed mengisi cache dari harga yang tersimpan di database, dipanggil sekali
+// saat start.
+//
+// Waktu pengambilannya sengaja dibiarkan kosong, jadi seluruhnya terhitung basi
+// dan disegarkan di latar belakang. Yang penting halaman pertama sesudah
+// instance bangun langsung berisi angka — dan mata uangnya diketahui, sehingga
+// penyegaran itu bisa lewat satu permintaan borongan.
+func (s *hargaSource) seed(quotes map[string]Kuotasi) {
+	if !s.enabled() || len(quotes) == 0 {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for sym, k := range quotes {
+		if k.Ada() {
+			s.cache[sym] = k
+		}
+	}
 }
 
 func (s *hargaSource) sedangDiam() bool {
@@ -289,9 +491,7 @@ func (s *hargaSource) harga(ctx context.Context, symbols []string) map[string]Ku
 	}
 	s.mu.RUnlock()
 
-	for _, sym := range basi {
-		s.latar(sym)
-	}
+	s.latar(basi)
 	if len(baru) == 0 {
 		return out
 	}
@@ -324,28 +524,63 @@ func (s *hargaSource) harga(ctx context.Context, symbols []string) map[string]Ku
 	return out
 }
 
-// latar menyegarkan satu simbol tanpa menahan permintaan yang sedang berjalan.
-// Konteksnya sengaja bukan konteks permintaan itu: halaman yang sudah selesai
-// dikirim akan membatalkannya di tengah jalan.
-func (s *hargaSource) latar(symbol string) {
+// latar menyegarkan simbol yang mulai basi tanpa menahan permintaan yang sedang
+// berjalan. Konteksnya sengaja bukan konteks permintaan itu: halaman yang sudah
+// selesai dikirim akan membatalkannya di tengah jalan.
+//
+// Seluruhnya dijemput dalam satu permintaan borongan. Sebelumnya tiap simbol
+// punya permintaannya sendiri, dan sepuluh posisi berarti sepuluh ketukan ke
+// sumber yang membatasi per alamat IP — kelipatan yang tidak dibutuhkan siapa
+// pun. Yang gagal di borongan jatuh ke pengambilan satu per satu, karena di
+// situlah mata uang dan namanya bisa didapat.
+func (s *hargaSource) latar(symbols []string) {
 	s.mu.Lock()
-	if s.jalan[symbol] {
-		s.mu.Unlock()
+	var ambil []string
+	for _, sym := range symbols {
+		if !s.jalan[sym] {
+			s.jalan[sym] = true
+			ambil = append(ambil, sym)
+		}
+	}
+	s.mu.Unlock()
+	if len(ambil) == 0 {
 		return
 	}
-	s.jalan[symbol] = true
-	s.mu.Unlock()
 
 	go func() {
-		ctx, batal := context.WithTimeout(context.Background(), 15*time.Second)
+		ctx, batal := context.WithTimeout(context.Background(), 30*time.Second)
 		defer batal()
-		k, err := s.fetch(ctx, symbol)
-		s.simpan(symbol, k, err)
+		s.jemput(ctx, ambil)
 
 		s.mu.Lock()
-		delete(s.jalan, symbol)
+		for _, sym := range ambil {
+			delete(s.jalan, sym)
+		}
 		s.mu.Unlock()
 	}()
+}
+
+// jemput mengambil sekumpulan simbol: borongan dulu, sisanya satu per satu.
+func (s *hargaSource) jemput(ctx context.Context, symbols []string) {
+	sisa := symbols
+	if len(symbols) > 1 && !s.sedangDiam() {
+		borongan, err := s.fetchSpark(ctx, s.base, symbols)
+		if err != nil {
+			log.Printf("harga borongan %d simbol gagal, dicoba satu per satu: %v", len(symbols), err)
+		}
+		sisa = nil
+		for _, sym := range symbols {
+			if k, ok := borongan[sym]; ok {
+				s.simpan(sym, k, nil)
+				continue
+			}
+			sisa = append(sisa, sym)
+		}
+	}
+	for _, sym := range sisa {
+		k, err := s.fetch(ctx, sym)
+		s.simpan(sym, k, err)
+	}
 }
 
 // segarkan menjemput ulang seluruh simbol sekarang juga dan menunggu hasilnya.
@@ -364,19 +599,13 @@ func (s *hargaSource) segarkan(ctx context.Context, symbols []string) {
 	s.diam = time.Time{}
 	s.mu.Unlock()
 
-	var wg sync.WaitGroup
+	var bersih []string
 	for _, sym := range symbols {
-		if sym == "" {
-			continue
+		if sym != "" {
+			bersih = append(bersih, sym)
 		}
-		wg.Add(1)
-		go func(sym string) {
-			defer wg.Done()
-			k, err := s.fetch(ctx, sym)
-			s.simpan(sym, k, err)
-		}(sym)
 	}
-	wg.Wait()
+	s.jemput(ctx, bersih)
 }
 
 // simpan menyimpan hasil pengambilan. Kegagalan tidak menghapus harga lama:

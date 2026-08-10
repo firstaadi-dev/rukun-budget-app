@@ -124,6 +124,23 @@ func main() {
 			cadangan = ""
 		}
 		app.hargaSrc = newHargaSource(u, cadangan)
+		// Sumber ketiga hanya hidup kalau kuncinya diisi. Yang tidak mengisinya
+		// tidak kehilangan apa pun — ia cuma tidak punya jalan keluar saat
+		// Yahoo membatasi alamat IP yang dipakai bersama.
+		app.hargaSrc.twelveKey = os.Getenv("HARGA_TWELVE_KEY")
+		if app.hargaSrc.twelveKey == "" {
+			log.Print("HARGA_TWELVE_KEY kosong: sumber harga cadangan kedua dimatikan")
+		}
+		// Harga yang tersimpan dimuat sekali di sini. Dua gunanya: halaman
+		// pertama sesudah instance bangun langsung berisi angka, dan mata uang
+		// tiap simbol jadi diketahui — tanpa itu penyegaran borongan yang cuma
+		// butuh satu permintaan tidak bisa dipakai sama sekali.
+		if q, err := app.store.AllQuotes(startCtx); err != nil {
+			log.Printf("memuat harga tersimpan: %v", err)
+		} else if len(q) > 0 {
+			app.hargaSrc.seed(q)
+			log.Printf("%d harga tersimpan dimuat", len(q))
+		}
 	} else {
 		app.hargaSrc = newHargaSource("", "")
 		log.Print("pengambilan harga pasar dimatikan (HARGA_URL=off)")
@@ -141,6 +158,7 @@ func main() {
 	}
 
 	go app.purgeSessionsDaily(ctx)
+	go app.segarkanHargaHarian(ctx)
 
 	addr := ":" + env("PORT", "8080")
 	log.Printf("Rukun jalan di %s (zona %s, mata uang dasar %s)", addr, loc, app.base)

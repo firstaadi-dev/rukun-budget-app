@@ -255,7 +255,7 @@ func TestKuotasiDuaSumber(t *testing.T) {
 		{Kind: "stock", Symbol: "VOO", Currency: "USD"},
 		{Kind: "gold", Currency: "IDR"}, // tanpa simbol: harga diisi sendiri
 	}
-	q := app.kuotasi(context.Background(), vs)
+	q := app.kuotasiLangsung(context.Background(), vs)
 
 	if k := q["Sucorinvest Money Market Fund"]; k.PriceE4 != 1_980_690_000 || k.Currency != "IDR" {
 		t.Errorf("NAB reksadana = %+v, mau 1980690000 IDR", k)

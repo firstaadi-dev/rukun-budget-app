@@ -34,3 +34,12 @@ services:
         value: IDR
       - key: APP_TZ
         value: Asia/Jakarta
+      # Kunci Twelve Data, sumber harga ketiga. Yahoo membatasi permintaan per
+      # alamat IP dan Render memakai alamat bersama, jadi 429 datang dari
+      # tetangga — batas Twelve Data dihitung per akun dan tidak ikut habis.
+      # Daftar gratis di twelvedata.com/pricing, lalu isi nilainya di tab
+      # Environment. Dikosongkan berarti sumber itu mati dan aplikasi tetap
+      # jalan dengan Yahoo saja. Lihat README bagian "Kalau harga pasar sering
+      # gagal".
+      - key: HARGA_TWELVE_KEY
+        sync: false
