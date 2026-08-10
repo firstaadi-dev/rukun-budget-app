@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"net/http"
@@ -28,6 +29,23 @@ import (
 // pengambilan tidak pernah mengosongkan layar — yang tampil harga terakhir
 // yang diketahui, lengkap dengan kapan ia diambil.
 const defaultHargaURL = "https://query1.finance.yahoo.com/v8/finance/chart/"
+
+// Host cadangan. Yahoo menyajikan endpoint yang sama dari query1 dan query2;
+// keduanya kadang dibatasi terpisah, jadi yang satu masih menjawab saat yang
+// lain sudah 429.
+//
+// Ini peredam, bukan obat. Pembatasannya dihitung per alamat IP dan deploy di
+// Render memakai alamat bersama — 429 datang bukan karena aplikasi ini rakus,
+// melainkan karena tetangganya. Sumber kedua yang benar-benar terpisah semuanya
+// menuntut pendaftaran, dan itu keputusan yang bukan milik berkas ini; sampai
+// ada, jalan keluar yang pasti adalah harga isian sendiri per posisi.
+const defaultCadanganURL = "https://query2.finance.yahoo.com/v8/finance/chart/"
+
+// diam429: sesudah sumber utama membalas 429, ia dilewati selama ini dan
+// permintaan langsung jatuh ke cadangan. Menekan "coba lagi" berulang kali ke
+// sumber yang sedang menolak justru memperpanjang penolakannya — dan selama
+// jeda itu host cadangan tetap dicoba, jadi tidak ada yang hilang.
+const diam429 = 15 * time.Minute
 
 // simbolEmas: kontrak berjangka emas COMEX, dikuotasi dalam dolar per troy
 // ounce. Ini harga emas dunia, bukan harga jual gerai Antam — lihat
@@ -64,8 +82,9 @@ type Kuotasi struct {
 func (k Kuotasi) Ada() bool { return k.PriceE4 > 0 && k.Currency != "" }
 
 type hargaSource struct {
-	base   string
-	client *http.Client
+	base     string
+	cadangan string
+	client   *http.Client
 
 	mu    sync.RWMutex
 	cache map[string]Kuotasi
@@ -76,18 +95,21 @@ type hargaSource struct {
 	// terus-menerus.
 	ambil   map[string]time.Time
 	lastErr error
+	// diam: sampai kapan sumber utama dilewati karena sedang membalas 429.
+	diam time.Time
 	// jalan: simbol yang sedang diambil di latar belakang, supaya satu halaman
 	// yang dibuka berkali-kali tidak menumpuk permintaan ke sumber yang sama.
 	jalan map[string]bool
 }
 
-func newHargaSource(base string) *hargaSource {
+func newHargaSource(base, cadangan string) *hargaSource {
 	return &hargaSource{
-		base:   base,
-		client: &http.Client{Timeout: 10 * time.Second},
-		cache:  map[string]Kuotasi{},
-		ambil:  map[string]time.Time{},
-		jalan:  map[string]bool{},
+		base:     base,
+		cadangan: cadangan,
+		client:   &http.Client{Timeout: 10 * time.Second},
+		cache:    map[string]Kuotasi{},
+		ambil:    map[string]time.Time{},
+		jalan:    map[string]bool{},
 	}
 }
 
@@ -112,23 +134,75 @@ type yahooChart struct {
 	} `json:"chart"`
 }
 
+// fetch mencoba host utama dulu, lalu cadangannya. Yang pertama menjawab yang
+// dipakai, dan kalau dua-duanya gagal keduanya ikut di pesan galatnya —
+// "status 429" saja tidak memberi tahu apakah cadangannya sudah dicoba.
 func (s *hargaSource) fetch(ctx context.Context, symbol string) (Kuotasi, error) {
-	u := s.base + url.PathEscape(symbol) + "?range=5d&interval=1d"
+	utama := "dilewati sementara sesudah 429"
+	if !s.sedangDiam() {
+		k, err := s.fetchYahoo(ctx, s.base, symbol)
+		if err == nil {
+			return k, nil
+		}
+		utama = err.Error()
+	}
+	if s.cadangan == "" {
+		return Kuotasi{}, fmt.Errorf("harga %s gagal — utama: %s; tanpa host cadangan", symbol, utama)
+	}
+
+	k, err := s.fetchYahoo(ctx, s.cadangan, symbol)
+	if err == nil {
+		log.Printf("harga %s: host utama gagal (%s), dipakai host cadangan", symbol, utama)
+		return k, nil
+	}
+	return Kuotasi{}, fmt.Errorf("harga %s gagal di dua host — utama: %s; cadangan: %v",
+		symbol, utama, err)
+}
+
+func (s *hargaSource) sedangDiam() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return time.Now().Before(s.diam)
+}
+
+// tahan429 menidurkan sumber utama. Retry-After dihormati kalau ada dan masuk
+// akal: sumbernya sendiri yang paling tahu kapan ia mau dihubungi lagi.
+func (s *hargaSource) tahan429(retryAfter string) {
+	jeda := diam429
+	if d, err := strconv.Atoi(strings.TrimSpace(retryAfter)); err == nil && d > 0 && d < 3600 {
+		jeda = time.Duration(d) * time.Second
+	}
+	s.mu.Lock()
+	s.diam = time.Now().Add(jeda)
+	s.mu.Unlock()
+	log.Printf("harga: sumber utama membalas 429, dilewati %s ke depan", jeda)
+}
+
+func (s *hargaSource) fetchYahoo(ctx context.Context, base, symbol string) (Kuotasi, error) {
+	u := base + url.PathEscape(symbol) + "?range=5d&interval=1d"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		return Kuotasi{}, err
 	}
 	// Tanpa User-Agent, endpoint ini kadang membalas 429 sekalipun permintaannya
-	// jarang.
+	// jarang. Yang disebut di sini aplikasinya sendiri, bukan peramban: kalau
+	// sumbernya memang sedang menolak, jalan keluarnya sumber cadangan, bukan
+	// menyamar jadi orang lain.
 	req.Header.Set("User-Agent", "Rukun/1.0 (+https://github.com/firsta/rukun)")
 
 	resp, err := s.client.Do(req)
 	if err != nil {
-		return Kuotasi{}, err
+		return Kuotasi{}, fmt.Errorf("harga %s: %s: %w", symbol, u, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return Kuotasi{}, fmt.Errorf("harga %s: status %d", symbol, resp.StatusCode)
+		if resp.StatusCode == http.StatusTooManyRequests {
+			s.tahan429(resp.Header.Get("Retry-After"))
+		}
+		// Cuplikan badan balasannya ikut: 429 dari Yahoo kadang menjelaskan
+		// dirinya, dan tanpa itu yang tercatat cuma angka status.
+		return Kuotasi{}, fmt.Errorf("harga %s: status %d dari %s: %s",
+			symbol, resp.StatusCode, u, cuplik(resp.Body))
 	}
 
 	var body yahooChart
@@ -152,6 +226,18 @@ func (s *hargaSource) fetch(ctx context.Context, symbol string) (Kuotasi, error)
 	}
 	return Kuotasi{PriceE4: e4, Currency: m.Currency, Nama: strings.Join(strings.Fields(nama), " "),
 		At: time.Unix(m.RegularMarketTime, 0).UTC()}, nil
+}
+
+// cuplik membaca sedikit awal badan balasan untuk dititipkan ke pesan galat.
+// Dipangkas dan diratakan spasinya: yang dicari petunjuk di log, bukan salinan
+// halaman galat setinggi layar.
+func cuplik(r io.Reader) string {
+	b, _ := io.ReadAll(io.LimitReader(r, 300))
+	s := strings.Join(strings.Fields(string(b)), " ")
+	if s == "" {
+		return "(kosong)"
+	}
+	return s
 }
 
 // priceToE4 mengubah harga pecahan dari sumber jadi bilangan bulat berskala.
@@ -260,6 +346,37 @@ func (s *hargaSource) latar(symbol string) {
 		delete(s.jalan, symbol)
 		s.mu.Unlock()
 	}()
+}
+
+// segarkan menjemput ulang seluruh simbol sekarang juga dan menunggu hasilnya.
+// Dipakai tombol "Ambil ulang harga": yang menekannya sedang menunggu jawaban,
+// bukan menunggu latar belakang, jadi umur harga tersimpan tidak dilihat sama
+// sekali — begitu juga jeda 429, karena permintaannya datang dari orangnya
+// sendiri, bukan dari halaman yang kebetulan dibuka.
+//
+// Harga lama tidak dihapus lebih dulu: kalau sumbernya masih mati, yang
+// terakhir diketahui tetap lebih berguna daripada kolom kosong.
+func (s *hargaSource) segarkan(ctx context.Context, symbols []string) {
+	if !s.enabled() {
+		return
+	}
+	s.mu.Lock()
+	s.diam = time.Time{}
+	s.mu.Unlock()
+
+	var wg sync.WaitGroup
+	for _, sym := range symbols {
+		if sym == "" {
+			continue
+		}
+		wg.Add(1)
+		go func(sym string) {
+			defer wg.Done()
+			k, err := s.fetch(ctx, sym)
+			s.simpan(sym, k, err)
+		}(sym)
+	}
+	wg.Wait()
 }
 
 // simpan menyimpan hasil pengambilan. Kegagalan tidak menghapus harga lama:

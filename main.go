@@ -119,9 +119,13 @@ func main() {
 	// cuma simbol yang benar-benar dimiliki seseorang, dan daftar itu hanya
 	// diketahui saat halamannya dibuka.
 	if u := env("HARGA_URL", defaultHargaURL); u != "off" {
-		app.hargaSrc = newHargaSource(u)
+		cadangan := env("HARGA_URL_CADANGAN", defaultCadanganURL)
+		if cadangan == "off" {
+			cadangan = ""
+		}
+		app.hargaSrc = newHargaSource(u, cadangan)
 	} else {
-		app.hargaSrc = newHargaSource("")
+		app.hargaSrc = newHargaSource("", "")
 		log.Print("pengambilan harga pasar dimatikan (HARGA_URL=off)")
 	}
 
@@ -201,6 +205,7 @@ func (a *App) routes() http.Handler {
 	auth("POST /dompet/{id}/hapus", a.walletDelete)
 
 	auth("GET /investasi", a.investList)
+	auth("POST /investasi/segarkan", a.investRefresh)
 	auth("GET /investasi/cari", a.investCari)
 	auth("GET /investasi/baru", a.investForm)
 	auth("POST /investasi/baru", a.investCreate)

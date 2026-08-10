@@ -596,11 +596,59 @@ func (a *App) investList(w http.ResponseWriter, r *http.Request) {
 	}
 	views := viewInvests(vs, a.kuotasi(ctx, vs), rates, a.today())
 
-	a.render(w, r, "investasi.html", map[string]any{
+	data := map[string]any{
 		"Title": "Investasi", "Nav": "investasi",
 		"Groups": groupInvests(views), "Summary": summarizeInvests(views, rates, a.base),
-		"Kinds": investKinds, "HargaError": a.hargaSrc.status() != nil,
-	})
+		"Kinds": investKinds,
+	}
+	// Sebab kegagalannya ikut ditampilkan, bukan cuma disimpan di log server.
+	// Yang membuka halaman ini tidak punya akses ke log itu, dan "sedang tidak
+	// bisa dihubungi" tidak membedakan kode yang salah ketik dari sumber yang
+	// sedang membatasi permintaan — dua hal dengan jalan keluar yang berbeda.
+	if err := a.hargaSrc.status(); err != nil {
+		data["HargaError"] = true
+		data["HargaErrorPesan"] = err.Error()
+	}
+	a.render(w, r, "investasi.html", data)
+}
+
+// investRefresh menjemput ulang seluruh harga sekarang juga, lalu kembali ke
+// daftarnya. Tanpa ini, harga yang gagal diambil baru dicoba lagi saat
+// umurnya lewat — dan yang sudah tahu sumbernya sempat mati tidak punya cara
+// menyuruhnya mencoba lagi selain menunggu.
+func (a *App) investRefresh(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vs, err := a.store.Investments(ctx, family(r))
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+
+	var bursa []string
+	var adaReksadana bool
+	for _, v := range vs {
+		switch {
+		case v.Symbol == "":
+		case v.Kind == "fund":
+			adaReksadana = true
+		default:
+			bursa = append(bursa, v.Symbol)
+		}
+	}
+
+	// Anggarannya lebih longgar daripada saat halaman dibuka biasa: yang
+	// menekan tombol ini sudah tahu ia sedang menunggu sesuatu.
+	tunggu, batal := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+	defer batal()
+
+	log.Printf("ambil ulang harga: %d simbol bursa, reksadana %v", len(bursa), adaReksadana)
+	a.hargaSrc.segarkan(tunggu, bursa)
+	if adaReksadana && a.nabSrc.enabled() {
+		if err := a.nabSrc.refresh(tunggu); err != nil {
+			log.Printf("ambil ulang NAB: %v", err)
+		}
+	}
+	http.Redirect(w, r, "/investasi", http.StatusSeeOther)
 }
 
 func (a *App) investDetail(w http.ResponseWriter, r *http.Request) {

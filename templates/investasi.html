@@ -2,7 +2,17 @@
 <div class="stack">
   <div class="page-head">
     <h4>Investasi</h4>
-    <a href="/investasi/baru" class="btn btn-primary">Tambah{{template "icon-plus"}}</a>
+    <div class="head-aksi">
+      {{/* Harga disegarkan sendiri saat umurnya lewat, jadi tombol ini bukan
+           jalan biasa — ia untuk saat sumbernya sempat mati dan yang membuka
+           halaman ini tidak mau menunggu satu jam berikutnya. */}}
+      {{if .Groups}}
+        <form method="post" action="/investasi/segarkan">
+          <button type="submit" class="btn btn-ghost">Ambil Ulang Harga</button>
+        </form>
+      {{end}}
+      <a href="/investasi/baru" class="btn btn-primary">Tambah{{template "icon-plus"}}</a>
+    </div>
   </div>
 
   {{if .Groups}}
@@ -27,8 +37,14 @@
     </div>
 
     {{if .HargaError}}
-      <p class="banner">Sumber harga pasar sedang tidak bisa dihubungi. Yang tampil
-        harga terakhir yang sempat diambil — tanggalnya tertulis di tiap posisi.</p>
+      <div class="banner">
+        <p class="banner-teks">Sumber harga pasar sedang tidak bisa dihubungi. Yang tampil
+          harga terakhir yang sempat diambil — tanggalnya tertulis di tiap posisi.</p>
+        {{/* Sebabnya ditulis apa adanya. "Status 429" berarti sumbernya sedang
+             membatasi permintaan dan akan pulih sendiri; "tidak dikenal"
+             berarti kodenya yang salah dan menunggu tidak akan menolong. */}}
+        {{with .HargaErrorPesan}}<p class="banner-sebab">{{.}}</p>{{end}}
+      </div>
     {{end}}
 
     {{range .Groups}}

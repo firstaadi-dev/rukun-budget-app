@@ -245,7 +245,7 @@ func TestKuotasiDuaSumber(t *testing.T) {
 	}))
 	defer bursa.Close()
 
-	app := &App{hargaSrc: newHargaSource(bursa.URL + "/"), nabSrc: newNABSource(nabSrv.URL + "/")}
+	app := &App{hargaSrc: newHargaSource(bursa.URL+"/", ""), nabSrc: newNABSource(nabSrv.URL + "/")}
 	if err := app.nabSrc.refresh(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +278,7 @@ func TestInvestCari(t *testing.T) {
 	}))
 	defer nabSrv.Close()
 
-	app := &App{hargaSrc: newHargaSource(""), nabSrc: newNABSource(nabSrv.URL + "/")}
+	app := &App{hargaSrc: newHargaSource("", ""), nabSrc: newNABSource(nabSrv.URL + "/")}
 	if err := app.nabSrc.refresh(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -517,7 +517,7 @@ func TestReadInvestNamaDariSimbol(t *testing.T) {
 		return url.Values{"jenis": {"stock"}, "simbol": {simbol}, "mata_uang": {"USD"}, "dompet": {"0"}}
 	}
 
-	app := &App{hargaSrc: newHargaSource(bursa.URL + "/"), nabSrc: newNABSource("")}
+	app := &App{hargaSrc: newHargaSource(bursa.URL+"/", ""), nabSrc: newNABSource("")}
 
 	// Kode dikenal: namanya datang dari sumbernya, bukan dari form.
 	v, err := kirim(app, saham("voog"))
@@ -547,7 +547,7 @@ func TestReadInvestNamaDariSimbol(t *testing.T) {
 	// Sumber mati: kodenya dipakai sebagai nama sementara, pencatatan jalan
 	// terus. Menghalangi di sini berarti kegagalan jaringan orang lain
 	// menghentikan pencatatan keuangan sendiri.
-	mati := &App{hargaSrc: newHargaSource("http://127.0.0.1:1/"), nabSrc: newNABSource("")}
+	mati := &App{hargaSrc: newHargaSource("http://127.0.0.1:1/", ""), nabSrc: newNABSource("")}
 	v, err = kirim(mati, saham("VOO"))
 	if err != nil {
 		t.Fatalf("sumber mati malah menolak: %v", err)

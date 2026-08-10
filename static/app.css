@@ -188,6 +188,19 @@ a { color: var(--color-accent-700); }
   color: var(--color-accent-700);
   font-size: 12px;
 }
+.banner-teks { margin: 0; }
+/* Pesan mentah dari sumbernya: kode status, URL, cuplikan balasannya. Ditulis
+   monospace dan boleh dipotong di tengah kata — ia memang bukan kalimat, dan
+   URL panjang tanpa ini melebarkan seluruh halaman. */
+.banner-sebab {
+  margin: 6px 0 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  opacity: 0.75;
+  overflow-wrap: anywhere;
+}
+
+.head-aksi { display: flex; align-items: center; gap: var(--space-2); }
 .note, .empty {
   margin: 0;
   font-size: 12.5px;

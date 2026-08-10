@@ -147,7 +147,16 @@ func TestPagesRender(t *testing.T) {
 			"Title": "Investasi", "Nav": "investasi",
 			"Groups": groupInvests(invViews), "Summary": summarizeInvests(invViews, rates, "IDR"),
 			"Kinds": investKinds, "HargaError": false,
-		}, "Antam · 10 gram"},
+		}, "Ambil Ulang Harga"},
+
+		// Sumber harga sedang bermasalah: sebabnya ikut tampil apa adanya, supaya
+		// yang membukanya tahu apakah ini soal menunggu atau soal kode yang salah.
+		{"investasi.html", map[string]any{
+			"Title": "Investasi", "Nav": "investasi",
+			"Groups": groupInvests(invViews), "Summary": summarizeInvests(invViews, rates, "IDR"),
+			"Kinds": investKinds, "HargaError": true,
+			"HargaErrorPesan": "harga VOO gagal di dua host — utama: status 429; cadangan: status 429",
+		}, "status 429"},
 
 		{"investasi.html", map[string]any{
 			"Title": "Investasi", "Nav": "investasi",
