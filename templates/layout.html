@@ -181,13 +181,34 @@
 {{end}}
 {{end}}
 
+{{/* Pemilih mode pencatatan, menggantung di kanan atas form. Sengaja bukan
+     bagian dari form itu sendiri: mencatat sekali jalan adalah yang hampir
+     selalu dimaksud, dan cicilan tidak boleh menambah satu isian pun ke jalur
+     yang paling sering dilewati. Modenya dibawa di URL, jadi kolom tambahannya
+     sudah tergambar di server dan menu ini tidak butuh skrip sama sekali. */}}
+{{define "tx-mode-menu"}}
+{{if not .ID}}
+<details class="menu">
+  <summary class="btn btn-ghost">{{.ModeLabel}}{{template "icon-chev"}}</summary>
+  <nav class="menu-pop menu-pop-kanan card elev-md menu-list" aria-label="Mode pencatatan">
+    {{range $.Modes}}
+      <a href="/transaksi/baru?jenis={{$.Kind}}{{if .Value}}&mode={{.Value}}{{end}}"
+         class="{{if eq $.Form.mode .Value}}on{{end}}">
+        {{.Label}}<span class="text-muted tiny">{{.Hint}}</span>
+      </a>
+    {{end}}
+  </nav>
+</details>
+{{end}}
+{{end}}
+
 {{/* Satu baris transaksi, dipakai di dashboard dan daftar transaksi. */}}
 {{define "tx-row"}}
 <a class="row" href="/transaksi/{{.ID}}">
   <span class="row-ic t-{{.Tone}}">{{template "tx-icon" .Kind}}</span>
   <span class="row-main">
     <span class="row-title">{{.Desc}}</span>
-    <span class="row-sub text-muted">{{.WalletLabel}} · {{.DateLabel}}</span>
+    <span class="row-sub text-muted">{{.WalletLabel}} · {{.DateLabel}}{{with .SeriesLabel}} · {{.}}{{end}}</span>
   </span>
   <span class="row-amt m-{{.Tone}}">{{.Amount}}</span>
 </a>

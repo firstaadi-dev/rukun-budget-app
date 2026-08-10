@@ -381,7 +381,7 @@ $$('[data-auto-submit] select').forEach((sel) => {
 // tanpa file ini. Yang ditambahkan di sini cuma kebiasaan panel mengambang:
 // menutup saat ditekan di luar atau saat Escape. Tanpa itu ia tetap terbuka
 // menutupi daftar sampai judulnya ditekan lagi.
-$$('.periode-menu').forEach((menu) => {
+$$('.menu').forEach((menu) => {
   document.addEventListener('click', (e) => {
     if (menu.open && !menu.contains(e.target)) menu.open = false;
   });

@@ -23,11 +23,11 @@
          pemilih rentang tanggal tepat di bawahnya. Digantung di <details>, jadi
          buka-tutupnya tetap jalan tanpa JS — skripnya cuma menutup panel saat
          ditekan di luar, dan itu kenyamanan, bukan syarat. */}}
-    <details class="periode-menu">
+    <details class="menu">
       <summary class="periode-label" aria-label="Ubah periode">
         {{.Periode.Label}}{{template "icon-chev"}}
       </summary>
-      <div class="periode-pop card elev-md">
+      <div class="menu-pop card elev-md">
         <form method="get" action="/transaksi">
           <input type="hidden" name="jenis" value="{{.Filter}}">
           <input type="hidden" name="kategori" value="{{.Kategori}}">
@@ -40,10 +40,10 @@
             <label for="sampai">Sampai</label>
             <input class="input" id="sampai" name="sampai" type="date" value="{{.Periode.Sampai}}">
           </div>
-          <p class="text-muted small periode-pop-catatan">Salah satunya boleh
+          <p class="text-muted small menu-pop-catatan">Salah satunya boleh
             dikosongkan — ujung yang kosong berarti tanpa batas. Kedua tanggal
             ikut terhitung.</p>
-          <div class="periode-pop-kaki">
+          <div class="menu-pop-kaki">
             <button type="submit" class="btn btn-primary">Terapkan</button>
             {{if .Periode.Rentang}}
               <a class="small" href="{{.URLBulanIni}}">Hapus rentang</a>

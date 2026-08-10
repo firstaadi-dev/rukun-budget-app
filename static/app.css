@@ -473,27 +473,28 @@ a.seg-opt.on { background: var(--color-accent-100); color: var(--color-accent-70
 }
 .periode-semua { margin-left: auto; }
 
-/* Nama periodenya sekaligus tombol pemilih rentang. Segitiga bawaan <details>
-   diganti chevron supaya seragam dengan ikon lain, dan panelnya mengambang di
-   atas daftar — bukan mendorongnya turun, karena yang sedang dilihat orangnya
-   justru daftar itu. */
-.periode-menu { position: relative; }
-.periode-menu > summary {
+/* Menu gantung yang label-nya sekaligus tombolnya, dipakai pemilih periode dan
+   pemilih mode pencatatan. Digantung di <details> supaya buka-tutupnya jalan
+   tanpa JS. Segitiga bawaannya diganti chevron supaya seragam dengan ikon lain,
+   dan panelnya mengambang di atas isi halaman — bukan mendorongnya turun,
+   karena yang sedang dilihat orangnya justru isi itu. */
+.menu { position: relative; }
+.menu > summary {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   cursor: pointer;
   list-style: none;
 }
-.periode-menu > summary::-webkit-details-marker { display: none; }
-.periode-menu > summary .ic {
+.menu > summary::-webkit-details-marker { display: none; }
+.menu > summary .ic {
   width: 15px;
   height: 15px;
   opacity: 0.5;
   transition: transform 0.15s;
 }
-.periode-menu[open] > summary .ic { transform: rotate(180deg); }
-.periode-pop {
+.menu[open] > summary .ic { transform: rotate(180deg); }
+.menu-pop {
   position: absolute;
   z-index: 20;
   top: calc(100% + 8px);
@@ -504,12 +505,50 @@ a.seg-opt.on { background: var(--color-accent-100); color: var(--color-accent-70
   background: var(--color-surface);
   max-width: calc(100vw - 40px);
 }
-.periode-pop form { display: flex; flex-direction: column; gap: var(--space-3); }
-.periode-pop-catatan { margin: 0; }
-.periode-pop-kaki { display: flex; align-items: center; gap: var(--space-3); }
+.menu-pop form { display: flex; flex-direction: column; gap: var(--space-3); }
+.menu-pop-catatan { margin: 0; }
+.menu-pop-kaki { display: flex; align-items: center; gap: var(--space-3); }
+/* Menu yang jangkarnya menempel di tepi kanan: dibuka ke kiri, kalau tidak
+   panelnya menjulur keluar layar. */
+.menu-pop-kanan { left: auto; right: 0; }
+.menu-list { display: flex; flex-direction: column; }
+.menu-list a {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 10px;
+  min-height: var(--tap);
+  justify-content: center;
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: 13.5px;
+}
+.menu-list a.on { color: var(--color-accent-700); background: var(--color-accent-100); }
+
+/* Kepala form pencatatan: pemilih jenis selebar layar, pemilih mode menggantung
+   di kanan bawahnya sebagai jalan keluar dari alur biasa.
+   Bertumpuk, bukan berdampingan: di 375px keduanya berebut lebar yang sama dan
+   "Pengeluaran" ikut terpotong demi label mode yang jauh lebih jarang dibaca. */
+.form-head { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.form-head .seg { width: 100%; }
+.form-head .menu > summary { white-space: nowrap; }
 
 /* Pemilih jenis berdiri sendiri di atas form, bukan bagian dari .stack-nya. */
-.seg + form { margin-top: var(--space-4); }
+.seg + form, .form-head + form { margin-top: var(--space-4); }
+
+/* Centang "terapkan ke seluruh rangkaian". Kotaknya diperbesar dan seluruh
+   barisnya bisa ditekan: di ponsel kotak centang bawaan lebih kecil dari target
+   sentuh minimum. */
+.pilih-semua {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--tap);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.pilih-semua input { width: 18px; height: 18px; flex-shrink: 0; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip input { position: absolute; opacity: 0; pointer-events: none; }
@@ -545,6 +584,9 @@ a.seg-opt.on { background: var(--color-accent-100); color: var(--color-accent-70
   white-space: nowrap;
 }
 .input-affix .input { border: none; border-radius: 0; flex: 1; min-width: 0; }
+/* Affix yang duduk di belakang kolom, mis. "bulan": garisnya pindah ke sisi
+   yang menghadap kolomnya, kalau tidak ia menempel di tepi luar kotak. */
+.input-affix .affix:last-child { border-right: none; border-left: 1px solid var(--color-divider); }
 
 .siklus { display: flex; gap: var(--space-2); }
 .siklus .input-affix { flex: 1; }

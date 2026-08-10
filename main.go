@@ -93,7 +93,7 @@ func main() {
 	}
 
 	app := &App{
-		store: &Store{db: pool},
+		store: &Store{db: pool, loc: loc},
 		pages: parsePages(),
 		ver:   assetVersion(),
 		loc:   loc,

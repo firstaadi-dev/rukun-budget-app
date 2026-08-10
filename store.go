@@ -10,7 +10,20 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type Store struct{ db *pgxpool.Pool }
+type Store struct {
+	db *pgxpool.Pool
+	// Zona waktu aplikasi. Saldo berhenti di hari ini menurut zona ini, bukan
+	// menurut zona server database: di UTC hari berganti tujuh jam lebih lambat
+	// daripada di Jakarta, dan belanja yang dicatat lewat tengah malam akan
+	// hilang dari saldo sampai pagi.
+	loc *time.Location
+}
+
+// today: awal hari ini di zona aplikasi, batas atas seluruh perhitungan saldo.
+func (s *Store) today() time.Time {
+	n := time.Now().In(s.loc)
+	return time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, s.loc)
+}
 
 var ErrNotFound = errors.New("data tidak ditemukan")
 
@@ -76,10 +89,15 @@ func (w Wallet) Subtitle() string {
 // Saldo dompet selalu diturunkan dari transaksi, tidak pernah disimpan —
 // tidak ada kolom yang bisa melenceng dari catatan.
 //
+// Saldo berhenti di hari ini: transaksi bertanggal maju — cicilan bulan depan,
+// langganan yang belum ditagih, belanja yang sengaja dicatat lebih awal — belum
+// terjadi, dan memasukkannya membuat "saldo" menjawab pertanyaan yang tidak
+// pernah ditanyakan siapa pun. Angkanya masuk sendiri begitu tanggalnya tiba.
+//
 // Penyaring family_id sengaja jadi bagian dari potongan query ini, bukan
 // ditambahkan tiap pemanggil: potongan yang netral hanya aman selama semua
 // pemanggilnya ingat, dan yang lupa tidak akan menghasilkan error apa pun.
-// Pemanggil menambahkan syarat lain dengan AND, mulai dari $2.
+// $2 adalah hari ini. Pemanggil menambahkan syarat lain dengan AND, mulai $3.
 const walletSelect = `
 SELECT w.id, w.name, w.type, COALESCE(w.provider, ''), w.currency, w.initial_balance_minor,
        COALESCE(w.settlement_day, 0), COALESCE(w.payment_day, 0),
@@ -87,9 +105,11 @@ SELECT w.id, w.name, w.type, COALESCE(w.provider, ''), w.currency, w.initial_bal
        w.initial_balance_minor
        + COALESCE((SELECT SUM(CASE WHEN t.kind IN ('income', 'debt_in', 'loan_in')
                                    THEN t.amount_minor ELSE -t.amount_minor END)
-                   FROM transactions t WHERE t.wallet_id = w.id), 0)
+                   FROM transactions t
+                   WHERE t.wallet_id = w.id AND t.occurred_on <= $2), 0)
        + COALESCE((SELECT SUM(t.amount_in_minor)
-                   FROM transactions t WHERE t.to_wallet_id = w.id), 0) AS balance_minor
+                   FROM transactions t
+                   WHERE t.to_wallet_id = w.id AND t.occurred_on <= $2), 0) AS balance_minor
 FROM wallets w
 WHERE w.family_id = $1`
 
@@ -108,7 +128,7 @@ func scanWallets(rows pgx.Rows) ([]Wallet, error) {
 }
 
 func (s *Store) Wallets(ctx context.Context, familyID int64) ([]Wallet, error) {
-	rows, err := s.db.Query(ctx, walletSelect+" ORDER BY w.type, w.id", familyID)
+	rows, err := s.db.Query(ctx, walletSelect+" ORDER BY w.type, w.id", familyID, s.today())
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +136,7 @@ func (s *Store) Wallets(ctx context.Context, familyID int64) ([]Wallet, error) {
 }
 
 func (s *Store) Wallet(ctx context.Context, familyID, id int64) (Wallet, error) {
-	rows, err := s.db.Query(ctx, walletSelect+" AND w.id = $2", familyID, id)
+	rows, err := s.db.Query(ctx, walletSelect+" AND w.id = $3", familyID, s.today(), id)
 	if err != nil {
 		return Wallet{}, err
 	}
@@ -203,9 +223,15 @@ type Tx struct {
 	InvestmentID   int64
 	InvestmentName string
 	QtyE8          int64
-	Note           string
-	CreatedBy      string
-	CreatedAt      time.Time
+	// Rangkaian cicilan atau transaksi berulang. SeriesID nol berarti transaksi
+	// ini berdiri sendiri; kalau terisi, ketiganya terisi bersama.
+	SeriesID   int64
+	SeriesSeq  int    // urutan ke berapa, mulai 1
+	SeriesN    int    // berapa seluruhnya saat rangkaian ini dibuat
+	SeriesKind string // cicil | ulang
+	Note       string
+	CreatedBy  string
+	CreatedAt  time.Time
 }
 
 // Jenis hutang piutang. debt_* menyangkut kewajiban kita, loan_* menyangkut
@@ -219,6 +245,19 @@ var kindHutangPiutang = map[string]bool{
 // di salah satunya membuat saldo bohong tanpa error apa pun.
 var kindMenambahSaldo = map[string]bool{
 	"income": true, "debt_in": true, "loan_in": true,
+}
+
+var seriesKindLabel = map[string]string{"cicil": "Cicilan", "ulang": "Berulang"}
+
+func (t Tx) InSeries() bool { return t.SeriesID != 0 }
+
+// SeriesLabel: "Cicilan 3/12". Kosong untuk transaksi yang berdiri sendiri,
+// sehingga template bisa memakainya langsung lewat {{with}}.
+func (t Tx) SeriesLabel() string {
+	if !t.InSeries() {
+		return ""
+	}
+	return fmt.Sprintf("%s %d/%d", seriesKindLabel[t.SeriesKind], t.SeriesSeq, t.SeriesN)
 }
 
 func (t Tx) IsDebt() bool      { return kindHutangPiutang[t.Kind] }
@@ -259,6 +298,8 @@ SELECT t.id, t.kind, t.occurred_on,
        COALESCE(t.investment_id, 0),
        COALESCE(iv.name || CASE WHEN iv.varian = '' THEN '' ELSE ' · ' || iv.varian END, ''),
        COALESCE(t.qty_e8, 0),
+       COALESCE(t.series_id, 0), COALESCE(t.series_seq, 0),
+       COALESCE(t.series_n, 0), COALESCE(t.series_kind, ''),
        t.note, COALESCE(u.name, ''), t.created_at
 FROM transactions t
 LEFT JOIN wallets w ON w.id = t.wallet_id
@@ -277,6 +318,7 @@ func scanTxs(rows pgx.Rows) ([]Tx, error) {
 			&t.AmountMinor, &t.Category, &t.ToWalletID, &t.ToWalletName, &t.ToWalletCur,
 			&t.AmountInMino, &t.AdminFee, &t.PartyID, &t.PartyName,
 			&t.InvestmentID, &t.InvestmentName, &t.QtyE8,
+			&t.SeriesID, &t.SeriesSeq, &t.SeriesN, &t.SeriesKind,
 			&t.Note, &t.CreatedBy, &t.CreatedAt); err != nil {
 			return nil, err
 		}
@@ -357,21 +399,102 @@ func (s *Store) Transaction(ctx context.Context, familyID, id int64) (Tx, error)
 	return ts[0], nil
 }
 
-func (s *Store) CreateTx(ctx context.Context, familyID int64, t Tx, userID int64) (int64, error) {
+const insertTxSQL = `
+INSERT INTO transactions
+  (family_id, kind, occurred_on, wallet_id, currency, amount_minor, category,
+   to_wallet_id, amount_in_minor, admin_fee_minor, party_id,
+   investment_id, qty_e8, series_id, series_seq, series_n, series_kind,
+   note, created_by)
+VALUES ($1, $2, $3, NULLIF($4::BIGINT, 0), NULLIF($5, '')::CHAR(3), $6, NULLIF($7, ''),
+        NULLIF($8::BIGINT, 0), NULLIF($9::BIGINT, 0), $10, NULLIF($11::BIGINT, 0),
+        NULLIF($12::BIGINT, 0), NULLIF($13::BIGINT, 0),
+        NULLIF($14::BIGINT, 0), NULLIF($15::SMALLINT, 0), NULLIF($16::SMALLINT, 0),
+        NULLIF($17, ''), $18, $19)
+RETURNING id`
+
+// txInserter: cukup untuk menjalankan satu INSERT. Dipenuhi baik oleh pool
+// maupun oleh transaksi database, sehingga SQL di atas hanya ditulis sekali.
+type txInserter interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+func insertTx(ctx context.Context, q txInserter, familyID int64, t Tx, userID int64) (int64, error) {
 	var id int64
-	err := s.db.QueryRow(ctx,
-		`INSERT INTO transactions
-		   (family_id, kind, occurred_on, wallet_id, currency, amount_minor, category,
-		    to_wallet_id, amount_in_minor, admin_fee_minor, party_id,
-		    investment_id, qty_e8, note, created_by)
-		 VALUES ($1, $2, $3, NULLIF($4::BIGINT, 0), NULLIF($5, '')::CHAR(3), $6, NULLIF($7, ''),
-		         NULLIF($8::BIGINT, 0), NULLIF($9::BIGINT, 0), $10, NULLIF($11::BIGINT, 0),
-		         NULLIF($12::BIGINT, 0), NULLIF($13::BIGINT, 0), $14, $15)
-		 RETURNING id`,
+	err := q.QueryRow(ctx, insertTxSQL,
 		familyID, t.Kind, t.Date, t.WalletID, t.currencyKolom(), t.AmountMinor, t.Category,
 		t.ToWalletID, t.AmountInMino, t.AdminFee, t.PartyID,
-		t.InvestmentID, t.QtyE8, t.Note, userID).Scan(&id)
+		t.InvestmentID, t.QtyE8,
+		t.SeriesID, t.SeriesSeq, t.SeriesN, t.SeriesKind,
+		t.Note, userID).Scan(&id)
 	return id, err
+}
+
+func (s *Store) CreateTx(ctx context.Context, familyID int64, t Tx, userID int64) (int64, error) {
+	return insertTx(ctx, s.db, familyID, t, userID)
+}
+
+// CreateTxs menyimpan serangkaian transaksi sekaligus dan mengembalikan id yang
+// pertama. Satu transaksi database untuk semuanya: separuh cicilan yang
+// tersimpan lebih buruk daripada gagal sama sekali, karena yang setengah jadi
+// terlihat persis seperti catatan yang benar.
+//
+// Nomor rangkaiannya diambil dari sequence sendiri, bukan dari id baris
+// pertama: id baris pertama baru diketahui setelah ia tersimpan, dan menambalnya
+// belakangan berarti sesaat ada baris bernomor urut tanpa rangkaian — keadaan
+// yang harus diizinkan constraint, lalu tidak pernah bisa dijaganya lagi.
+func (s *Store) CreateTxs(ctx context.Context, familyID int64, txs []Tx, userID int64) (int64, error) {
+	if len(txs) == 1 {
+		return insertTx(ctx, s.db, familyID, txs[0], userID)
+	}
+	dbtx, err := s.db.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer dbtx.Rollback(context.WithoutCancel(ctx))
+
+	var seriesID int64
+	if err := dbtx.QueryRow(ctx, `SELECT nextval('tx_series_seq')`).Scan(&seriesID); err != nil {
+		return 0, err
+	}
+
+	var first int64
+	for _, t := range txs {
+		t.SeriesID = seriesID
+		id, err := insertTx(ctx, dbtx, familyID, t, userID)
+		if err != nil {
+			return 0, err
+		}
+		if first == 0 {
+			first = id
+		}
+	}
+	return first, dbtx.Commit(ctx)
+}
+
+// UpdateSeries mengubah kategori dan catatan seluruh rangkaian sekaligus.
+//
+// Nominal dan tanggal sengaja tidak ikut. Mengubah nominal satu cicilan berarti
+// membagi ulang seluruh sisanya — pertanyaan tersendiri yang jawabannya berbeda
+// untuk cicilan dan untuk yang berulang — dan tanggal tiap bulan memang harus
+// berbeda satu sama lain.
+func (s *Store) UpdateSeries(ctx context.Context, familyID, seriesID int64, category, note string) error {
+	tag, err := s.db.Exec(ctx,
+		`UPDATE transactions SET category = NULLIF($1, ''), note = $2
+		 WHERE family_id = $3 AND series_id = $4`,
+		category, note, familyID, seriesID)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return err
+}
+
+func (s *Store) DeleteSeries(ctx context.Context, familyID, seriesID int64) error {
+	tag, err := s.db.Exec(ctx,
+		`DELETE FROM transactions WHERE family_id = $1 AND series_id = $2`, familyID, seriesID)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return err
 }
 
 func (s *Store) UpdateTx(ctx context.Context, familyID int64, t Tx) error {
@@ -1069,11 +1192,13 @@ func (s *Store) CardBalances(ctx context.Context, familyID, walletID int64, sett
 		  + COALESCE((SELECT SUM(t.amount_in_minor) FROM transactions t
 		              WHERE t.family_id = $1 AND t.to_wallet_id = $2 AND t.occurred_on <= $3), 0),
 		  COALESCE((SELECT SUM(t.amount_in_minor) FROM transactions t
-		            WHERE t.family_id = $1 AND t.to_wallet_id = $2 AND t.occurred_on > $3), 0)
+		            WHERE t.family_id = $1 AND t.to_wallet_id = $2
+		              AND t.occurred_on > $3 AND t.occurred_on <= $4), 0)
 		  + COALESCE((SELECT SUM(t.amount_minor) FROM transactions t
-		             WHERE t.family_id = $1 AND t.wallet_id = $2 AND t.occurred_on > $3
+		             WHERE t.family_id = $1 AND t.wallet_id = $2
+		               AND t.occurred_on > $3 AND t.occurred_on <= $4
 		               AND t.kind IN ('income', 'debt_in', 'loan_in')), 0)`,
-		familyID, walletID, settlement).Scan(&atSettlement, &creditsSince)
+		familyID, walletID, settlement, s.today()).Scan(&atSettlement, &creditsSince)
 	return atSettlement, creditsSince, err
 }
 

@@ -1,6 +1,14 @@
 {{define "content"}}
-{{template "tx-kind-switch" .}}
+{{if not .ID}}
+  <div class="form-head">
+    {{template "tx-kind-switch" .}}
+    {{template "tx-mode-menu" .}}
+  </div>
+{{end}}
 <form method="post" action="{{.Action}}" class="stack" data-amount-form>
+  {{/* Modenya ikut terkirim, bukan hanya menempel di URL: setelah isian
+       ditolak, halaman yang tergambar ulang harus tetap mode yang sama. */}}
+  <input type="hidden" name="mode" value="{{.Form.mode}}">
 
   <div class="field">
     <label for="dompet">Dompet</label>
@@ -35,6 +43,23 @@
     </div>
   </div>
 
+  {{/* Hanya ada saat modenya dipilih dari menu di kanan atas. Tanpa itu form
+       ini persis seperti sebelumnya. */}}
+  {{if .Form.mode}}
+  <div class="field">
+    <label for="cicilan">Berapa Bulan</label>
+    <div class="input-affix">
+      <input class="input" id="cicilan" name="cicilan" type="number" inputmode="numeric"
+             min="2" max="{{.CicilanMaks}}" step="1" required
+             value="{{.Form.cicilan}}" placeholder="12">
+      <span class="affix">bulan</span>
+    </div>
+    <p class="hint">{{.ModeHint}} Seluruhnya langsung tercatat sebagai transaksi
+      bulanan biasa mulai tanggal di bawah, dan tiap bulannya tetap bisa diubah
+      atau dihapus sendiri-sendiri.</p>
+  </div>
+  {{end}}
+
   <div class="field">
     <label for="tanggal">Tanggal</label>
     <input class="input" id="tanggal" name="tanggal" type="date" required value="{{.Form.tanggal}}">
@@ -46,12 +71,34 @@
               placeholder="{{if eq .Kind "income"}}Gaji bulanan Agustus{{else}}Belanja mingguan di pasar{{end}}">{{.Form.catatan}}</textarea>
   </div>
 
+  {{/* Edit massal, hanya untuk transaksi yang bagian dari rangkaian. Terbatas
+       ke kategori dan catatan: nominal dan tanggal tiap bulan memang berdiri
+       sendiri, dan menyamakannya justru merusak rangkaiannya. */}}
+  {{with .Series}}
+    <label class="pilih-semua">
+      <input type="checkbox" name="seluruh" value="1">
+      <span>Terapkan kategori dan catatan ke seluruh rangkaian
+        <span class="text-muted">· {{.SeriesLabel}}, {{.SeriesN}} transaksi</span></span>
+    </label>
+  {{end}}
+
   <button type="submit" class="btn btn-primary btn-block">Simpan {{.KindLabel}}</button>
 </form>
 
 {{if .ID}}
+  {{/* Peringatannya harus menyebut yang benar-benar akan terhapus: "hapus
+       transaksi ini" di depan centang yang menghapus dua belas adalah
+       persetujuan atas hal yang tidak terjadi. */}}
   <form method="post" action="/transaksi/{{.ID}}/hapus" class="danger-row"
-        onsubmit="return confirm('Hapus transaksi ini?')">
+        onsubmit="return confirm(this.seluruh && this.seluruh.checked
+                  ? 'Hapus seluruh {{with .Series}}{{.SeriesN}}{{end}} transaksi dalam rangkaian ini?'
+                  : 'Hapus transaksi ini?')">
+    {{with .Series}}
+      <label class="pilih-semua">
+        <input type="checkbox" name="seluruh" value="1">
+        <span>Hapus seluruh rangkaian <span class="text-muted">· {{.SeriesN}} transaksi</span></span>
+      </label>
+    {{end}}
     <button type="submit" class="btn btn-ghost btn-block">Hapus Transaksi</button>
   </form>
 {{end}}

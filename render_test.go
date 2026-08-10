@@ -200,7 +200,29 @@ func TestPagesRender(t *testing.T) {
 			"Action": "/transaksi/baru?jenis=expense", "Kind": "expense", "KindLabel": "Pengeluaran",
 			"Form": form, "Wallets": viewWallets(wallets),
 			"Categories": []string{"Belanja", "Tagihan", "Transportasi"},
+			"Modes":      modeCicilan, "ModeLabel": modeLabel(""), "CicilanMaks": cicilanMaks,
 		}, "Transportasi"},
+
+		// Mengubah satu angsuran: kolom jumlah bulan sudah tidak ada lagi, tapi
+		// centang edit massal dan hapus seluruh rangkaian muncul.
+		{"transaksi_form.html", map[string]any{
+			"Title": "Ubah Pengeluaran", "Nav": "transaksi", "Back": "/transaksi",
+			"Action": "/transaksi/7/ubah", "Kind": "expense", "KindLabel": "Pengeluaran", "ID": int64(7),
+			"Form": form, "Wallets": viewWallets(wallets), "Categories": []string{"Belanja"},
+			"Modes": modeCicilan, "ModeLabel": modeLabel(""), "CicilanMaks": cicilanMaks,
+			"Series": Tx{SeriesID: 3, SeriesSeq: 2, SeriesN: 12, SeriesKind: "cicil"},
+		}, "Hapus seluruh rangkaian"},
+
+		// Mode cicilan: kolom jumlah bulan hanya ada di sini, dan jalur biasa di
+		// atas harus tetap bersih dari isian itu.
+		{"transaksi_form.html", map[string]any{
+			"Title": "Catat Pengeluaran", "Nav": "transaksi", "Back": "/transaksi",
+			"Action": "/transaksi/baru?jenis=expense", "Kind": "expense", "KindLabel": "Pengeluaran",
+			"Form":    map[string]string{"tanggal": "2026-08-07", "mode": "cicil"},
+			"Wallets": viewWallets(wallets), "Categories": []string{"Belanja"},
+			"Modes": modeCicilan, "ModeLabel": modeLabel("cicil"),
+			"ModeHint": modeHint("cicil"), "CicilanMaks": cicilanMaks,
+		}, "dibagi rata ke sekian bulan"},
 
 		{"transfer_form.html", map[string]any{
 			"Title": "Transfer Antar Dompet", "Nav": "transaksi", "Back": "/transaksi",

@@ -25,6 +25,10 @@
       <div class="dl"><span class="text-muted">Nominal</span><span class="m-{{.Tx.Tone}}">{{.Tx.Amount}}</span></div>
     {{end}}
     <div class="hr"></div>
+    {{with .Tx.SeriesLabel}}
+      <div class="dl"><span class="text-muted">Rangkaian</span>
+        <span><span class="tag tag-neutral tiny">{{.}}</span></span></div>
+    {{end}}
     <div class="dl"><span class="text-muted">Catatan</span><span class="dl-long">{{if .Tx.Note}}{{.Tx.Note}}{{else}}—{{end}}</span></div>
     <div class="dl"><span class="text-muted">Dicatat oleh</span><span>{{if .Tx.CreatedBy}}{{.Tx.CreatedBy}}{{else}}—{{end}}</span></div>
   </div>

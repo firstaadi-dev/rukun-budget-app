@@ -617,6 +617,12 @@ func (a *App) txForm(w http.ResponseWriter, r *http.Request) {
 		"tanggal":  t.Date.Format("2006-01-02"),
 		"catatan":  t.Note,
 		"kategori": t.Category,
+		// Mode hanya berarti saat mencatat baru: yang sudah tersimpan adalah
+		// transaksi biasa satuan, apa pun asalnya.
+		"mode": bacaMode(r.URL.Query().Get("mode")),
+	}
+	if id != 0 {
+		f["mode"] = ""
 	}
 	// Tombol "Bayar Tagihan" di kartu kredit membuka form transfer ini dengan
 	// dompet tujuan dan nominal sudah terisi. Pembayaran kartu memang transfer:
@@ -671,8 +677,19 @@ func (a *App) renderTxForm(w http.ResponseWriter, r *http.Request, kind string, 
 		"Action": action, "Kind": kind, "KindLabel": kindLabel[kind], "ID": id,
 		"Form": f, "Error": errMsg,
 		"Wallets": viewWallets(wallets),
+		"Modes":   modeCicilan, "ModeLabel": modeLabel(f["mode"]),
+		"ModeHint": modeHint(f["mode"]), "CicilanMaks": cicilanMaks,
 	}
 	page := "transaksi_form.html"
+
+	// Dibaca ulang di sini, bukan dititipkan lewat f: form yang tergambar ulang
+	// setelah isian ditolak harus tetap menawarkan edit massal, dan f saat itu
+	// datang dari isian user, bukan dari yang tersimpan.
+	if id != 0 {
+		if old, err := a.store.Transaction(ctx, family(r), id); err == nil && old.InSeries() {
+			data["Series"] = old
+		}
+	}
 
 	if kind != "transfer" {
 		cats, err := a.store.CategoryNames(ctx, family(r), kind)
@@ -796,6 +813,8 @@ func (a *App) readTx(r *http.Request, kind string) (Tx, map[string]string, error
 		"nominal_diterima": r.FormValue("nominal_diterima"),
 		"kurs":             r.FormValue("kurs"),
 		"biaya_admin":      r.FormValue("biaya_admin"),
+		"cicilan":          strings.TrimSpace(r.FormValue("cicilan")),
+		"mode":             bacaMode(r.FormValue("mode")),
 		"tanggal":          r.FormValue("tanggal"),
 		"catatan":          strings.TrimSpace(r.FormValue("catatan")),
 	}
@@ -934,6 +953,12 @@ func (a *App) checkBalance(r *http.Request, t Tx, excludeTxID int64) error {
 	if t.Kind == "income" {
 		return nil
 	}
+	// Bertanggal maju: belum menyentuh saldo hari ini, jadi belum ada yang bisa
+	// ditembusnya. Pemeriksaannya menyusul sendiri lewat transaksi berikutnya
+	// yang dicatat setelah tanggalnya lewat.
+	if t.Date.After(a.today()) {
+		return nil
+	}
 
 	after := wl.BalanceMinor - t.AmountMinor
 	if excludeTxID != 0 {
@@ -966,11 +991,21 @@ func (a *App) txCreate(w http.ResponseWriter, r *http.Request) {
 		a.renderTxForm(w, r, kind, 0, f, err.Error())
 		return
 	}
-	if err := a.checkBalance(r, t, 0); err != nil {
+	n, bagi, err := readCicilan(r, t)
+	if err != nil {
 		a.renderTxForm(w, r, kind, 0, f, err.Error())
 		return
 	}
-	id, err := a.store.CreateTx(r.Context(), family(r), t, userFrom(r.Context()).ID)
+	// Yang diperiksa cuma angsuran yang sudah jatuh: saldo hari ini tidak
+	// menghitung yang bertanggal maju, jadi tidak ada yang bisa ditembus olehnya.
+	jadwal := jadwalCicilan(t, n, bagi)
+	jatuh := t
+	jatuh.AmountMinor = totalSampai(jadwal, a.today())
+	if err := a.checkBalance(r, jatuh, 0); err != nil {
+		a.renderTxForm(w, r, kind, 0, f, err.Error())
+		return
+	}
+	id, err := a.store.CreateTxs(r.Context(), family(r), jadwal, userFrom(r.Context()).ID)
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -999,6 +1034,16 @@ func (a *App) txUpdate(w http.ResponseWriter, r *http.Request) {
 		a.renderTxForm(w, r, old.Kind, id, f, err.Error())
 		return
 	}
+	// Seluruh rangkaian lebih dulu, baru barisnya sendiri: keduanya menulis
+	// kategori dan catatan yang sama, jadi urutan ini membuat baris ini menang
+	// kalau yang kedua ternyata gagal.
+	if old.InSeries() && r.FormValue("seluruh") == "1" {
+		if err := a.store.UpdateSeries(r.Context(), family(r), old.SeriesID,
+			t.Category, t.Note); err != nil {
+			a.fail(w, r, err)
+			return
+		}
+	}
 	if err := a.store.UpdateTx(r.Context(), family(r), t); err != nil {
 		a.fail(w, r, err)
 		return
@@ -1007,7 +1052,21 @@ func (a *App) txUpdate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) txDelete(w http.ResponseWriter, r *http.Request) {
-	err := a.store.DeleteTx(r.Context(), family(r), pathID(r))
+	ctx := r.Context()
+	old, err := a.store.Transaction(ctx, family(r), pathID(r))
+	if errors.Is(err, ErrNotFound) {
+		a.notFound(w)
+		return
+	} else if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+
+	if old.InSeries() && r.FormValue("seluruh") == "1" {
+		err = a.store.DeleteSeries(ctx, family(r), old.SeriesID)
+	} else {
+		err = a.store.DeleteTx(ctx, family(r), old.ID)
+	}
 	if errors.Is(err, ErrNotFound) {
 		a.notFound(w)
 		return
