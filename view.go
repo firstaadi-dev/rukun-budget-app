@@ -496,6 +496,8 @@ type CardView struct {
 	// pun. Ditampilkan sebagai rincian, supaya jelas bahwa tagihan bukan angka
 	// terpisah dari terpakai melainkan bagian di dalamnya.
 	BelumDitagih string
+	// CicilanMendatang: bagian terpakai dari angsuran yang belum jatuh tempo.
+	CicilanMendatang string
 
 	Limit     string
 	SisaLimit string
@@ -609,7 +611,10 @@ func viewCard(st CardStatus, today time.Time) CardView {
 	v := CardView{
 		Wallet:      w,
 		HasCycle:    st.HasCycle,
-		Outstanding: Format(-st.OutstandingMinor, w.Currency),
+		Outstanding: Format(w.CicilanMendatangMinor-st.OutstandingMinor, w.Currency),
+	}
+	if w.CicilanMendatangMinor > 0 {
+		v.CicilanMendatang = Format(w.CicilanMendatangMinor, w.Currency)
 	}
 	if st.HasCycle {
 		v.Payable = Format(st.PayableMinor, w.Currency)
@@ -622,7 +627,7 @@ func viewCard(st CardStatus, today time.Time) CardView {
 		// Tagihan sudah termasuk di dalam nominal terpakai, bukan angka
 		// terpisah. Selisihnya ditampilkan supaya keduanya bisa dicek silang
 		// tanpa berhitung, dan tidak ada yang keliru menjumlahkannya.
-		if sisa := w.TerpakaiMinor() - st.PayableMinor; sisa > 0 {
+		if sisa := w.TerpakaiMinor() - w.CicilanMendatangMinor - st.PayableMinor; sisa > 0 {
 			v.BelumDitagih = Format(sisa, w.Currency)
 		}
 	}

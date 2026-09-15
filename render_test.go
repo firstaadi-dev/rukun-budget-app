@@ -96,6 +96,16 @@ func TestPagesRender(t *testing.T) {
 			"Wallets": withCards(viewWallets(wallets), []CardView{kartuUji(today)}),
 		}, "Terpakai"},
 
+		// Cicilan 6jt x6: limit tertahan penuh, rinciannya tampil di kartu.
+		{"dompet.html", map[string]any{
+			"Title": "Dompet", "Nav": "dompet",
+			"Wallets": withCards(viewWallets(wallets), []CardView{viewCard(CardStatus{
+				Wallet: Wallet{ID: 5, Name: "Kartu Kredit BCA", Type: "credit", Currency: "IDR",
+					BalanceMinor: -100_000_000, CicilanMendatangMinor: 500_000_000, LimitMinor: 1_000_000_000},
+				OutstandingMinor: -100_000_000,
+			}, today)}),
+		}, "Rp5.000.000 cicilan belum jatuh tempo"},
+
 		{"dompet_form.html", map[string]any{
 			"Title": "Dompet Baru", "Nav": "dompet", "Back": "/dompet", "Action": "/dompet/baru",
 			"Form": form, "Types": walletTypes, "ProvidersJSON": jsonAttr(walletProviders),

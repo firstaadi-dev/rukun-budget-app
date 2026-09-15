@@ -968,7 +968,7 @@ func (a *App) checkBalance(r *http.Request, t Tx, excludeTxID int64) error {
 	}
 
 	if wl.IsCredit() {
-		if wl.HasLimit() && -after > wl.LimitMinor {
+		if wl.HasLimit() && wl.CicilanMendatangMinor-after > wl.LimitMinor {
 			return errors.New("Melebihi limit " + wl.Name + ". Sisa limit " +
 				Format(wl.SisaLimitMinor(), wl.Currency) + " dari " +
 				Format(wl.LimitMinor, wl.Currency) + ".")

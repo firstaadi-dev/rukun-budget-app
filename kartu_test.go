@@ -171,3 +171,18 @@ func TestBelumDitagih(t *testing.T) {
 		t.Errorf("semua sudah tertagih seharusnya tanpa rincian, dapat %q", got)
 	}
 }
+
+// Cicilan 6jt x6: bulan ini baru 1jt masuk saldo, tapi limit tertahan 6jt penuh.
+func TestCicilanMemotongLimitPenuh(t *testing.T) {
+	w := Wallet{Type: "credit", Currency: "IDR", LimitMinor: 1_000_000_000,
+		BalanceMinor: -100_000_000, CicilanMendatangMinor: 500_000_000}
+	st := CardStatus{Wallet: w, OutstandingMinor: w.BalanceMinor, HasCycle: true,
+		PayableMinor: 0, Settlement: tgl(2026, 7, 25), Due: tgl(2026, 8, 15)}
+	v := viewCard(st, tgl(2026, 8, 7))
+	if v.Outstanding != "Rp6.000.000" || v.SisaLimit != "Rp4.000.000" || v.TerpakaiPersen != 60 {
+		t.Errorf("terpakai %s, sisa %s, persen %d", v.Outstanding, v.SisaLimit, v.TerpakaiPersen)
+	}
+	if v.CicilanMendatang != "Rp5.000.000" || v.BelumDitagih != "Rp1.000.000" {
+		t.Errorf("cicilan %q, belum ditagih %q", v.CicilanMendatang, v.BelumDitagih)
+	}
+}

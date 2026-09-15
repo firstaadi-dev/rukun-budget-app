@@ -51,6 +51,10 @@ type Wallet struct {
 	// LimitMinor: pagu pemakaian. Nol berarti belum diisi, bukan nol rupiah —
 	// tanpa limit aplikasi tidak menahan pemakaian sama sekali.
 	LimitMinor int64
+	// CicilanMendatangMinor: angsuran cicilan bertanggal maju yang belum masuk
+	// saldo. Saldo berhenti di hari ini, tapi bank menahan limit sebesar harga
+	// penuh sejak transaksinya — jadi angka ini ikut dihitung sebagai terpakai.
+	CicilanMendatangMinor int64
 }
 
 func (w Wallet) HasCycle() bool { return w.SettlementDay > 0 && w.PaymentDay > 0 }
@@ -62,8 +66,9 @@ func (w Wallet) HasLimit() bool { return w.LimitMinor > 0 }
 func (w Wallet) IsCredit() bool { return w.Type == "credit" || w.Type == "paylater" }
 
 // TerpakaiMinor: berapa yang sedang terpakai dari limit. Saldo akun kredit
-// negatif saat dipakai, jadi ini kebalikan tandanya.
-func (w Wallet) TerpakaiMinor() int64 { return max(0, -w.BalanceMinor) }
+// negatif saat dipakai, jadi ini kebalikan tandanya, ditambah sisa angsuran
+// cicilan yang belum jatuh tempo.
+func (w Wallet) TerpakaiMinor() int64 { return max(0, w.CicilanMendatangMinor-w.BalanceMinor) }
 
 // SisaLimitMinor: berapa lagi yang boleh dipakai.
 func (w Wallet) SisaLimitMinor() int64 { return max(0, w.LimitMinor-w.TerpakaiMinor()) }
@@ -109,7 +114,12 @@ SELECT w.id, w.name, w.type, COALESCE(w.provider, ''), w.currency, w.initial_bal
                    WHERE t.wallet_id = w.id AND t.occurred_on <= $2), 0)
        + COALESCE((SELECT SUM(t.amount_in_minor)
                    FROM transactions t
-                   WHERE t.to_wallet_id = w.id AND t.occurred_on <= $2), 0) AS balance_minor
+                   WHERE t.to_wallet_id = w.id AND t.occurred_on <= $2), 0) AS balance_minor,
+       COALESCE((SELECT SUM(CASE WHEN t.kind IN ('income', 'debt_in', 'loan_in')
+                                 THEN -t.amount_minor ELSE t.amount_minor END)
+                 FROM transactions t
+                 WHERE t.wallet_id = w.id AND t.occurred_on > $2
+                   AND t.series_kind = 'cicil'), 0) AS cicilan_mendatang_minor
 FROM wallets w
 WHERE w.family_id = $1`
 
@@ -119,7 +129,7 @@ func scanWallets(rows pgx.Rows) ([]Wallet, error) {
 	for rows.Next() {
 		var w Wallet
 		if err := rows.Scan(&w.ID, &w.Name, &w.Type, &w.Provider, &w.Currency, &w.InitialMinor,
-			&w.SettlementDay, &w.PaymentDay, &w.LimitMinor, &w.BalanceMinor); err != nil {
+			&w.SettlementDay, &w.PaymentDay, &w.LimitMinor, &w.BalanceMinor, &w.CicilanMendatangMinor); err != nil {
 			return nil, err
 		}
 		out = append(out, w)
