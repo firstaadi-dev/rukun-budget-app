@@ -220,6 +220,8 @@ func (a *App) routes() http.Handler {
 	auth("POST /dompet/baru", a.walletCreate)
 	auth("GET /dompet/{id}/ubah", a.walletForm)
 	auth("POST /dompet/{id}/ubah", a.walletUpdate)
+	auth("GET /dompet/{id}/sesuaikan", a.walletAdjustForm)
+	auth("POST /dompet/{id}/sesuaikan", a.walletAdjust)
 	auth("POST /dompet/{id}/hapus", a.walletDelete)
 
 	auth("GET /investasi", a.investList)

@@ -363,6 +363,82 @@ func (a *App) walletUpdate(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/dompet", http.StatusSeeOther)
 }
 
+const walletAdjustmentCategory = "Penyesuaian Saldo"
+
+func adjustmentTx(w Wallet, target int64, today time.Time) (Tx, bool) {
+	diff := target - w.BalanceMinor
+	if diff == 0 {
+		return Tx{}, false
+	}
+	kind := "income"
+	if diff < 0 {
+		kind, diff = "expense", -diff
+	}
+	return Tx{
+		Kind: kind, Date: today, WalletID: w.ID, WalletCur: w.Currency,
+		AmountMinor: diff, Category: walletAdjustmentCategory,
+		Note: walletAdjustmentCategory,
+	}, true
+}
+
+func (a *App) walletAdjustForm(w http.ResponseWriter, r *http.Request) {
+	wallet, err := a.store.Wallet(r.Context(), family(r), pathID(r))
+	if errors.Is(err, ErrNotFound) {
+		a.notFound(w)
+		return
+	}
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	a.render(w, r, "dompet_adjust.html", map[string]any{
+		"Title": "Sesuaikan Saldo", "Nav": "dompet", "Back": "/dompet",
+		"Wallet": viewWallet(wallet), "Form": map[string]string{
+			"saldo": FormatPlain(wallet.BalanceMinor, wallet.Currency),
+		},
+	})
+}
+
+func (a *App) walletAdjust(w http.ResponseWriter, r *http.Request) {
+	wallet, err := a.store.Wallet(r.Context(), family(r), pathID(r))
+	if errors.Is(err, ErrNotFound) {
+		a.notFound(w)
+		return
+	}
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	f := map[string]string{"saldo": r.FormValue("saldo")}
+	target, err := ParseAmount(f["saldo"], wallet.Currency)
+	if err != nil {
+		a.renderWalletAdjustError(w, r, wallet, f, "Saldo tidak valid.")
+		return
+	}
+	t, ok := adjustmentTx(wallet, target, a.today())
+	if !ok {
+		http.Redirect(w, r, "/dompet", http.StatusSeeOther)
+		return
+	}
+	if err := a.store.EnsureCategory(r.Context(), family(r), t.Kind, walletAdjustmentCategory); err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	if _, err := a.store.CreateTx(r.Context(), family(r), t, userFrom(r.Context()).ID); err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/dompet", http.StatusSeeOther)
+}
+
+func (a *App) renderWalletAdjustError(w http.ResponseWriter, r *http.Request, wallet Wallet, f map[string]string, msg string) {
+	w.WriteHeader(http.StatusUnprocessableEntity)
+	a.render(w, r, "dompet_adjust.html", map[string]any{
+		"Title": "Sesuaikan Saldo", "Nav": "dompet", "Back": "/dompet",
+		"Wallet": viewWallet(wallet), "Form": f, "Error": msg,
+	})
+}
+
 func (a *App) walletDelete(w http.ResponseWriter, r *http.Request) {
 	err := a.store.DeleteWallet(r.Context(), family(r), pathID(r))
 	if errors.Is(err, ErrNotFound) {

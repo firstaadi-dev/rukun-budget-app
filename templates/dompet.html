@@ -33,6 +33,7 @@
                    terbaca sebagai keterangan, bukan sebagai dua tindakan yang
                    salah satunya menghapus dompet. */}}
               <div class="kk-kaki">
+                <a class="btn btn-secondary" href="/dompet/{{.ID}}/sesuaikan">Sesuaikan saldo</a>
                 <a class="btn btn-secondary" href="/dompet/{{.ID}}/ubah">Ubah dompet</a>
                 <form method="post" action="/dompet/{{.ID}}/hapus"
                       onsubmit="return confirm('Hapus dompet {{.Name}}? Tindakan ini tidak bisa dibatalkan.')">
@@ -52,6 +53,7 @@
               <span class="{{if .Negative}}m-out{{end}}">{{.Balance}}</span>
               <span class="tag tag-neutral tiny">{{.Currency}}</span>
             </span>
+            <a class="btn btn-ghost btn-icon" href="/dompet/{{.ID}}/sesuaikan" aria-label="Sesuaikan saldo {{.Name}}">±</a>
             <form method="post" action="/dompet/{{.ID}}/hapus"
                   onsubmit="return confirm('Hapus dompet {{.Name}}? Tindakan ini tidak bisa dibatalkan.')">
               <button type="submit" class="btn btn-ghost btn-icon" aria-label="Hapus {{.Name}}">&times;</button>

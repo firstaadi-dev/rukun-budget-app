@@ -1,0 +1,16 @@
+{{define "content"}}
+<form method="post" action="/dompet/{{.Wallet.ID}}/sesuaikan" class="stack">
+  <p>Saldo tercatat saat ini: <strong>{{.Wallet.Balance}}</strong></p>
+  <div class="field">
+    <label for="saldo">Saldo sebenarnya</label>
+    <div class="input-affix">
+      <span class="affix">{{symbol .Wallet.Currency}}</span>
+      <input class="input" id="saldo" name="saldo" required inputmode="decimal"
+             pattern="-?[0-9.,]*" title="Hanya angka, titik, dan koma"
+             value="{{.Form.saldo}}" autofocus>
+    </div>
+    <p class="hint">Selisihnya akan dicatat otomatis sebagai transaksi penyesuaian.</p>
+  </div>
+  <button type="submit" class="btn btn-primary btn-block">Sesuaikan Saldo</button>
+</form>
+{{end}}

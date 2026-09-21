@@ -183,3 +183,20 @@ func TestLocalReturnURL(t *testing.T) {
 		t.Errorf("URL eksternal = %s, mau kosong", got)
 	}
 }
+
+func TestAdjustmentTx(t *testing.T) {
+	w := Wallet{ID: 4, Currency: "IDR", BalanceMinor: 100_000}
+	today := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
+
+	in, ok := adjustmentTx(w, 125_000, today)
+	if !ok || in.Kind != "income" || in.AmountMinor != 25_000 || in.WalletID != 4 {
+		t.Fatalf("income adjustment = %+v, %v", in, ok)
+	}
+	out, ok := adjustmentTx(w, 75_000, today)
+	if !ok || out.Kind != "expense" || out.AmountMinor != 25_000 {
+		t.Fatalf("expense adjustment = %+v, %v", out, ok)
+	}
+	if _, ok := adjustmentTx(w, 100_000, today); ok {
+		t.Fatal("saldo sama seharusnya tidak membuat transaksi")
+	}
+}

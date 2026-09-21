@@ -609,6 +609,13 @@ func (s *Store) CreateCategory(ctx context.Context, familyID int64, kind, name s
 	return err
 }
 
+func (s *Store) EnsureCategory(ctx context.Context, familyID int64, kind, name string) error {
+	_, err := s.db.Exec(ctx,
+		`INSERT INTO categories (family_id, kind, name) VALUES ($1, $2, $3)
+		 ON CONFLICT (family_id, kind, name) DO NOTHING`, familyID, kind, name)
+	return err
+}
+
 // RenameCategory mengganti nama kategori sekaligus semua transaksi yang
 // memakainya, dalam satu transaksi database. Kalau hanya salah satu yang
 // berubah, transaksi lama akan menggantung tanpa kategori yang cocok.
