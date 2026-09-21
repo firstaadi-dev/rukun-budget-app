@@ -8,58 +8,34 @@
   {{if .Wallets}}
     <div class="stack-sm">
       {{range .Wallets}}
-        {{/* Akun kredit punya rincian yang tidak muat di satu baris — tagihan,
-             limit, jatuh tempo. Rinciannya dilipat di barisnya sendiri, bukan
-             jadi daftar kedua di atas, supaya tiap dompet cuma muncul sekali. */}}
-        {{if .Card}}
-          <details class="card elev-sm wallet-drop{{template "kk-nada" .Card}}">
-            <summary class="wallet-item">
-              <span class="row-ic m-accent">{{template "wallet-icon" .Type}}</span>
-              <span class="row-main">
-                <span class="row-title">{{.Name}}</span>
-                <span class="row-sub text-muted">{{.Subtitle}}</span>
-              </span>
-              <span class="wallet-amt">
-                <span class="{{if .Negative}}m-out{{end}}">{{.Balance}}</span>
-                <span class="tag tag-neutral tiny">{{.Currency}}</span>
-              </span>
-              <span class="chev">{{template "icon-chev"}}</span>
-            </summary>
-
-            <div class="wallet-isi">
-              {{template "kartu-isi" .Card}}
-              {{/* Bentuknya tombol, sama seperti pasangan Edit dan Hapus di
-                   halaman detail transaksi: dua tautan telanjang bersebelahan
-                   terbaca sebagai keterangan, bukan sebagai dua tindakan yang
-                   salah satunya menghapus dompet. */}}
-              <div class="kk-kaki">
-                <a class="btn btn-secondary" href="/dompet/{{.ID}}/sesuaikan">Sesuaikan saldo</a>
-                <a class="btn btn-secondary" href="/dompet/{{.ID}}/ubah">Ubah dompet</a>
-                <form method="post" action="/dompet/{{.ID}}/hapus"
-                      onsubmit="return confirm('Hapus dompet {{.Name}}? Tindakan ini tidak bisa dibatalkan.')">
-                  <button type="submit" class="btn btn-danger">Hapus</button>
-                </form>
-              </div>
-            </div>
-          </details>
-        {{else}}
-          <div class="card elev-sm wallet-item">
+        {{/* Semua dompet memakai pola buka-tutup yang sama. Kartu kredit punya
+             ringkasan tambahan; dompet lain cukup menampilkan tindakan. */}}
+        <details class="card elev-sm wallet-drop{{if .Card}}{{template "kk-nada" .Card}}{{end}}">
+          <summary class="wallet-item">
             <span class="row-ic m-accent">{{template "wallet-icon" .Type}}</span>
-            <a class="row-main" href="/dompet/{{.ID}}/ubah">
+            <span class="row-main">
               <span class="row-title">{{.Name}}</span>
               <span class="row-sub text-muted">{{.Subtitle}}</span>
-            </a>
+            </span>
             <span class="wallet-amt">
               <span class="{{if .Negative}}m-out{{end}}">{{.Balance}}</span>
               <span class="tag tag-neutral tiny">{{.Currency}}</span>
             </span>
-            <a class="btn btn-ghost btn-icon" href="/dompet/{{.ID}}/sesuaikan" aria-label="Sesuaikan saldo {{.Name}}">±</a>
-            <form method="post" action="/dompet/{{.ID}}/hapus"
-                  onsubmit="return confirm('Hapus dompet {{.Name}}? Tindakan ini tidak bisa dibatalkan.')">
-              <button type="submit" class="btn btn-ghost btn-icon" aria-label="Hapus {{.Name}}">&times;</button>
-            </form>
+            <span class="chev">{{template "icon-chev"}}</span>
+          </summary>
+
+          <div class="wallet-isi">
+            {{if .Card}}{{template "kartu-isi" .Card}}{{end}}
+            <div class="kk-kaki">
+              <a class="btn btn-secondary" href="/dompet/{{.ID}}/sesuaikan">Sesuaikan saldo</a>
+              <a class="btn btn-secondary" href="/dompet/{{.ID}}/ubah">Ubah dompet</a>
+              <form method="post" action="/dompet/{{.ID}}/hapus"
+                    onsubmit="return confirm('Hapus dompet {{.Name}}? Tindakan ini tidak bisa dibatalkan.')">
+                <button type="submit" class="btn btn-danger">Hapus</button>
+              </form>
+            </div>
           </div>
-        {{end}}
+        </details>
       {{end}}
     </div>
   {{else}}
