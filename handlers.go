@@ -414,7 +414,7 @@ type TxFilterOpt struct {
 // txParams: penyaring yang boleh menempel di URL daftar transaksi. Didaftar
 // tertutup supaya parameter asing tidak ikut terbawa dari satu tautan ke
 // tautan berikutnya.
-var txParams = []string{"jenis", "kategori", "periode", "dari", "sampai", "cari"}
+var txParams = []string{"jenis", "kategori", "dompet", "periode", "dari", "sampai", "cari"}
 
 // txWaktu: penyaring waktu, yang ketiganya menjawab pertanyaan yang sama lewat
 // jalan berbeda. Mengganti salah satunya harus melepas dua sisanya — kalau
@@ -463,6 +463,10 @@ func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 	}
 	kategori := q.Get("kategori")
 	cari := strings.TrimSpace(q.Get("cari"))
+	dompetID, _ := strconv.ParseInt(q.Get("dompet"), 10, 64)
+	if dompetID < 0 {
+		dompetID = 0
+	}
 
 	// Transfer, hutang piutang, dan pembelian investasi tidak punya kategori:
 	// menyaring keduanya sekaligus selalu kosong, jadi memilih kategori melepas
@@ -474,6 +478,11 @@ func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 	// tautan di halaman ini dirakit.
 	q.Set("jenis", filter)
 	q.Set("cari", cari)
+	if dompetID > 0 {
+		q.Set("dompet", strconv.FormatInt(dompetID, 10))
+	} else {
+		q.Del("dompet")
+	}
 
 	periode := bacaPeriode(q.Get("periode"), q.Get("dari"), q.Get("sampai"), a.today())
 	// Penyaring waktu ikut dirapikan sebelum tautannya dirakit. Yang menang
@@ -500,7 +509,7 @@ func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 	// bisa dibedakan dari 200 hasil pertama dari seribu.
 	txs, err := a.store.Transactions(ctx, family(r), TxFilter{
 		Kinds: kindsForFilter(filter), Category: kategori, Cari: cari,
-		From: periode.From, To: periode.To, Limit: txListLimit + 1,
+		WalletID: dompetID, From: periode.From, To: periode.To, Limit: txListLimit + 1,
 	})
 	if err != nil {
 		a.fail(w, r, err)
@@ -516,10 +525,16 @@ func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
+	wallets, err := a.store.Wallets(ctx, family(r))
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
 	a.render(w, r, "transaksi.html", map[string]any{
 		"Title": "Transaksi", "Nav": "transaksi",
 		"Filter": filter, "Filters": txFilterOptions(q, filter),
 		"Kategori": kategori, "Categories": cats,
+		"DompetID": dompetID, "Wallets": wallets,
 		"Cari": cari, "Periode": periode,
 		"URLPrev":          txURL(q, "periode", periode.Prev),
 		"URLNext":          txURL(q, "periode", periode.Next),
@@ -623,6 +638,8 @@ func (a *App) txForm(w http.ResponseWriter, r *http.Request) {
 	}
 	if id != 0 {
 		f["mode"] = ""
+	} else {
+		f["kembali"] = localReturnURL(r, r.Referer())
 	}
 	// Tombol "Bayar Tagihan" di kartu kredit membuka form transfer ini dengan
 	// dompet tujuan dan nominal sudah terisi. Pembayaran kartu memang transfer:
@@ -664,6 +681,9 @@ func (a *App) renderTxForm(w http.ResponseWriter, r *http.Request, kind string, 
 
 	action := "/transaksi/baru?jenis=" + kind
 	title := "Catat " + kindLabel[kind]
+	if id == 0 && f["kembali"] != "" {
+		action += "&kembali=" + url.QueryEscape(f["kembali"])
+	}
 	if kind == "transfer" {
 		title = "Transfer Antar Dompet"
 	}
@@ -988,11 +1008,13 @@ func (a *App) txCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	t, f, err := a.readTx(r, kind)
 	if err != nil {
+		f["kembali"] = localReturnURL(r, r.URL.Query().Get("kembali"))
 		a.renderTxForm(w, r, kind, 0, f, err.Error())
 		return
 	}
 	n, bagi, err := readCicilan(r, t)
 	if err != nil {
+		f["kembali"] = localReturnURL(r, r.URL.Query().Get("kembali"))
 		a.renderTxForm(w, r, kind, 0, f, err.Error())
 		return
 	}
@@ -1002,15 +1024,31 @@ func (a *App) txCreate(w http.ResponseWriter, r *http.Request) {
 	jatuh := t
 	jatuh.AmountMinor = totalSampai(jadwal, a.today())
 	if err := a.checkBalance(r, jatuh, 0); err != nil {
+		f["kembali"] = localReturnURL(r, r.URL.Query().Get("kembali"))
 		a.renderTxForm(w, r, kind, 0, f, err.Error())
 		return
 	}
-	id, err := a.store.CreateTxs(r.Context(), family(r), jadwal, userFrom(r.Context()).ID)
+	_, err = a.store.CreateTxs(r.Context(), family(r), jadwal, userFrom(r.Context()).ID)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	http.Redirect(w, r, "/transaksi/"+strconv.FormatInt(id, 10), http.StatusSeeOther)
+	to := localReturnURL(r, r.URL.Query().Get("kembali"))
+	if to == "" {
+		to = "/transaksi"
+	}
+	http.Redirect(w, r, to, http.StatusSeeOther)
+}
+
+// localReturnURL hanya menerima URL internal agar parameter kembali tidak
+// berubah menjadi open redirect.
+func localReturnURL(r *http.Request, raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.Path == "" || strings.HasPrefix(u.Path, "//") ||
+		(u.Host != "" && u.Host != r.Host) {
+		return ""
+	}
+	return u.RequestURI()
 }
 
 func (a *App) txUpdate(w http.ResponseWriter, r *http.Request) {

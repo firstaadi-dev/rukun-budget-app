@@ -350,6 +350,9 @@ type TxFilter struct {
 	// Cari dicocokkan ke catatan, kategori, nama pihak, dan nama dompet —
 	// keempat tempat nama sebuah transaksi bisa diingat kembali.
 	Cari string
+	// WalletID menyaring transaksi yang menyentuh dompet sebagai sumber atau tujuan.
+	// Nol berarti semua dompet.
+	WalletID int64
 	// Investment menyaring lot satu posisi investasi. Nol berarti tidak
 	// menyaring apa-apa.
 	Investment int64
@@ -367,7 +370,8 @@ func (s *Store) Transactions(ctx context.Context, familyID int64, f TxFilter) ([
 	                              OR p.name ILIKE '%' || $6 || '%'
 	                              OR w.name ILIKE '%' || $6 || '%'
 	                              OR iv.name ILIKE '%' || $6 || '%')
-	                  AND ($7 = 0 OR t.investment_id = $7)
+	                  AND ($7 = 0 OR t.wallet_id = $7 OR t.to_wallet_id = $7)
+	                  AND ($8 = 0 OR t.investment_id = $8)
 	                  ORDER BY t.occurred_on DESC, t.id DESC`
 	kinds := f.Kinds
 	if kinds == nil {
@@ -382,9 +386,9 @@ func (s *Store) Transactions(ctx context.Context, familyID int64, f TxFilter) ([
 	if !f.To.IsZero() {
 		to = f.To
 	}
-	args := []any{familyID, kinds, f.Category, from, to, f.Cari, f.Investment}
+	args := []any{familyID, kinds, f.Category, from, to, f.Cari, f.WalletID, f.Investment}
 	if f.Limit > 0 {
-		q += " LIMIT $8"
+		q += " LIMIT $9"
 		args = append(args, f.Limit)
 	}
 	rows, err := s.db.Query(ctx, q, args...)

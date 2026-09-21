@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/http/httptest"
 	"net/url"
 	"testing"
 	"time"
@@ -128,12 +129,13 @@ func TestBacaPeriodeRentang(t *testing.T) {
 func TestTxURL(t *testing.T) {
 	q := url.Values{
 		"jenis": {"expense"}, "kategori": {"Belanja"},
-		"cari": {"listrik"}, "periode": {"2026-07"},
+		"dompet": {"7"},
+		"cari":   {"listrik"}, "periode": {"2026-07"},
 		"asing": {"jangan-ikut"},
 	}
 
 	got := txURL(q, "periode", "2026-06")
-	want := "/transaksi?cari=listrik&jenis=expense&kategori=Belanja&periode=2026-06"
+	want := "/transaksi?cari=listrik&dompet=7&jenis=expense&kategori=Belanja&periode=2026-06"
 	if got != want {
 		t.Errorf("ganti periode = %s, mau %s", got, want)
 	}
@@ -169,5 +171,15 @@ func TestTxURLWaktuSalingLepas(t *testing.T) {
 	// tautan "Kembali ke bulan ini".
 	if got := txURL(rentang, "periode", ""); got != "/transaksi?cari=listrik&jenis=expense" {
 		t.Errorf("kembali ke bulan ini = %s, masih membawa batas waktu", got)
+	}
+}
+
+func TestLocalReturnURL(t *testing.T) {
+	r := httptest.NewRequest("GET", "http://example.test/transaksi/baru", nil)
+	if got := localReturnURL(r, "http://example.test/transaksi?dompet=7"); got != "/transaksi?dompet=7" {
+		t.Errorf("URL lokal = %s", got)
+	}
+	if got := localReturnURL(r, "https://evil.example/ambil-data"); got != "" {
+		t.Errorf("URL eksternal = %s, mau kosong", got)
 	}
 }

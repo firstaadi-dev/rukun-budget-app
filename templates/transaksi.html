@@ -31,6 +31,7 @@
         <form method="get" action="/transaksi">
           <input type="hidden" name="jenis" value="{{.Filter}}">
           <input type="hidden" name="kategori" value="{{.Kategori}}">
+          <input type="hidden" name="dompet" value="{{.DompetID}}">
           <input type="hidden" name="cari" value="{{.Cari}}">
           <div class="field">
             <label for="dari">Dari</label>
@@ -96,6 +97,15 @@
           <option value="{{.Name}}" {{if eq $.Kategori .Name}}selected{{end}}>
             {{.Name}} · {{if eq .Kind "income"}}masuk{{else}}keluar{{end}}
           </option>
+        {{end}}
+      </select>
+    </span>
+    <span class="pasang">
+      <label for="dompet" class="text-muted small">Dompet</label>
+      <select class="input" id="dompet" name="dompet">
+        <option value="">Semua dompet</option>
+        {{range $.Wallets}}
+          <option value="{{.ID}}" {{if eq $.DompetID .ID}}selected{{end}}>{{.Name}}</option>
         {{end}}
       </select>
     </span>
