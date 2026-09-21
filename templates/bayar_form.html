@@ -48,7 +48,9 @@
              title="Hanya angka, titik, dan koma" required
              value="{{.Form.nominal}}" placeholder="0">
     </div>
-    <p class="hint">Sudah terisi sisa penuh. Kurangi kalau membayar sebagian.</p>
+    <p class="hint">Sudah terisi sisa penuh. Kurangi kalau membayar sebagian.
+      {{if eq .Form.arah "piutang"}}Jika penerimaan lebih besar, kelebihannya otomatis dicatat sebagai penyesuaian piutang.{{end}}
+    </p>
   </div>
 
   <div class="field">

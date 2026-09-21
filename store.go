@@ -447,10 +447,9 @@ func (s *Store) CreateTx(ctx context.Context, familyID int64, t Tx, userID int64
 	return insertTx(ctx, s.db, familyID, t, userID)
 }
 
-// CreateTxs menyimpan serangkaian transaksi sekaligus dan mengembalikan id yang
-// pertama. Satu transaksi database untuk semuanya: separuh cicilan yang
-// tersimpan lebih buruk daripada gagal sama sekali, karena yang setengah jadi
-// terlihat persis seperti catatan yang benar.
+// CreateTxs menyimpan beberapa transaksi sekaligus dan mengembalikan id yang
+// pertama. Satu transaksi database untuk semuanya: separuh rangkaian atau
+// penyesuaian yang tersimpan lebih buruk daripada gagal sama sekali.
 //
 // Nomor rangkaiannya diambil dari sequence sendiri, bukan dari id baris
 // pertama: id baris pertama baru diketahui setelah ia tersimpan, dan menambalnya
@@ -467,13 +466,17 @@ func (s *Store) CreateTxs(ctx context.Context, familyID int64, txs []Tx, userID 
 	defer dbtx.Rollback(context.WithoutCancel(ctx))
 
 	var seriesID int64
-	if err := dbtx.QueryRow(ctx, `SELECT nextval('tx_series_seq')`).Scan(&seriesID); err != nil {
-		return 0, err
+	if txs[0].SeriesKind != "" {
+		if err := dbtx.QueryRow(ctx, `SELECT nextval('tx_series_seq')`).Scan(&seriesID); err != nil {
+			return 0, err
+		}
 	}
 
 	var first int64
 	for _, t := range txs {
-		t.SeriesID = seriesID
+		if seriesID != 0 {
+			t.SeriesID = seriesID
+		}
 		id, err := insertTx(ctx, dbtx, familyID, t, userID)
 		if err != nil {
 			return 0, err

@@ -281,22 +281,23 @@ func (a *App) payCreate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if err := a.cekLebihBayar(p, t, arah); err != nil {
+	txs, err := paymentTxs(p, t, arah)
+	if err != nil {
 		a.renderPayForm(w, r, p, f, err.Error())
 		return
 	}
 
-	if _, err := a.store.CreateTx(r.Context(), family(r), t, userFrom(r.Context()).ID); err != nil {
+	if _, err := a.store.CreateTxs(r.Context(), family(r), txs, userFrom(r.Context()).ID); err != nil {
 		a.fail(w, r, err)
 		return
 	}
 	http.Redirect(w, r, "/hutang/pihak/"+strconv.FormatInt(p.ID, 10), http.StatusSeeOther)
 }
 
-// cekLebihBayar menolak pembayaran yang melebihi sisa saldo pihak itu pada mata
-// uang yang sama. Tanpa ini, salah ketik satu nol membuat saldo hutang berbalik
-// jadi piutang dan tidak ada yang menyadarinya.
-func (a *App) cekLebihBayar(p Party, t Tx, arah string) error {
+// paymentTxs menambah piutang sebesar kelebihan penerimaan sebelum melunasinya.
+// Penyesuaiannya tidak memakai dompet: seluruh uang memang diterima, sedangkan
+// baris tambahan ini hanya menjaga saldo piutang berakhir tepat nol.
+func paymentTxs(p Party, t Tx, arah string) ([]Tx, error) {
 	for _, b := range p.Saldo {
 		if b.Currency != t.WalletCur {
 			continue
@@ -306,13 +307,22 @@ func (a *App) cekLebihBayar(p Party, t Tx, arah string) error {
 		if arah == "piutang" {
 			sisa, label = b.PiutangMinor, "Piutang"
 		}
-		if t.AmountMinor > sisa {
-			return errors.New(label + " ke " + p.Name + " tinggal " +
+		if t.AmountMinor <= sisa {
+			return []Tx{t}, nil
+		}
+		if arah != "piutang" {
+			return nil, errors.New(label + " ke " + p.Name + " tinggal " +
 				Format(sisa, b.Currency) + ", tidak bisa dibayar lebih dari itu.")
 		}
-		return nil
+		adjustment := t
+		adjustment.Kind = "loan_out"
+		adjustment.WalletID = 0
+		adjustment.WalletName = ""
+		adjustment.AmountMinor = t.AmountMinor - sisa
+		adjustment.Note = "Penyesuaian kelebihan pembayaran piutang"
+		return []Tx{adjustment, t}, nil
 	}
-	return errors.New("Tidak ada catatan dalam mata uang itu untuk pihak ini.")
+	return nil, errors.New("Tidak ada catatan dalam mata uang itu untuk pihak ini.")
 }
 
 // ---------- kelola pihak ----------
