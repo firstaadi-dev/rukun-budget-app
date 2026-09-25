@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"log"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -18,6 +19,52 @@ const (
 	sessionTTL    = 30 * 24 * time.Hour
 	familyTTL     = 365 * 24 * time.Hour
 )
+
+type loginFailure struct {
+	count int
+	until time.Time
+}
+
+// Batasi tebakan sandi per alamat dan akun selama 15 menit. Di deployment
+// beberapa instance batas ini per proses; penyimpanan bersama baru perlu jika
+// penyalahgunaan nyata menembus batas itu.
+func (a *App) loginAllowed(key string) bool {
+	a.loginMu.Lock()
+	defer a.loginMu.Unlock()
+	f := a.loginFailures[key]
+	if f.count == 0 && len(a.loginFailures) >= 10000 {
+		for k, v := range a.loginFailures {
+			if time.Now().After(v.until) {
+				delete(a.loginFailures, k)
+			}
+		}
+		if len(a.loginFailures) >= 10000 {
+			return false
+		}
+	}
+	return time.Now().After(f.until) || f.count < 10
+}
+
+func (a *App) loginFailed(key string) {
+	a.loginMu.Lock()
+	defer a.loginMu.Unlock()
+	if a.loginFailures == nil {
+		a.loginFailures = make(map[string]loginFailure)
+	}
+	now := time.Now()
+	f := a.loginFailures[key]
+	if now.After(f.until) {
+		f = loginFailure{until: now.Add(15 * time.Minute)}
+	}
+	f.count++
+	a.loginFailures[key] = f
+}
+
+func (a *App) loginSucceeded(key string) {
+	a.loginMu.Lock()
+	defer a.loginMu.Unlock()
+	delete(a.loginFailures, key)
+}
 
 type ctxKey struct{}
 
@@ -94,11 +141,26 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(r.FormValue("nama"))
 	code := kodeKeluarga(r)
 	form := map[string]string{"Nama": name, "Kode": code}
+	if len(name) > 128 || len(code) > 128 {
+		http.Error(w, "Isian masuk terlalu panjang.", http.StatusBadRequest)
+		return
+	}
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		ip = r.RemoteAddr
+	}
+	key := ip + "|" + strings.ToLower(code) + "|" + strings.ToLower(name)
+	if !a.loginAllowed(key) {
+		w.Header().Set("Retry-After", "900")
+		http.Error(w, "Terlalu banyak percobaan masuk. Coba lagi dalam 15 menit.", http.StatusTooManyRequests)
+		return
+	}
 
 	// Satu pesan untuk semua kegagalan. Kode keluarga yang salah tidak boleh
 	// bisa dibedakan dari sandi yang salah, kalau tidak kode keluarga orang
 	// lain bisa ditebak satu per satu lewat halaman login.
 	fail := func() {
+		a.loginFailed(key)
 		a.renderAuth(w, r, "masuk.html", form, "Kode keluarga, nama, atau kata sandi salah.")
 	}
 
@@ -116,10 +178,12 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	// yang spesifik hanya boleh terbaca oleh orang yang memang pemilik akunnya
 	// — kalau tidak, ia jadi cara menebak nama anggota keluarga lain.
 	if u.Disabled {
+		a.loginFailed(key)
 		a.renderAuth(w, r, "masuk.html", form,
 			"Akses akun ini sudah dicabut oleh kepala keluarga.")
 		return
 	}
+	a.loginSucceeded(key)
 	a.setCookie(w, r, familyCookie, family.SignupCode, familyTTL)
 	a.startSession(w, r, u.ID)
 }

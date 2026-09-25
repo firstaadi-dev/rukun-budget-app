@@ -117,15 +117,6 @@
       <a href="{{$.URLTanpaKategori}}">Hapus filter</a></p>
   {{end}}
 
-  {{/* Pemotongan dikatakan, tidak didiamkan. Daftar yang berhenti tanpa
-       keterangan terbaca sebagai "sudah habis", dan itulah cara transaksi lama
-       dulu menghilang tanpa ada yang menyadarinya. */}}
-  {{if .Terpotong}}
-    <p class="banner">Menampilkan {{.Batas}} transaksi terbaru dari periode ini saja.
-      Persempit dengan pencarian, kategori, satu bulan tertentu, atau rentang tanggal
-      sendiri untuk melihat sisanya.</p>
-  {{end}}
-
   {{if .Groups}}
     {{range .Groups}}
       <section>
@@ -141,6 +132,9 @@
     <p class="empty">Belum ada transaksi
       {{if .Periode.Semua}}yang tercatat{{else}}{{.Periode.Frasa}}{{end}}{{if .Kategori}} untuk kategori itu{{end}}.
       {{if not .Periode.Semua}}<a href="{{.URLSemua}}">Lihat seluruh waktu</a>{{end}}</p>
+  {{end}}
+  {{if .NextPage}}
+    <a class="btn btn-secondary" href="{{.NextPage}}">Lihat transaksi berikutnya</a>
   {{end}}
 </div>
 {{end}}

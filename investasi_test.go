@@ -493,6 +493,19 @@ func TestReadLotKuantitasDariBiaya(t *testing.T) {
 // browser. Tiga jalannya harus dibedakan: kode yang dikenal memberi nama resmi,
 // kode yang salah ketik ditolak sebelum tersimpan, dan sumber yang sedang mati
 // tidak boleh menghalangi pencatatan.
+func TestSaleCostBasis(t *testing.T) {
+	// Dua pembelian total 300 untuk tiga unit. Jual dua unit menghabiskan
+	// harga pokok 200; penjualan terakhir menyerap sisa tepat 100.
+	first := saleCostBasis(300, 3*qtyScale, 2*qtyScale)
+	last := saleCostBasis(300-first, qtyScale, qtyScale)
+	if first != 200 || last != 100 || first+last != 300 {
+		t.Fatalf("harga pokok = %d + %d, mau 200 + 100", first, last)
+	}
+	if got := saleCostBasis(100, 3*qtyScale, qtyScale); got != 33 {
+		t.Fatalf("pembulatan = %d, mau 33", got)
+	}
+}
+
 func TestReadInvestNamaDariSimbol(t *testing.T) {
 	bursa := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

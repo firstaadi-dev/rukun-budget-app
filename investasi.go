@@ -235,11 +235,13 @@ type Investment struct {
 	CreatedAt     time.Time
 
 	// Ringkasan lot.
-	QtyE8      int64
-	ModalMinor int64 // seluruh yang dikeluarkan, biaya beli sudah termasuk
-	FeeMinor   int64
-	Lots       int
-	LastBuy    time.Time
+	QtyE8         int64
+	ModalMinor    int64 // seluruh yang dikeluarkan, biaya beli sudah termasuk
+	FeeMinor      int64
+	Lots          int
+	LastBuy       time.Time
+	Sales         int
+	RealizedMinor int64
 }
 
 var investKindLabel = map[string]string{
@@ -285,11 +287,13 @@ type InvestView struct {
 	Harga     string
 	HargaAsal string
 	// Nilai dan Selisih kosong saat harganya belum diketahui sama sekali.
-	Nilai    string
-	Selisih  string
-	Persen   string
-	Tone     string // in | out | neutral
-	AdaHarga bool
+	Nilai        string
+	Selisih      string
+	Persen       string
+	Tone         string // in | out | neutral
+	AdaHarga     bool
+	Realized     string
+	RealizedTone string
 
 	nilaiMinor int64
 }
@@ -355,6 +359,16 @@ func viewInvest(v Investment, quotes map[string]Kuotasi, rates map[string]Rate, 
 		ModalUnit:  FormatPriceE4(ModalPerUnitE4(v.ModalMinor, v.QtyE8), v.Currency),
 		Tone:       "neutral",
 	}
+	if v.Sales > 0 {
+		out.Realized = Format(v.RealizedMinor, v.Currency)
+		out.RealizedTone = "neutral"
+		if v.RealizedMinor > 0 {
+			out.RealizedTone = "in"
+		}
+		if v.RealizedMinor < 0 {
+			out.RealizedTone = "out"
+		}
+	}
 	if v.FeeMinor > 0 {
 		out.Fee = Format(v.FeeMinor, v.Currency)
 	}
@@ -385,6 +399,17 @@ func viewInvest(v Investment, quotes map[string]Kuotasi, rates map[string]Rate, 
 		out.Persen = persenSelisih(selisih, v.ModalMinor)
 	}
 	return out
+}
+
+// Harga pokok rata-rata tertimbang; penjualan terakhir menyerap seluruh sisa
+// pembulatan agar modal posisi yang habis selalu tepat nol.
+func saleCostBasis(cost, owned, sold int64) int64 {
+	if sold == owned {
+		return cost
+	}
+	n := new(big.Int).Mul(big.NewInt(cost), big.NewInt(sold))
+	n.Add(n, big.NewInt(owned/2))
+	return n.Quo(n, big.NewInt(owned)).Int64()
 }
 
 // persenSelisih menulis selisih sebagai persentase modal, satu desimal.
@@ -484,6 +509,8 @@ type LotView struct {
 	PerUnit   string
 	Fee       string
 	Wallet    string
+	IsSale    bool
+	Profit    string
 }
 
 func viewLot(t Tx, v Investment) LotView {
@@ -494,6 +521,10 @@ func viewLot(t Tx, v Investment) LotView {
 		Total:     Format(t.AmountMinor, t.WalletCur),
 		PerUnit:   FormatPriceE4(ModalPerUnitE4(t.AmountMinor, t.QtyE8), t.WalletCur),
 		Wallet:    t.WalletName,
+		IsSale:    t.Kind == "invest_sell",
+	}
+	if out.IsSale {
+		out.Profit = Format(t.AmountMinor-t.CostBasisMinor, t.WalletCur)
 	}
 	if t.AdminFee > 0 {
 		out.Fee = Format(t.AdminFee, t.WalletCur)
@@ -693,11 +724,20 @@ func (a *App) investList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	views := viewInvests(vs, a.kuotasi(ctx, vs), rates, a.today())
+	var active, closed []InvestView
+	for _, v := range views {
+		if v.QtyE8 == 0 && v.Sales > 0 {
+			closed = append(closed, v)
+		} else {
+			active = append(active, v)
+		}
+	}
 
 	data := map[string]any{
 		"Title": "Investasi", "Nav": "investasi",
-		"Groups": groupInvests(views), "Summary": summarizeInvests(views, rates, a.base),
-		"Kinds": investKinds,
+		"Groups": groupInvests(active), "Closed": groupInvests(closed),
+		"Summary": summarizeInvests(active, rates, a.base),
+		"Kinds":   investKinds,
 	}
 	// Sebab kegagalannya ikut ditampilkan, bukan cuma disimpan di log server.
 	// Yang membuka halaman ini tidak punya akses ke log itu, dan "sedang tidak
@@ -1184,13 +1224,105 @@ func (a *App) investBuyCreate(w http.ResponseWriter, r *http.Request) {
 			a.renderBuyForm(w, r, v, f, "Dompet tidak ditemukan.")
 			return
 		}
-		if wl.Currency != v.Currency {
+		if wl.Currency != v.Currency || wl.IsCredit() {
 			a.renderBuyForm(w, r, v, f, "Mata uang dompet harus sama dengan mata uang posisinya. Topup dompet brokernya dulu lewat transfer, di situlah kurs dan biayanya dicatat.")
 			return
 		}
 	}
-	if _, err := a.store.CreateTx(ctx, family(r), t, userFrom(ctx).ID); err != nil {
+	if err := a.store.CreateInvestmentBuy(ctx, family(r), t, userFrom(ctx).ID); err != nil {
+		if errors.Is(err, ErrTradeDate) {
+			a.renderBuyForm(w, r, v, f, "Tanggal pembelian tidak boleh sebelum penjualan terakhir.")
+			return
+		}
 		a.renderBuyForm(w, r, v, f, "Gagal menyimpan: "+err.Error())
+		return
+	}
+	http.Redirect(w, r, "/investasi/"+strconv.FormatInt(v.ID, 10), http.StatusSeeOther)
+}
+
+func (a *App) investSellForm(w http.ResponseWriter, r *http.Request) {
+	v, err := a.store.Investment(r.Context(), family(r), pathID(r))
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	if v.QtyE8 <= 0 {
+		a.notFound(w)
+		return
+	}
+	a.renderSellForm(w, r, v, map[string]string{
+		"tanggal": a.today().Format(formatTanggal),
+		"dompet":  strconv.FormatInt(v.WalletID, 10),
+	}, "")
+}
+
+func (a *App) renderSellForm(w http.ResponseWriter, r *http.Request, v Investment, f map[string]string, msg string) {
+	all, err := a.store.Wallets(r.Context(), family(r))
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	var wallets []Wallet
+	for _, wl := range all {
+		if wl.Currency == v.Currency && !wl.IsCredit() {
+			wallets = append(wallets, wl)
+		}
+	}
+	if msg != "" {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+	}
+	a.render(w, r, "investasi_jual.html", map[string]any{
+		"Title": "Catat Penjualan", "Nav": "investasi", "Back": "/investasi/" + strconv.FormatInt(v.ID, 10),
+		"Inv": v, "Qty": FormatQty(v.QtyE8), "Form": f, "Wallets": wallets, "Error": msg,
+	})
+}
+
+func (a *App) investSellCreate(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	v, err := a.store.Investment(ctx, family(r), pathID(r))
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	f := map[string]string{
+		"tanggal": r.FormValue("tanggal"), "kuantitas": strings.TrimSpace(r.FormValue("kuantitas")),
+		"diterima": strings.TrimSpace(r.FormValue("diterima")), "dompet": r.FormValue("dompet"),
+		"catatan": strings.TrimSpace(r.FormValue("catatan")),
+	}
+	tanggal, errDate := time.ParseInLocation(formatTanggal, f["tanggal"], a.loc)
+	qty, errQty := ParseQty(f["kuantitas"])
+	amount, errAmount := ParseAmount(f["diterima"], v.Currency)
+	walletID, errWallet := strconv.ParseInt(f["dompet"], 10, 64)
+	switch {
+	case errDate != nil:
+		a.renderSellForm(w, r, v, f, "Tanggal tidak valid.")
+		return
+	case tanggal.After(a.today()):
+		a.renderSellForm(w, r, v, f, "Tanggal penjualan tidak boleh di masa depan.")
+		return
+	case errQty != nil || qty <= 0 || qty > v.QtyE8:
+		a.renderSellForm(w, r, v, f, "Kuantitas harus lebih dari nol dan tidak melebihi yang dimiliki.")
+		return
+	case errAmount != nil || amount <= 0:
+		a.renderSellForm(w, r, v, f, "Nominal diterima harus lebih dari nol.")
+		return
+	case errWallet != nil || walletID <= 0:
+		a.renderSellForm(w, r, v, f, "Pilih dompet penerima.")
+		return
+	}
+	wl, err := a.store.Wallet(ctx, family(r), walletID)
+	if err != nil || wl.Currency != v.Currency || wl.IsCredit() {
+		a.renderSellForm(w, r, v, f, "Dompet penerima harus dompet biasa dengan mata uang yang sama.")
+		return
+	}
+	t := Tx{Kind: "invest_sell", Date: tanggal, InvestmentID: v.ID, QtyE8: qty,
+		AmountMinor: amount, WalletID: walletID, WalletCur: v.Currency, Note: f["catatan"]}
+	if err := a.store.CreateInvestmentSale(ctx, family(r), t, userFrom(ctx).ID); err != nil {
+		if errors.Is(err, ErrInsufficientQty) || errors.Is(err, ErrTradeDate) {
+			a.renderSellForm(w, r, v, f, err.Error())
+			return
+		}
+		a.fail(w, r, err)
 		return
 	}
 	http.Redirect(w, r, "/investasi/"+strconv.FormatInt(v.ID, 10), http.StatusSeeOther)

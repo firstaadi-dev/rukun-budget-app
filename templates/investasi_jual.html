@@ -1,0 +1,36 @@
+{{define "content"}}
+<form method="post" action="/investasi/{{.Inv.ID}}/jual" class="stack">
+  <p class="note">Menjual {{.Inv.Label}}. Dimiliki {{.Qty}} {{.Inv.Unit}}.
+    Untung/rugi dihitung dari harga pokok rata-rata tertimbang.</p>
+  <div class="field">
+    <label for="tanggal">Tanggal</label>
+    <input class="input" id="tanggal" name="tanggal" type="date" required value="{{.Form.tanggal}}">
+  </div>
+  <div class="field">
+    <label for="kuantitas">Kuantitas dijual ({{.Inv.Unit}})</label>
+    <input class="input" id="kuantitas" name="kuantitas" required inputmode="decimal"
+           pattern="[0-9.,]*" value="{{.Form.kuantitas}}">
+  </div>
+  <div class="field">
+    <label for="diterima">Total diterima setelah biaya ({{.Inv.Currency}})</label>
+    <input class="input" id="diterima" name="diterima" required inputmode="decimal"
+           pattern="[0-9.,]*" value="{{.Form.diterima}}">
+  </div>
+  <div class="field">
+    <label for="dompet">Masuk ke dompet</label>
+    <select class="input" id="dompet" name="dompet" required>
+      <option value="">Pilih dompet</option>
+      {{range .Wallets}}
+        <option value="{{.ID}}" {{if eq $.Form.dompet (printf "%d" .ID)}}selected{{end}}>{{.Name}} · {{.Currency}}</option>
+      {{end}}
+    </select>
+    {{if not .Wallets}}<p class="hint">Belum ada dompet {{.Inv.Currency}} yang bisa menerima penjualan.
+      <a href="/dompet/baru">Tambah dompet</a> lebih dulu.</p>{{end}}
+  </div>
+  <div class="field">
+    <label for="catatan">Catatan</label>
+    <input class="input" id="catatan" name="catatan" value="{{.Form.catatan}}">
+  </div>
+  <button type="submit" class="btn btn-primary btn-block" {{if not .Wallets}}disabled{{end}}>Simpan Penjualan</button>
+</form>
+{{end}}

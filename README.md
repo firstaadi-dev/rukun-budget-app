@@ -39,6 +39,32 @@ Jalankan test (tidak butuh database):
 go test ./...
 ```
 
+## Backup dan uji pemulihan
+
+Produksi memakai **pemulihan bawaan Neon**. Proyek ini saat ini menyimpan riwayat
+selama **6 jam**; jika kerusakan baru diketahui setelah itu, titik sebelum
+kerusakan tidak dapat dipulihkan dari riwayat tersebut. Snapshot harian otomatis
+belum tersedia untuk proyek ini (Neon menolak pembuatan jadwal backup). Batas ini
+telah diterima untuk produksi. Periksa kembali jendela pemulihan dan ketersediaan
+snapshot berkala bila kebutuhan penyimpanan data berubah.
+
+Saat perlu memulihkan, buat branch baru dari `production` pada waktu sebelum
+kerusakan melalui Neon Backup & Restore atau CLI. Periksa data di branch baru,
+lalu arahkan aplikasi ke connection string branch itu jika hasilnya benar. Jangan
+memulihkan langsung ke `production` sebelum hasil branch uji diperiksa. Uji
+pemulihan pada 25 September 2026 berhasil: branch dari riwayat produksi berisi
+5 keluarga, 265 transaksi, dan 9 migrasi, sama dengan branch produksi; branch
+uji lalu dihapus. Jendela 6 jam adalah batas waktu untuk **memilih titik pemulihan**,
+bukan janji bahwa pemulihan otomatis berjalan tanpa tindakan operator.
+
+Untuk ekspor manual di luar Neon, `scripts/backup.sh` membuat arsip Postgres custom
+dari `DATABASE_URL` ke `BACKUP_DIR` (bawaan `./backups`, diabaikan Git).
+`scripts/restore-check.sh` memulihkannya ke database kosong dan terpisah bernama
+`rukun_restore_*` melalui `RESTORE_DATABASE_URL`. Kedua skrip memerlukan versi mayor
+`pg_dump`/`pg_restore` yang sama dengan server. Arsip berisi data keuangan dan hash
+sandi; simpan secara terenkripsi dan dengan akses terbatas. Skrip ini telah diuji
+terhadap Postgres lokal, tetapi **tidak dijadwalkan** sebagai backup produksi.
+
 ## Deploy ke Render
 
 Databasenya di **Neon**, bukan Postgres bawaan Render.
@@ -312,6 +338,16 @@ kolom `investment_id` dan `qty_e8`. Di daftar transaksi ia bernada netral, bukan
 "keluar" — uangnya memang meninggalkan dompet, tapi tidak habis; ia berubah bentuk jadi
 sesuatu yang masih dimiliki, persis seperti transfer antar dompet.
 
+**Penjualan juga tercatat sebagai transaksi** (`invest_sell`). Nominal yang
+diterima menambah saldo dompet tujuan; kuantitas posisi berkurang. Harga pokok
+unit terjual dihitung dengan rata-rata tertimbang dari modal dan kuantitas yang
+masih dimiliki, lalu disimpan pada transaksi jual. Selisih antara penerimaan
+bersih dan harga pokok ditampilkan sebagai untung/rugi terealisasi, terpisah
+dari perubahan harga posisi yang masih dimiliki. Penjualan lebih banyak dari
+unit yang tersedia ditolak. Transaksi jual yang salah dapat dibatalkan dari
+detail transaksi; penjualan berikutnya harus dibatalkan lebih dahulu agar
+harga pokoknya tetap benar.
+
 **Satu posisi per identitas.** Untuk emas, identitasnya merek *dan* pecahan: keping 1
 gram dan 10 gram jadi dua posisi terpisah karena preminya berbeda dan harga jualnya
 kembali juga berbeda. Menggabungkan keduanya akan menyembunyikan selisih yang nyata.
@@ -482,12 +518,10 @@ Melangkah ke bulan depan sengaja tidak ditutup meski belum tiba. Transaksi boleh
 bertanggal di depan, dan menutup jalan ke sana akan menyembunyikannya persis seperti
 pemotongan 200 baris dulu.
 
-**Batas halaman tetap ada, tapi sekarang dikatakan.** Satu bulan praktis tidak pernah
-menembus 200 transaksi, tapi "Seluruh waktu" akan menembusnya cepat. Query karena itu
-meminta satu baris lebih banyak dari batasnya: kelebihan satu baris itulah yang memberi
-tahu bahwa daftarnya terpotong — tanpanya, 200 hasil pas tidak bisa dibedakan dari 200
-hasil pertama dari seribu. Daftar yang berhenti tanpa keterangan terbaca sebagai "sudah
-habis", dan itu persis cara transaksi lama dulu hilang tanpa ada yang menyadarinya.
+**Daftar dibagi per 200 transaksi.** Query meminta satu baris tambahan untuk
+menentukan apakah tombol "Lihat transaksi berikutnya" perlu ditampilkan.
+Tautan berikutnya membawa seluruh penyaring dan posisi tanggal/id terakhir;
+transaksi baru di bagian atas tidak menggeser isi halaman berikutnya.
 
 **Pencarian mencakup empat kolom**: catatan, kategori, nama pihak, dan nama dompet —
 keempat tempat sebuah transaksi bisa diingat kembali. Pencarian tetap tunduk pada periode
@@ -608,12 +642,7 @@ Realtime sync, mode offline, laporan dan grafik lintas bulan, ekspor, anggaran p
 kategori, cicilan berjadwal, dan bunga kartu kredit. Semuanya ditambahkan kalau memang
 terasa kurang setelah dipakai, bukan sebelumnya.
 
-Investasi fase 1 hanya mencatat pembelian. **Penjualan belum ada**, jadi posisi yang
-sudah dilepas belum bisa ditutup dan keuntungan yang sudah direalisasi belum punya
-tempat. Itu bukan kelalaian: penjualan membawa serta pemilihan lot mana yang dilepas
-(FIFO, rata-rata, atau pilih sendiri), dan pilihan itu menentukan angka untung-rugi yang
-dilaporkan — terlalu menentukan untuk diputuskan sambil lalu. Dividen dan pemecahan
-saham juga belum ada, dengan alasan yang sama: keduanya mengubah kuantitas atau modal
+Dividen dan pemecahan saham belum ada: keduanya mengubah kuantitas atau modal
 lot lama, bukan menambah lot baru.
 
 Peran per anggota juga masih sebatas satu pembedaan: kepala keluarga boleh mencabut akses,

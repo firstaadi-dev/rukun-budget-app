@@ -146,6 +146,16 @@ func TestTxURL(t *testing.T) {
 	}
 }
 
+func TestTxURLCursor(t *testing.T) {
+	q := url.Values{"periode": {"semua"}, "cursor": {"2026-08-01:50"}, "cari": {"gaji"}}
+	if got := txURL(q, "cursor", "2026-07-01:10"); got != "/transaksi?cari=gaji&cursor=2026-07-01%3A10&periode=semua" {
+		t.Errorf("next page lost filters: %s", got)
+	}
+	if got := txURL(q, "cari", "baru"); got != "/transaksi?cari=baru&periode=semua" {
+		t.Errorf("filter change kept stale cursor: %s", got)
+	}
+}
+
 // Ketiga penyaring waktu menjawab pertanyaan yang sama. Yang satu harus melepas
 // dua sisanya, kalau tidak rentang yang masih menempel akan mengalahkan bulan
 // yang baru dipilih — tautan yang ditekan tapi tidak mengubah apa pun.

@@ -205,7 +205,14 @@ func TestPagesRender(t *testing.T) {
 			"Title": "Antam · 10 gram", "Nav": "investasi", "Back": "/investasi",
 			"Inv": invViews[0], "Lots": viewLots([]Tx{lotEmas}, emas),
 			"HargaForm": map[string]string{"harga": "2.000.000", "tanggal": "2026-08-07"},
-		}, "Riwayat Pembelian"},
+		}, "Riwayat Investasi"},
+
+		{"investasi_jual.html", map[string]any{
+			"Title": "Catat Penjualan", "Nav": "investasi", "Back": "/investasi/1",
+			"Inv": emas, "Qty": FormatQty(emas.QtyE8),
+			"Form":    map[string]string{"tanggal": "2026-08-07", "dompet": "2"},
+			"Wallets": wallets,
+		}, "harga pokok rata-rata tertimbang"},
 
 		{"investasi_beli.html", map[string]any{
 			"Title": "Catat Pembelian", "Nav": "investasi", "Back": "/investasi/1",

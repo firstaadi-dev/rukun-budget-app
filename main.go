@@ -10,9 +10,11 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	_ "time/tzdata" // Render menjalankan binary di image tanpa tzdata sistem.
@@ -27,15 +29,17 @@ var templateFS embed.FS
 var staticFS embed.FS
 
 type App struct {
-	store    *Store
-	pages    map[string]*template.Template
-	ver      string       // sidik jari aset statis, dipakai sebagai penanda versi di URL
-	rateSrc  *rateSource  // kurs pasar dari API, boleh kosong kalau dimatikan
-	hargaSrc *hargaSource // harga saham, ETF, dan emas; boleh kosong kalau dimatikan
-	nabSrc   *nabSource   // NAB reksadana Indonesia; boleh kosong kalau dimatikan
-	loc      *time.Location
-	base     string // mata uang dasar untuk total di dashboard
-	admin    string // token API admin; kosong berarti API admin mati total
+	store         *Store
+	pages         map[string]*template.Template
+	ver           string       // sidik jari aset statis, dipakai sebagai penanda versi di URL
+	rateSrc       *rateSource  // kurs pasar dari API, boleh kosong kalau dimatikan
+	hargaSrc      *hargaSource // harga saham, ETF, dan emas; boleh kosong kalau dimatikan
+	nabSrc        *nabSource   // NAB reksadana Indonesia; boleh kosong kalau dimatikan
+	loc           *time.Location
+	base          string // mata uang dasar untuk total di dashboard
+	admin         string // token API admin; kosong berarti API admin mati total
+	loginMu       sync.Mutex
+	loginFailures map[string]loginFailure
 }
 
 // parsePages menggabungkan layout dengan tiap halaman secara terpisah, supaya
@@ -236,6 +240,8 @@ func (a *App) routes() http.Handler {
 	auth("POST /investasi/{id}/harga", a.investPrice)
 	auth("GET /investasi/{id}/beli", a.investBuyForm)
 	auth("POST /investasi/{id}/beli", a.investBuyCreate)
+	auth("GET /investasi/{id}/jual", a.investSellForm)
+	auth("POST /investasi/{id}/jual", a.investSellCreate)
 
 	auth("GET /hutang", a.debtList)
 	auth("GET /hutang/baru", a.debtForm)
@@ -266,7 +272,35 @@ func (a *App) routes() http.Handler {
 	auth("POST /transaksi/{id}/ubah", a.txUpdate)
 	auth("POST /transaksi/{id}/hapus", a.txDelete)
 
-	return mux
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+		}
+		if r.Method != http.MethodGet && r.Method != http.MethodHead &&
+			!(strings.HasPrefix(r.URL.Path, "/admin/") && strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ")) && !sameOrigin(r) {
+			http.Error(w, "Permintaan ditolak: asal halaman tidak cocok.", http.StatusForbidden)
+			return
+		}
+		mux.ServeHTTP(w, r)
+	})
+}
+
+// Browser mengirim Origin pada form POST. Referer menutup browser lama yang
+// tidak mengirimnya; klien tanpa keduanya tidak boleh mengubah data via cookie.
+func sameOrigin(r *http.Request) bool {
+	raw := r.Header.Get("Origin")
+	if raw == "" {
+		raw = r.Referer()
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Host != r.Host {
+		return false
+	}
+	scheme := "http"
+	if https(r) {
+		scheme = "https"
+	}
+	return u.Scheme == scheme
 }
 
 // assetVersion meringkas seluruh isi aset statis jadi satu penanda pendek.

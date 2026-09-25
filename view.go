@@ -283,6 +283,15 @@ func viewTx(t Tx, today time.Time) TxView {
 		}
 		v.Amount = "-" + Format(t.AmountMinor, t.WalletCur)
 		v.Tone = "neutral"
+	case "invest_sell":
+		v.ShortDesc = "Jual " + t.InvestmentName
+		v.Desc = v.ShortDesc + " — " + FormatQty(t.QtyE8)
+		if t.Note != "" {
+			v.Desc += " — " + t.Note
+		}
+		v.WalletLabel = t.WalletName
+		v.Amount = "+" + Format(t.AmountMinor, t.WalletCur)
+		v.Tone = "neutral"
 	case "transfer":
 		v.Desc = t.Note
 		if v.Desc == "" {

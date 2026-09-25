@@ -3,7 +3,7 @@
 
   <div class="detail-head">
     <span class="detail-ic t-{{.Tx.Tone}}">{{template "tx-icon" .Tx.Kind}}</span>
-    <div class="detail-title">{{if .Tx.IsTransfer}}Transfer Antar Dompet{{else}}{{.KindLabel}} · {{.Tx.Category}}{{end}}</div>
+    <div class="detail-title">{{if .Tx.IsTransfer}}Transfer Antar Dompet{{else if .InvestTrade}}{{.KindLabel}} · {{.Tx.InvestmentName}}{{else}}{{.KindLabel}} · {{.Tx.Category}}{{end}}</div>
     <div class="text-muted small">{{.Waktu}}</div>
   </div>
 
@@ -19,6 +19,15 @@
       <div class="hr"></div>
       <div class="dl"><span class="text-muted">Ke</span><span>{{.Tx.ToWalletName}} · {{.Tx.ToWalletCur}}</span></div>
       <div class="dl"><span class="text-muted">Nominal diterima</span><span>{{.AmountIn}}</span></div>
+    {{else if .InvestTrade}}
+      <div class="dl"><span class="text-muted">Posisi</span><span><a href="/investasi/{{.Tx.InvestmentID}}">{{.Tx.InvestmentName}}</a></span></div>
+      <div class="dl"><span class="text-muted">Kuantitas</span><span>{{.QtyLabel}}</span></div>
+      <div class="dl"><span class="text-muted">Dompet</span><span>{{if .Tx.WalletName}}{{.Tx.WalletName}}{{else}}tanpa dompet{{end}}</span></div>
+      <div class="dl"><span class="text-muted">Nominal</span><span>{{.Tx.Amount}}</span></div>
+      {{if eq .Tx.Kind "invest_sell"}}
+        <div class="dl"><span class="text-muted">Harga pokok</span><span>{{.CostBasis}}</span></div>
+        <div class="dl"><span class="text-muted">Untung/rugi terealisasi</span><span>{{.Realized}}</span></div>
+      {{end}}
     {{else}}
       <div class="dl"><span class="text-muted">Dompet</span><span>{{.Tx.WalletName}} · {{.Tx.WalletCur}}</span></div>
       <div class="dl"><span class="text-muted">Kategori</span><span>{{.Tx.Category}}</span></div>
@@ -34,7 +43,7 @@
   </div>
 
   <div class="detail-actions">
-    <a href="/transaksi/{{.Tx.ID}}/ubah" class="btn btn-secondary">Edit</a>
+    {{if not .InvestTrade}}<a href="/transaksi/{{.Tx.ID}}/ubah" class="btn btn-secondary">Edit</a>{{end}}
     <form method="post" action="/transaksi/{{.Tx.ID}}/hapus"
           onsubmit="return confirm('Hapus transaksi ini? Saldo dompet akan ikut berubah.')">
       <button type="submit" class="btn btn-ghost">Hapus</button>

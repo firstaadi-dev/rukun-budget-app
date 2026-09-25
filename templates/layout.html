@@ -166,6 +166,8 @@
   {{if eq . "expense"}}{{template "icon-out"}}
   {{else if eq . "income"}}{{template "icon-in"}}
   {{else if eq . "transfer"}}{{template "icon-transfer"}}
+  {{else if eq . "invest_buy"}}{{template "icon-invest"}}
+  {{else if eq . "invest_sell"}}{{template "icon-invest"}}
   {{else}}{{template "icon-hutang"}}{{end}}
 {{end}}
 

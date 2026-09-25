@@ -377,7 +377,7 @@ func adjustmentTx(w Wallet, target int64, today time.Time) (Tx, bool) {
 	return Tx{
 		Kind: kind, Date: today, WalletID: w.ID, WalletCur: w.Currency,
 		AmountMinor: diff, Category: walletAdjustmentCategory,
-		Note: walletAdjustmentCategory,
+		Note: walletAdjustmentCategory, IsAdjustment: true,
 	}, true
 }
 
@@ -467,7 +467,8 @@ var kindLabel = map[string]string{
 	"expense": "Pengeluaran", "income": "Pemasukan", "transfer": "Transfer",
 	"debt_in": "Hutang", "debt_pay": "Bayar Hutang",
 	"loan_out": "Piutang", "loan_in": "Terima Piutang",
-	"invest_buy": "Beli Investasi",
+	"invest_buy":  "Beli Investasi",
+	"invest_sell": "Jual Investasi",
 }
 
 var txFilters = []struct{ Value, Label string }{
@@ -490,7 +491,7 @@ type TxFilterOpt struct {
 // txParams: penyaring yang boleh menempel di URL daftar transaksi. Didaftar
 // tertutup supaya parameter asing tidak ikut terbawa dari satu tautan ke
 // tautan berikutnya.
-var txParams = []string{"jenis", "kategori", "dompet", "periode", "dari", "sampai", "cari"}
+var txParams = []string{"jenis", "kategori", "dompet", "periode", "dari", "sampai", "cari", "cursor"}
 
 // txWaktu: penyaring waktu, yang ketiganya menjawab pertanyaan yang sama lewat
 // jalan berbeda. Mengganti salah satunya harus melepas dua sisanya — kalau
@@ -504,7 +505,7 @@ var txWaktu = map[string]bool{"periode": true, "dari": true, "sampai": true}
 func txURL(q url.Values, key, val string) string {
 	out := url.Values{}
 	for _, k := range txParams {
-		if k == key || (txWaktu[key] && txWaktu[k]) {
+		if k == key || (txWaktu[key] && txWaktu[k]) || (k == "cursor" && key != "cursor") {
 			continue
 		}
 		if v := q.Get(k); v != "" {
@@ -561,6 +562,15 @@ func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	periode := bacaPeriode(q.Get("periode"), q.Get("dari"), q.Get("sampai"), a.today())
+	var beforeDate time.Time
+	var beforeID int64
+	if parts := strings.Split(q.Get("cursor"), ":"); len(parts) == 2 {
+		beforeDate, _ = time.Parse(formatTanggal, parts[0])
+		beforeID, _ = strconv.ParseInt(parts[1], 10, 64)
+	}
+	if beforeDate.IsZero() || beforeID <= 0 {
+		q.Del("cursor")
+	}
 	// Penyaring waktu ikut dirapikan sebelum tautannya dirakit. Yang menang
 	// dipasang dalam bentuk yang sudah dibetulkan — tanggal tertukar sudah
 	// dibalik di bacaPeriode — dan yang kalah dibuang supaya tidak diam-diam
@@ -586,6 +596,7 @@ func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 	txs, err := a.store.Transactions(ctx, family(r), TxFilter{
 		Kinds: kindsForFilter(filter), Category: kategori, Cari: cari,
 		WalletID: dompetID, From: periode.From, To: periode.To, Limit: txListLimit + 1,
+		BeforeDate: beforeDate, BeforeID: beforeID,
 	})
 	if err != nil {
 		a.fail(w, r, err)
@@ -594,6 +605,11 @@ func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 	terpotong := len(txs) > txListLimit
 	if terpotong {
 		txs = txs[:txListLimit]
+	}
+	nextPage := ""
+	if terpotong {
+		last := txs[len(txs)-1]
+		nextPage = txURL(q, "cursor", last.Date.Format(formatTanggal)+":"+strconv.FormatInt(last.ID, 10))
 	}
 
 	cats, err := a.store.Categories(ctx, family(r), "")
@@ -618,7 +634,7 @@ func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 		"URLBulanIni":      txURL(q, "periode", ""),
 		"URLTanpaCari":     txURL(q, "cari", ""),
 		"URLTanpaKategori": txURL(q, "kategori", ""),
-		"Terpotong":        terpotong, "Batas": txListLimit,
+		"Terpotong":        terpotong, "Batas": txListLimit, "NextPage": nextPage,
 		"Groups": groupTxs(viewTxs(txs, a.today())),
 	})
 }
@@ -632,6 +648,8 @@ func kindsForFilter(filter string) []string {
 		return nil
 	case "hutang":
 		return []string{"debt_in", "debt_pay", "loan_out", "loan_in"}
+	case "invest_buy":
+		return []string{"invest_buy", "invest_sell"}
 	default:
 		return []string{filter}
 	}
@@ -651,7 +669,13 @@ func (a *App) txDetail(w http.ResponseWriter, r *http.Request) {
 	data := map[string]any{
 		"Title": "Detail Transaksi", "Nav": "transaksi", "Back": "/transaksi",
 		"Tx": v, "KindLabel": kindLabel[t.Kind],
-		"Waktu": tanggalPendek(t.Date) + ", " + t.CreatedAt.In(a.loc).Format("15:04"),
+		"Waktu":       tanggalPendek(t.Date) + ", " + t.CreatedAt.In(a.loc).Format("15:04"),
+		"InvestTrade": t.Kind == "invest_buy" || t.Kind == "invest_sell",
+		"QtyLabel":    FormatQty(t.QtyE8),
+	}
+	if t.Kind == "invest_sell" {
+		data["CostBasis"] = Format(t.CostBasisMinor, t.WalletCur)
+		data["Realized"] = Format(t.AmountMinor-t.CostBasisMinor, t.WalletCur)
 	}
 
 	if t.IsCrossCur() {
@@ -696,9 +720,13 @@ func (a *App) txForm(w http.ResponseWriter, r *http.Request) {
 			a.fail(w, r, err)
 			return
 		}
+		if t.Kind == "invest_buy" || t.Kind == "invest_sell" {
+			http.Redirect(w, r, "/investasi/"+strconv.FormatInt(t.InvestmentID, 10), http.StatusSeeOther)
+			return
+		}
 	} else {
 		t.Kind = r.URL.Query().Get("jenis")
-		if _, ok := kindLabel[t.Kind]; !ok {
+		if t.Kind != "income" && t.Kind != "transfer" {
 			t.Kind = "expense"
 		}
 		t.Date = a.today()
@@ -1079,7 +1107,7 @@ func (a *App) checkBalance(r *http.Request, t Tx, excludeTxID int64) error {
 
 func (a *App) txCreate(w http.ResponseWriter, r *http.Request) {
 	kind := r.URL.Query().Get("jenis")
-	if _, ok := kindLabel[kind]; !ok {
+	if kind != "income" && kind != "transfer" {
 		kind = "expense"
 	}
 	t, f, err := a.readTx(r, kind)
@@ -1137,6 +1165,10 @@ func (a *App) txUpdate(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
+	if old.Kind == "invest_buy" || old.Kind == "invest_sell" {
+		http.Error(w, "Transaksi investasi hanya dapat dibatalkan, lalu dicatat ulang.", http.StatusBadRequest)
+		return
+	}
 
 	t, f, err := a.readTx(r, old.Kind)
 	if err != nil {
@@ -1176,13 +1208,18 @@ func (a *App) txDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if old.InSeries() && r.FormValue("seluruh") == "1" {
+	if old.Kind == "invest_buy" || old.Kind == "invest_sell" {
+		err = a.store.DeleteInvestmentTrade(ctx, family(r), old)
+	} else if old.InSeries() && r.FormValue("seluruh") == "1" {
 		err = a.store.DeleteSeries(ctx, family(r), old.SeriesID)
 	} else {
 		err = a.store.DeleteTx(ctx, family(r), old.ID)
 	}
 	if errors.Is(err, ErrNotFound) {
 		a.notFound(w)
+		return
+	} else if errors.Is(err, ErrTradeLocked) {
+		http.Error(w, err.Error(), http.StatusConflict)
 		return
 	} else if err != nil {
 		a.fail(w, r, err)
