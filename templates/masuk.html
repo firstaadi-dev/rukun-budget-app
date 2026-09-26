@@ -18,19 +18,6 @@
     <button type="submit" class="btn btn-primary btn-block">Masuk</button>
   </form>
 
-  <details class="auth-alt">
-    <summary>Akun lama: masuk dengan nama dan kode keluarga</summary>
-    <form method="post" action="/masuk" class="stack-sm">
-      <div class="field"><label for="nama-lama">Nama</label>
-        <input class="input" id="nama-lama" name="nama" required value="{{with .Form}}{{.Nama}}{{end}}"></div>
-      <div class="field"><label for="kode-lama">Kode keluarga</label>
-        <input class="input" id="kode-lama" name="kode" required value="{{with .Form}}{{.Kode}}{{end}}"></div>
-      <div class="field"><label for="sandi-lama">Kata sandi</label>
-        <input class="input" id="sandi-lama" name="sandi" type="password" required autocomplete="current-password"></div>
-      <button type="submit" class="btn btn-secondary btn-block">Masuk ke akun lama</button>
-    </form>
-  </details>
-
   <p class="small text-muted auth-alt">
     Belum punya akun? <a href="/daftar">Buat akun</a>.
   </p>

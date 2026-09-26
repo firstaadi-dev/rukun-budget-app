@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestAccountFamilyFlow(t *testing.T) {
@@ -94,7 +95,7 @@ func TestAccountFamilyFlow(t *testing.T) {
 	invite := httptest.NewRecorder()
 	r = httptest.NewRequest(http.MethodGet, "http://rukun.test/mulai?kode="+url.QueryEscape(f.SignupCode), nil)
 	h.ServeHTTP(invite, r)
-	if invite.Code != http.StatusSeeOther || invite.Header().Get("Location") != "/masuk" {
+	if invite.Code != http.StatusSeeOther || invite.Header().Get("Location") != "/daftar" {
 		t.Fatalf("anonymous invite: %d %s", invite.Code, invite.Header().Get("Location"))
 	}
 	var inviteCookie *http.Cookie
@@ -132,9 +133,42 @@ func TestAccountFamilyFlow(t *testing.T) {
 	if login.Code != http.StatusSeeOther || login.Header().Get("Location") != "/" {
 		t.Fatalf("account login: %d %s", login.Code, login.Body.String())
 	}
-	legacy := post("/masuk", url.Values{"nama": {"Nia"}, "kode": {f.SignupCode}, "sandi": {"rahasia-aman-123"}}, nil)
-	if legacy.Code != http.StatusSeeOther || legacy.Header().Get("Location") != "/" {
-		t.Fatalf("legacy login: %d %s", legacy.Code, legacy.Body.String())
+	legacyHash, err := bcrypt.GenerateFromPassword([]byte("rahasia-aman-123"), bcrypt.MinCost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var legacyID int64
+	if err := pool.QueryRow(ctx, `INSERT INTO users (username, name, password_hash, family_id)
+		VALUES ($1, 'Nia lama', $2, $3) RETURNING id`, "legacy-temp-"+username, string(legacyHash), f.ID).Scan(&legacyID); err != nil {
+		t.Fatal(err)
+	}
+	defer pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, legacyID)
+	if _, err := pool.Exec(ctx, `UPDATE users SET username = 'rukun:' || id WHERE id = $1`, legacyID); err != nil {
+		t.Fatal(err)
+	}
+	candidates, err := store.LegacyAccounts(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, candidate := range candidates {
+		if candidate.ID == legacyID {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("legacy placeholder missing from admin migration list")
+	}
+	if updated, err := store.AdminSetLegacyUsername(ctx, legacyID, username+"c"); err != nil || !updated {
+		t.Fatalf("admin account migration: updated=%v err=%v", updated, err)
+	}
+	legacyUser, hash, err := store.UserByUsername(ctx, username+"c")
+	if err != nil || legacyUser.FamilyID != f.ID || bcrypt.CompareHashAndPassword([]byte(hash), []byte("rahasia-aman-123")) != nil {
+		t.Fatalf("migrated account lost access or family link: user=%+v err=%v", legacyUser, err)
+	}
+	migratedLogin := post("/masuk", url.Values{"username": {username + "c"}, "sandi": {"rahasia-aman-123"}}, nil)
+	if migratedLogin.Code != http.StatusSeeOther || migratedLogin.Header().Get("Location") != "/" {
+		t.Fatalf("migrated account login: %d %s", migratedLogin.Code, migratedLogin.Body.String())
 	}
 	settings := httptest.NewRecorder()
 	r = httptest.NewRequest(http.MethodGet, "http://rukun.test/pengaturan", nil)

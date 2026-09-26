@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -62,6 +63,11 @@ func (a *App) renderSettings(w http.ResponseWriter, r *http.Request, errMsg stri
 }
 
 func (a *App) changeUsername(w http.ResponseWriter, r *http.Request) {
+	u := userFrom(r.Context())
+	if u.Username == "rukun:"+strconv.FormatInt(u.ID, 10) {
+		a.renderSettings(w, r, "Akun lama harus dimigrasikan admin sebelum nama akun bisa diganti.", http.StatusForbidden)
+		return
+	}
 	username := strings.ToLower(strings.TrimSpace(r.FormValue("username")))
 	if !usernamePattern.MatchString(username) {
 		a.renderSettings(w, r, "Nama akun harus 3–40 karakter: huruf kecil, angka, titik, garis bawah, atau tanda hubung.", http.StatusUnprocessableEntity)

@@ -1,0 +1,24 @@
+{{define "content"}}
+<div class="auth-card card elev-md" style="max-width:48rem">
+  <div class="brand auth-brand">Rukun</div>
+  <h1>Migrasi akun lama</h1>
+  <p class="text-muted">Tetapkan nama akun baru untuk akun yang masih memakai nama sementara. Kata sandi dan tautan keluarganya tetap dipertahankan.</p>
+  {{if .Error}}<p class="alert" role="alert">{{.Error}}</p>{{end}}
+  {{if .Accounts}}
+    <div class="stack-sm">
+      {{range .Accounts}}
+      <form method="post" action="/admin/migrasi-akun-lama" class="card stack-sm" style="padding:1rem">
+        <input type="hidden" name="id" value="{{.ID}}">
+        <strong>{{.Name}} · {{if .FamilyName}}{{.FamilyName}}{{else}}belum terhubung ke keluarga{{end}} · ID {{.ID}}</strong>
+        <label for="username-{{.ID}}">Nama akun baru</label>
+        <input class="input" id="username-{{.ID}}" name="username" required minlength="3" maxlength="40"
+               pattern="[a-z0-9][a-z0-9._-]{2,39}" placeholder="nama akun baru">
+        <button class="btn btn-primary" type="submit">Simpan nama akun</button>
+      </form>
+      {{end}}
+    </div>
+  {{else}}
+    <p>Tidak ada akun lama yang menunggu migrasi.</p>
+  {{end}}
+</div>
+{{end}}

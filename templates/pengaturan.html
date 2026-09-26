@@ -21,15 +21,19 @@
 
   <section>
     <div class="sec-head"><h6>Nama Akun</h6></div>
+    {{if eq .User.Username (printf "rukun:%d" .User.ID)}}
+    <p class="hint">Akun ini menunggu migrasi admin. Hubungi admin untuk menetapkan nama akun sebelum masuk lewat alur baru.</p>
+    {{else}}
     <form method="post" action="/pengaturan/username" class="stack-sm">
       <label for="username">Dipakai untuk masuk tanpa kode keluarga</label>
       <input class="input" id="username" name="username" required minlength="3" maxlength="40"
              pattern="[a-z0-9][a-z0-9._-]{2,39}" value="{{.User.Username}}" autocomplete="username">
-      <p class="hint">Akun lama memakai nama awal rukun:id. Ganti dengan nama akun yang mudah diingat.</p>
+      <p class="hint">Gunakan nama yang mudah diingat saat masuk.</p>
       <label for="username-sandi">Kata sandi sekarang</label>
       <input class="input" id="username-sandi" name="sandi" type="password" required autocomplete="current-password">
       <button type="submit" class="btn btn-secondary">Simpan nama akun</button>
     </form>
+    {{end}}
   </section>
 
   {{if .User.Kepala}}

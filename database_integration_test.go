@@ -32,7 +32,7 @@ func TestDatabaseMoneyFlows(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer pool.Exec(ctx, `DELETE FROM families WHERE id = $1`, f.ID)
-	u, _, err := s.UserByName(ctx, f.ID, "Tester")
+	u, _, err := s.UserByUsername(ctx, f.HeadUsername)
 	if err != nil {
 		t.Fatal(err)
 	}

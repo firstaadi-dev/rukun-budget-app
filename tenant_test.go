@@ -99,6 +99,9 @@ func TestMetodeStoreDataMenerimaFamilyID(t *testing.T) {
 		// melalui CreateFamilyForUser/JoinFamily saat family_id masih NULL.
 		"CreateUser": true, "SetUsername": true, "UserByUsername": true,
 		"JoinFamily": true, "CreateFamilyForUser": true,
+		// Migrasi nama akun oleh admin sengaja lintas keluarga dan hanya
+		// menyentuh pengguna yang masih memakai username sementara rukun:<id>.
+		"LegacyAccounts": true, "AdminSetLegacyUsername": true,
 
 		// Harga pasar, bukan catatan keluarga. Harga SPUS sama untuk siapa pun
 		// yang memegangnya, tidak ada satu pun angka milik keluarga di tabel

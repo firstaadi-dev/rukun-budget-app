@@ -14,13 +14,13 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// API admin sengaja tidak punya halaman apa pun. Membuat keluarga baru berarti
-// membuat penyimpanan data yang terpisah untuk orang lain, dan itu keputusan
-// yang dijalankan developer atas permintaan manual — bukan sesuatu yang bisa
-// dipicu siapa saja yang menemukan alamat aplikasinya.
+// API pengelolaan keluarga sengaja tidak punya UI. Membuat keluarga baru berarti
+// membuat penyimpanan data terpisah, jadi hanya developer yang melakukannya atas
+// permintaan manual. Migrasi username lama punya halaman terpisah yang dilindungi
+// token admin dan tidak ditautkan dari UI publik.
 //
 // Aksesnya lewat header: Authorization: Bearer <ADMIN_TOKEN>.
-// Tanpa ADMIN_TOKEN di environment, seluruh endpoint di bawah membalas 404 —
+// Tanpa ADMIN_TOKEN di environment, endpoint JSON membalas 404 —
 // bukan 401 — supaya keberadaannya pun tidak ketahuan.
 
 func (a *App) requireAdmin(next http.HandlerFunc) http.Handler {
@@ -36,6 +36,56 @@ func (a *App) requireAdmin(next http.HandlerFunc) http.Handler {
 			return
 		}
 		next(w, r)
+	})
+}
+
+// requireAdminPage protects the unlinked account-migration screen with the
+// existing admin token. Basic auth lets an administrator open its URL directly.
+func (a *App) requireAdminPage(next http.HandlerFunc) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if a.admin == "" {
+			a.notFound(w)
+			return
+		}
+		user, token, ok := r.BasicAuth()
+		if !ok || user != "admin" || subtle.ConstantTimeCompare([]byte(token), []byte(a.admin)) != 1 {
+			w.Header().Set("WWW-Authenticate", `Basic realm="Rukun admin", charset="UTF-8"`)
+			http.Error(w, "Akses admin diperlukan.", http.StatusUnauthorized)
+			return
+		}
+		next(w, r)
+	})
+}
+
+func (a *App) adminLegacyAccounts(w http.ResponseWriter, r *http.Request) {
+	message := ""
+	if r.Method == http.MethodPost {
+		id, err := strconv.ParseInt(r.FormValue("id"), 10, 64)
+		username := strings.ToLower(strings.TrimSpace(r.FormValue("username")))
+		if err != nil || id < 1 || !usernamePattern.MatchString(username) {
+			message = "ID atau nama akun tidak valid."
+			w.WriteHeader(http.StatusUnprocessableEntity)
+		} else {
+			updated, err := a.store.AdminSetLegacyUsername(r.Context(), id, username)
+			if err != nil {
+				message = "Nama akun sudah dipakai atau perubahan gagal."
+				w.WriteHeader(http.StatusConflict)
+			} else if !updated {
+				message = "Akun itu sudah dimigrasikan atau tidak ditemukan."
+				w.WriteHeader(http.StatusConflict)
+			} else {
+				http.Redirect(w, r, "/admin/migrasi-akun-lama", http.StatusSeeOther)
+				return
+			}
+		}
+	}
+	accounts, err := a.store.LegacyAccounts(r.Context())
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	a.render(w, r, "admin_migrasi.html", map[string]any{
+		"Title": "Migrasi akun lama", "NoChrome": true, "Accounts": accounts, "Error": message,
 	})
 }
 

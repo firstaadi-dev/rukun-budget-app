@@ -16,10 +16,9 @@ import (
 
 const (
 	sessionCookie       = "rukun_session"
-	familyCookie        = "rukun_keluarga" // hanya untuk mengisi ulang form login akun lama
+	familyCookie        = "rukun_keluarga" // cookie lama; dibersihkan saat halaman autentikasi dibuka
 	pendingInviteCookie = "rukun_pending_invite"
 	sessionTTL          = 30 * 24 * time.Hour
-	familyTTL           = 365 * 24 * time.Hour
 )
 
 var usernamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{2,39}$`)
@@ -79,6 +78,10 @@ func userFrom(ctx context.Context) User {
 
 func (a *App) requireUser(next http.HandlerFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		loginDest := "/masuk"
+		if r.URL.Path == "/mulai" && strings.TrimSpace(r.URL.Query().Get("kode")) != "" {
+			loginDest = "/daftar"
+		}
 		rememberInvite := func() {
 			if r.URL.Path != "/mulai" {
 				return
@@ -90,14 +93,14 @@ func (a *App) requireUser(next http.HandlerFunc) http.Handler {
 		c, err := r.Cookie(sessionCookie)
 		if err != nil {
 			rememberInvite()
-			http.Redirect(w, r, "/masuk", http.StatusSeeOther)
+			http.Redirect(w, r, loginDest, http.StatusSeeOther)
 			return
 		}
 		u, err := a.store.SessionUser(r.Context(), c.Value)
 		if err != nil {
 			rememberInvite()
 			a.clearCookie(w, r, sessionCookie)
-			http.Redirect(w, r, "/masuk", http.StatusSeeOther)
+			http.Redirect(w, r, loginDest, http.StatusSeeOther)
 			return
 		}
 		if u.FamilyID == 0 {
@@ -153,10 +156,8 @@ func (a *App) loginForm(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	username := strings.TrimSpace(r.FormValue("username"))
-	name := strings.TrimSpace(r.FormValue("nama")) // akun lama: nama + kode keluarga
-	code := strings.TrimSpace(r.FormValue("kode"))
-	form := map[string]string{"Username": username, "Nama": name, "Kode": code}
-	if len(username) > 40 || len(name) > 128 || len(code) > 128 {
+	form := map[string]string{"Username": username}
+	if len(username) > 40 {
 		http.Error(w, "Isian masuk terlalu panjang.", http.StatusBadRequest)
 		return
 	}
@@ -164,33 +165,20 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		ip = r.RemoteAddr
 	}
-	key := ip + "|" + strings.ToLower(username+code+name)
+	key := ip + "|" + strings.ToLower(username)
 	if !a.loginAllowed(key) {
 		w.Header().Set("Retry-After", "900")
 		http.Error(w, "Terlalu banyak percobaan masuk. Coba lagi dalam 15 menit.", http.StatusTooManyRequests)
 		return
 	}
 
-	// Satu pesan untuk semua kegagalan. Kode keluarga yang salah tidak boleh
-	// bisa dibedakan dari sandi yang salah, kalau tidak kode keluarga orang
-	// lain bisa ditebak satu per satu lewat halaman login lama.
+	// Satu pesan untuk semua kegagalan agar akun tidak bisa ditebak.
 	fail := func() {
 		a.loginFailed(key)
 		a.renderAuth(w, r, "masuk.html", form, "Akun atau kata sandi salah.")
 	}
 
-	var u User
-	var hash string
-	if code != "" && name != "" {
-		f, err := a.store.FamilyByCode(r.Context(), code)
-		if err != nil {
-			fail()
-			return
-		}
-		u, hash, err = a.store.UserByName(r.Context(), f.ID, name)
-	} else {
-		u, hash, err = a.store.UserByUsername(r.Context(), username)
-	}
+	u, hash, err := a.store.UserByUsername(r.Context(), username)
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(hash), []byte(r.FormValue("sandi"))) != nil {
 		fail()
 		return
@@ -205,9 +193,6 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.loginSucceeded(key)
-	if code != "" {
-		a.setCookie(w, r, familyCookie, code, familyTTL)
-	}
 	dest := "/"
 	if u.FamilyID == 0 {
 		dest = "/mulai"
@@ -279,12 +264,12 @@ func (a *App) logout(w http.ResponseWriter, r *http.Request) {
 			log.Printf("hapus sesi: %v", err)
 		}
 	}
-	// Cookie login lama dibiarkan agar kode tidak perlu diketik ulang.
 	a.clearCookie(w, r, sessionCookie)
 	http.Redirect(w, r, "/masuk", http.StatusSeeOther)
 }
 
 func (a *App) renderAuth(w http.ResponseWriter, r *http.Request, page string, form map[string]string, errMsg string) {
+	a.clearCookie(w, r, familyCookie)
 	if c, err := r.Cookie(sessionCookie); err == nil {
 		if u, err := a.store.SessionUser(r.Context(), c.Value); err == nil {
 			dest := "/"
@@ -297,11 +282,6 @@ func (a *App) renderAuth(w http.ResponseWriter, r *http.Request, page string, fo
 	}
 	if form == nil {
 		form = map[string]string{}
-	}
-	if form["Kode"] == "" {
-		if c, err := r.Cookie(familyCookie); err == nil {
-			form["Kode"] = c.Value
-		}
 	}
 	if errMsg != "" {
 		w.WriteHeader(http.StatusUnauthorized)

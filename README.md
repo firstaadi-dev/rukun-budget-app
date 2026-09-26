@@ -165,6 +165,8 @@ error dan tidak membuat test lain merah — jadi harus dicari dengan sengaja.
 Pengguna membuat akun di `/daftar`, lalu memilih **Buat keluarga** di `/mulai`.
 Akun hanya bisa terhubung ke satu keluarga. Pembuat keluarga menjadi kepala keluarga;
 kode untuk mengundang anggota terlihat di halaman **Akun** dan bisa diganti dari sana.
+Tautan undangan yang dibuka tanpa login langsung menuju `/daftar`; kodenya disimpan
+sementara sampai akun selesai dibuat dan bergabung.
 
 API admin lama masih tersedia untuk membuat keluarga secara manual:
 
@@ -178,8 +180,10 @@ curl -X POST https://rukun.example.com/admin/keluarga \
 ```
 
 Balasannya memuat `kepala.username` untuk login serta `kode_daftar` untuk mengundang
-anggota. Kepala keluarga lama juga bisa masuk dengan nama dan kode melalui opsi
-**Akun lama** di halaman login, lalu melihat nama akunnya di halaman Akun.
+anggota. Akun lama dimigrasikan admin lewat halaman khusus yang tidak ditautkan dari
+login publik: buka `/admin/migrasi-akun-lama`, lalu masukkan `admin` dan `ADMIN_TOKEN`
+saat browser meminta autentikasi. Ganti username sementara `rukun:<id>` dengan nama akun
+yang akan dipakai anggota. Kata sandi lama dan tautan keluarganya tetap dipertahankan.
 
 Melihat semua keluarga beserta kodenya:
 
@@ -215,8 +219,8 @@ data keluarga bagi pemilik akun baru, perlakukan sebagai rahasia:
   anggota yang sudah bergabung tetap bisa masuk dengan nama akun.
 
 Untuk akun yang sudah ada sebelum perubahan ini, nama akun awal berbentuk `rukun:<id>`.
-Masuk sekali lewat opsi Akun lama memakai nama, kode keluarga, dan kata sandi; lalu ubah
-nama akun di halaman Akun. Kode lama tetap bisa dipakai untuk login sebagai jalur migrasi.
+Admin menggantinya dari `/admin/migrasi-akun-lama`; anggota lalu masuk dengan username
+yang ditetapkan dan kata sandi lamanya. Tautan keluarga serta kata sandi tidak berubah.
 
 ## Anggaran, laporan, dan ekspor
 

@@ -796,6 +796,12 @@ type User struct {
 	Disabled bool
 }
 
+type LegacyAccount struct {
+	ID         int64
+	Name       string
+	FamilyName string
+}
+
 // Member: satu anggota beserta jejaknya, untuk halaman pengaturan.
 type Member struct {
 	User
@@ -894,6 +900,34 @@ func (s *Store) SetUsername(ctx context.Context, userID int64, username string) 
 	return err
 }
 
+func (s *Store) LegacyAccounts(ctx context.Context) ([]LegacyAccount, error) {
+	rows, err := s.db.Query(ctx, `
+		SELECT u.id, u.name, COALESCE(f.name, '')
+		FROM users u LEFT JOIN families f ON f.id = u.family_id
+		WHERE u.username = 'rukun:' || u.id::text
+		ORDER BY u.id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var accounts []LegacyAccount
+	for rows.Next() {
+		var account LegacyAccount
+		if err := rows.Scan(&account.ID, &account.Name, &account.FamilyName); err != nil {
+			return nil, err
+		}
+		accounts = append(accounts, account)
+	}
+	return accounts, rows.Err()
+}
+
+func (s *Store) AdminSetLegacyUsername(ctx context.Context, userID int64, username string) (bool, error) {
+	tag, err := s.db.Exec(ctx, `
+		UPDATE users SET username = $1
+		WHERE id = $2 AND username = 'rukun:' || id::text`, username, userID)
+	return tag.RowsAffected() == 1, err
+}
+
 func (s *Store) JoinFamily(ctx context.Context, userID int64, code, name string) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -963,23 +997,6 @@ func (s *Store) UserByUsername(ctx context.Context, username string) (User, stri
 	return u, hash, err
 }
 
-// UserByName mencari anggota di dalam satu keluarga. Nama hanya unik per
-// keluarga, jadi pencarian tanpa familyID akan mencocokkan orang yang salah.
-func (s *Store) UserByName(ctx context.Context, familyID int64, name string) (User, string, error) {
-	var u User
-	var hash string
-	err := s.db.QueryRow(ctx, `
-		SELECT u.id, u.name, u.username, u.family_id, f.name, u.password_hash,
-		       u.disabled_at IS NOT NULL, `+kepalaKeluarga+`
-		FROM users u JOIN families f ON f.id = u.family_id
-		WHERE u.family_id = $1 AND lower(u.name) = lower($2)`, familyID, name).
-		Scan(&u.ID, &u.Name, &u.Username, &u.FamilyID, &u.FamilyName, &hash, &u.Disabled, &u.Kepala)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return User{}, "", ErrNotFound
-	}
-	return u, hash, err
-}
-
 func (s *Store) UserCount(ctx context.Context, familyID int64) (int, error) {
 	var n int
 	err := s.db.QueryRow(ctx, `SELECT count(*) FROM users WHERE family_id = $1`, familyID).Scan(&n)
@@ -1039,7 +1056,7 @@ type Family struct {
 	CreatedAt           time.Time
 }
 
-// FamilyByCode dipakai saat bergabung dan untuk login akun lama.
+// FamilyByCode memvalidasi kode undangan saat akun bergabung.
 func (s *Store) FamilyByCode(ctx context.Context, code string) (Family, error) {
 	var f Family
 	err := s.db.QueryRow(ctx,
