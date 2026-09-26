@@ -313,14 +313,24 @@ func sameOrigin(r *http.Request) bool {
 		raw = r.Referer()
 	}
 	u, err := url.Parse(raw)
-	if err != nil || u.Host != r.Host {
+	if err != nil {
 		return false
 	}
-	scheme := "http"
-	if https(r) {
-		scheme = "https"
+	host := r.Host
+	// Render's proxy preserves the browser's host in X-Forwarded-Host. Use
+	// its first value when present; r.Host can otherwise be the internal
+	// service address during a TLS-terminating proxy hop.
+	if forwardedHost := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-Host"), ",")[0]); forwardedHost != "" {
+		host = forwardedHost
 	}
-	return u.Scheme == scheme
+	scheme := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-Proto"), ",")[0])
+	if scheme == "" {
+		scheme = "http"
+		if r.TLS != nil {
+			scheme = "https"
+		}
+	}
+	return u.Host == host && u.Scheme == scheme
 }
 
 // assetVersion meringkas seluruh isi aset statis jadi satu penanda pendek.
