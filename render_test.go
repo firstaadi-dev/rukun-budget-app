@@ -329,10 +329,11 @@ func TestPagesRender(t *testing.T) {
 		}, "Cabut akses"},
 
 		{"masuk.html", map[string]any{"NoChrome": true,
-			"Form": map[string]string{"Kode": "abcde-fghij-klmno"}}, "Kode Keluarga"},
+			"Form": map[string]string{"Username": "ayah"}}, "Nama akun"},
 		{"daftar.html", map[string]any{"NoChrome": true,
-			"Form":  map[string]string{"Nama": "Ayah", "Kode": "abcde-fghij-klmno"},
-			"Error": "Kode undangan tidak cocok dengan keluarga mana pun."}, "Kode Undangan"},
+			"Form": map[string]string{"Nama": "Ayah", "Username": "ayah"}}, "Nama Akun"},
+		{"mulai.html", map[string]any{"NoChrome": true, "Kode": "abcde-fghij-klmno",
+			"User": User{Name: "Ayah"}}, "Gabung keluarga"},
 	}
 
 	for _, c := range cases {

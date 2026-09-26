@@ -12,12 +12,41 @@
     <div class="card-kicker">Masuk sebagai</div>
     <div class="mid-figure">{{.User.Name}}</div>
     <div class="card-body small text-muted">
-      {{.Family}}{{if .User.Kepala}} · kepala keluarga{{end}}
+      @{{.User.Username}} · {{.Family}}{{if .User.Kepala}} · kepala keluarga{{end}}
     </div>
     <form method="post" action="/keluar">
       <button type="submit" class="btn btn-secondary btn-block">Keluar</button>
     </form>
   </section>
+
+  <section>
+    <div class="sec-head"><h6>Nama Akun</h6></div>
+    <form method="post" action="/pengaturan/username" class="stack-sm">
+      <label for="username">Dipakai untuk masuk tanpa kode keluarga</label>
+      <input class="input" id="username" name="username" required minlength="3" maxlength="40"
+             pattern="[a-z0-9][a-z0-9._-]{2,39}" value="{{.User.Username}}" autocomplete="username">
+      <p class="hint">Akun lama memakai nama awal rukun:id. Ganti dengan nama akun yang mudah diingat.</p>
+      <label for="username-sandi">Kata sandi sekarang</label>
+      <input class="input" id="username-sandi" name="sandi" type="password" required autocomplete="current-password">
+      <button type="submit" class="btn btn-secondary">Simpan nama akun</button>
+    </form>
+  </section>
+
+  {{if .User.Kepala}}
+  <section class="card elev-sm stack-sm">
+    <h6>Undang anggota keluarga</h6>
+    <p class="hint">Bagikan kode ini secara pribadi. Pemilik akun yang belum punya keluarga bisa memasukkannya di halaman Mulai.</p>
+    <p class="small{{if .InviteExpired}} m-out{{else}} text-muted{{end}}">{{if .InviteExpired}}Kode sudah kedaluwarsa. Buat kode baru untuk mengundang anggota.{{else}}Berlaku sampai {{.InviteExpires}}.{{end}}</p>
+    <div class="mid-figure">{{.InviteCode}}</div>
+    <label for="tautan-undangan">Tautan undangan</label>
+    <input class="input" id="tautan-undangan" readonly value="{{.InviteURL}}" onclick="this.select()">
+    <form method="post" action="/pengaturan/kode" onsubmit="return confirm('Ganti kode keluarga? Tautan lama tidak bisa dipakai lagi.')">
+      <label for="kode-sandi">Kata sandi sekarang</label>
+      <input class="input" id="kode-sandi" name="sandi" type="password" required autocomplete="current-password">
+      <button type="submit" class="btn btn-secondary">Buat kode baru</button>
+    </form>
+  </section>
+  {{end}}
 
   <section>
     <div class="sec-head"><h6>Ganti Kata Sandi</h6></div>

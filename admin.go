@@ -63,19 +63,21 @@ func newSignupCode() string {
 }
 
 type familyJSON struct {
-	ID         int64  `json:"id"`
-	Nama       string `json:"nama"`
-	KodeDaftar string `json:"kode_daftar"`
-	Anggota    int    `json:"anggota,omitempty"`
-	Dompet     int    `json:"dompet,omitempty"`
-	Transaksi  int    `json:"transaksi,omitempty"`
-	DibuatPada string `json:"dibuat_pada,omitempty"`
+	ID                int64  `json:"id"`
+	Nama              string `json:"nama"`
+	KodeDaftar        string `json:"kode_daftar"`
+	KodeBerlakuSampai string `json:"kode_berlaku_sampai"`
+	Anggota           int    `json:"anggota,omitempty"`
+	Dompet            int    `json:"dompet,omitempty"`
+	Transaksi         int    `json:"transaksi,omitempty"`
+	DibuatPada        string `json:"dibuat_pada,omitempty"`
 }
 
 func (a *App) toFamilyJSON(f Family) familyJSON {
 	out := familyJSON{
 		ID: f.ID, Nama: f.Name, KodeDaftar: f.SignupCode,
-		Anggota: f.Members, Dompet: f.Wallets, Transaksi: f.Txs,
+		KodeBerlakuSampai: f.SignupCodeExpiresAt.Format("2006-01-02 15:04 MST"),
+		Anggota:           f.Members, Dompet: f.Wallets, Transaksi: f.Txs,
 	}
 	if !f.CreatedAt.IsZero() {
 		out.DibuatPada = f.CreatedAt.In(a.loc).Format("2006-01-02 15:04")
@@ -103,7 +105,7 @@ type createFamilyRequest struct {
 		Nama  string `json:"nama"`
 		Sandi string `json:"sandi"`
 	} `json:"kepala"`
-	KodeDaftar string `json:"kode_daftar"` // opsional, dibuat otomatis kalau kosong
+	KodeDaftar string `json:"kode_daftar"` // ditolak bila diisi; kode harus acak
 }
 
 // POST /admin/keluarga
@@ -129,9 +131,11 @@ func (a *App) adminCreateFamily(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "kata sandi kepala keluarga minimal 8 karakter"})
 		return
 	}
-	if req.KodeDaftar == "" {
-		req.KodeDaftar = newSignupCode()
+	if req.KodeDaftar != "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "kode daftar dibuat otomatis; jangan isi kode_daftar"})
+		return
 	}
+	req.KodeDaftar = newSignupCode()
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Kepala.Sandi), bcrypt.DefaultCost)
 	if err != nil {
@@ -154,8 +158,8 @@ func (a *App) adminCreateFamily(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"keluarga": a.toFamilyJSON(f),
-		"kepala":   map[string]string{"nama": req.Kepala.Nama},
-		"catatan":  "Bagikan kode_daftar ke anggota keluarga untuk mendaftar di /daftar.",
+		"kepala":   map[string]string{"nama": req.Kepala.Nama, "username": f.HeadUsername},
+		"catatan":  "Anggota membuat akun di /daftar lalu bergabung dengan kode_daftar di /mulai.",
 	})
 }
 

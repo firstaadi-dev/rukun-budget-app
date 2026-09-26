@@ -95,6 +95,10 @@ func TestMetodeStoreDataMenerimaFamilyID(t *testing.T) {
 	dikecualikan := map[string]bool{
 		"CreateSession": true, "SessionUser": true, "DeleteSession": true, "PurgeSessions": true,
 		"FamilyByCode": true, "Families": true, "CreateFamily": true, "UpdateFamily": true,
+		// Akun mandiri belum punya familyID. Pengaitan keluarga hanya boleh
+		// melalui CreateFamilyForUser/JoinFamily saat family_id masih NULL.
+		"CreateUser": true, "SetUsername": true, "UserByUsername": true,
+		"JoinFamily": true, "CreateFamilyForUser": true,
 
 		// Harga pasar, bukan catatan keluarga. Harga SPUS sama untuk siapa pun
 		// yang memegangnya, tidak ada satu pun angka milik keluarga di tabel

@@ -29,9 +29,8 @@ cp .env.example .env && set -a && . ./.env && set +a && go run .
 Pakai `set -a` + `source`, bukan `export $(... | xargs)`: nilai yang mengandung spasi
 akan terpotong oleh cara yang kedua.
 
-Migrasi berjalan otomatis saat start. Database yang masih kosong akan berisi satu
-keluarga bernama "Keluarga" dengan kode daftar acak; lihat kodenya lewat API admin di
-bawah, lalu daftar di http://localhost:8080/daftar dengan kode itu.
+Migrasi berjalan otomatis saat start. Buka http://localhost:8080/daftar untuk membuat
+akun, lalu buat keluarga baru atau gabung dengan kode keluarga di halaman Mulai.
 
 Jalankan test (tidak butuh database):
 
@@ -144,7 +143,7 @@ Aplikasi ini butuh koneksi; itu keputusan sadar, bukan kekurangan yang belum dig
 Setiap keluarga punya data sendiri yang tidak terlihat oleh keluarga lain. Pemisahannya
 dijaga di dua lapis, bukan satu:
 
-**Lapis aplikasi.** Setiap metode `Store` yang menyentuh data keluarga menerima
+**Lapis aplikasi.** Setiap metode `Store` yang menyentuh data keuangan keluarga menerima
 `familyID` sebagai argumen, dan tidak ada varian tanpa batas yang bisa dipanggil. Nilai
 itu selalu berasal dari sesi login, tidak pernah dari parameter URL atau isian form.
 Penyaring `family_id` juga sudah menempel di dalam potongan query `walletSelect` dan
@@ -157,14 +156,17 @@ kalau dompetnya milik keluarga lain, berapa pun cerobohnya kode di atasnya.
 
 `tenant_test.go` menjaga lapis pertama secara mekanis: ia membaca `store.go` dan gagal
 kalau ada query yang menyentuh tabel data tanpa menyebut `family_id`, atau ada metode
-`Store` baru yang tidak menerima `familyID`. Kesalahan semacam itu tidak menimbulkan
+`Store` data keuangan baru yang tidak menerima `familyID`. Metode akun mandiri dan
+pengaitan keluarga dikecualikan karena akun baru belum punya keluarga. Kesalahan semacam itu tidak menimbulkan
 error dan tidak membuat test lain merah — jadi harus dicari dengan sengaja.
 
 ### Membuat keluarga baru
 
-Tidak ada UI untuk ini. Keluarga baru berarti ruang data terpisah untuk orang lain, dan
-itu dijalankan developer atas permintaan manual — bukan sesuatu yang bisa dipicu siapa
-saja yang menemukan alamat aplikasinya.
+Pengguna membuat akun di `/daftar`, lalu memilih **Buat keluarga** di `/mulai`.
+Akun hanya bisa terhubung ke satu keluarga. Pembuat keluarga menjadi kepala keluarga;
+kode untuk mengundang anggota terlihat di halaman **Akun** dan bisa diganti dari sana.
+
+API admin lama masih tersedia untuk membuat keluarga secara manual:
 
 Isi `ADMIN_TOKEN` di environment, lalu:
 
@@ -175,8 +177,9 @@ curl -X POST https://rukun.example.com/admin/keluarga \
   -d '{"nama":"Keluarga Santoso","kepala":{"nama":"Ayah","sandi":"minimal-8-karakter"}}'
 ```
 
-Balasannya memuat `kode_daftar`. Bagikan kode itu ke keluarga tersebut: kepala keluarga
-memakainya untuk login, anggota lain memakainya untuk mendaftar di `/daftar`.
+Balasannya memuat `kepala.username` untuk login serta `kode_daftar` untuk mengundang
+anggota. Kepala keluarga lama juga bisa masuk dengan nama dan kode melalui opsi
+**Akun lama** di halaman login, lalu melihat nama akunnya di halaman Akun.
 
 Melihat semua keluarga beserta kodenya:
 
@@ -196,30 +199,44 @@ curl -X PATCH https://rukun.example.com/admin/keluarga/2 \
 Tanpa `ADMIN_TOKEN`, seluruh endpoint di atas membalas 404 — bukan 401 — supaya
 keberadaannya pun tidak ketahuan.
 
-### Kode keluarga dipakai saat login
+### Login dan kode keluarga
 
-Nama anggota hanya unik di dalam keluarganya, karena hampir setiap keluarga punya
-"Ayah". Karena itu form login meminta kode keluarga untuk menentukan yang mana. Kodenya
-disimpan di cookie setahun, jadi cukup diketik sekali per perangkat.
+Login biasa hanya memakai **nama akun** yang unik dan kata sandi. Nama tampilan anggota
+tetap boleh sama di keluarga yang berbeda. Akun baru tanpa keluarga memilih untuk
+membuat keluarga atau bergabung di `/mulai`.
 
-Kode itu bukan kredensial: ia menentukan keluarga, bukan memberi akses. Yang menjaga
-akses tetap kata sandi. Tapi kode itu juga yang dipakai mendaftar, jadi tetap
-diperlakukan sebagai rahasia keluarga:
+Kode keluarga dipakai untuk bergabung dan berlaku tujuh hari. Kepala keluarga bisa
+membagikan kode atau tautan dari halaman Akun dan membuat kode baru sewaktu-waktu.
+Karena kode membuka akses ke
+data keluarga bagi pemilik akun baru, perlakukan sebagai rahasia:
 
 - **Bagikan lewat jalur pribadi**, jangan ditulis di grup.
-- **Putar kodenya setelah semua anggota terdaftar**, lewat `putar_kode` di atas. Bagikan
-  ulang kode barunya karena login juga memakainya.
+- **Putar kode bila tautan terlanjur tersebar.** Kode lama langsung tidak berlaku;
+  anggota yang sudah bergabung tetap bisa masuk dengan nama akun.
 
-Setiap pendaftaran baru dicatat di log (`anggota baru terdaftar: ... di keluarga ...`).
-Kalau muncul nama yang tidak dikenal, kode keluarga itu sudah bocor.
+Untuk akun yang sudah ada sebelum perubahan ini, nama akun awal berbentuk `rukun:<id>`.
+Masuk sekali lewat opsi Akun lama memakai nama, kode keluarga, dan kata sandi; lalu ubah
+nama akun di halaman Akun. Kode lama tetap bisa dipakai untuk login sebagai jalur migrasi.
+
+## Anggaran, laporan, dan ekspor
+
+Di **Kategori**, setiap kategori pengeluaran dapat diberi jatah bulanan dalam
+`BASE_CURRENCY`. Dashboard menampilkan terpakai dan sisa jatah bulan kalender berjalan.
+Jika `BASE_CURRENCY` diubah, isi ulang jatah agar angka lama tidak dibaca sebagai
+mata uang baru.
+**Laporan** menampilkan pemasukan, pengeluaran, selisih, serta rincian kategori per bulan;
+penyesuaian saldo tidak masuk hitungan. Mata uang yang belum punya kurs disebutkan dan
+tidak ikut total.
+
+Tombol **Unduh CSV** di daftar transaksi mengikuti jenis, kategori, dompet, periode,
+rentang, dan pencarian yang sedang aktif, meliputi semua halaman hasil. CSV memakai
+UTF-8 dan pemisah titik koma agar mudah dibuka di spreadsheet berlokal Indonesia.
 
 ## Akun dan anggota
 
-Halaman **Akun** (`/pengaturan`) mengurus dua hal yang sebelumnya tidak punya jalan sama
-sekali dari dalam aplikasi: mengganti kata sandi sendiri, dan mencabut akses anggota yang
-sudah tidak lagi bagian dari keluarga. Sebelum ini sandi yang bocor hanya bisa diganti
-lewat akses langsung ke database, dan memutar kode undangan cuma menutup pendaftaran baru
-— sesi yang sudah berjalan tetap hidup tiga puluh hari penuh.
+Halaman **Akun** (`/pengaturan`) menampilkan nama akun dan undangan, serta memungkinkan
+penggantian kata sandi, nama akun, dan kode keluarga. Kepala keluarga juga dapat mencabut
+akses anggota yang sudah tidak lagi bagian dari keluarga.
 
 Halaman ini juga satu-satunya jalan menuju **Keluar** di ponsel. Sidebar yang memuat
 tombol itu baru muncul mulai lebar 900px, jadi selama ini pengguna ponsel tidak punya
@@ -242,8 +259,8 @@ Penyaring itu ada di satu tempat saja, dan hilangnya tidak menimbulkan error apa
 anggota yang sudah dicabut cuma diam-diam tetap bisa masuk. `anggota_test.go` menjaganya
 secara mekanis, sama seperti `tenant_test.go` menjaga penyaring `family_id`.
 
-**Yang boleh mencabut hanya kepala keluarga**, yaitu anggota pertama — yang dibuat
-bersama keluarganya lewat API admin. Perannya diturunkan dari urutan pendaftaran, bukan
+**Yang boleh mencabut hanya kepala keluarga**, yaitu anggota pertama — yang membuat
+keluarga atau dibuat bersama keluarganya lewat API admin. Perannya diturunkan dari urutan pendaftaran, bukan
 disimpan sebagai kolom sendiri, jadi tidak ada keluarga yang bisa kehilangan kepalanya
 karena satu baris data salah ubah. Kepala keluarga sendiri tidak bisa dinonaktifkan oleh
 siapa pun, dan itu dijaga di query `SetMemberActive`, bukan cuma di handler: keluarga yang
@@ -632,14 +649,15 @@ auth.go        sesi cookie, bcrypt, login dan pendaftaran per keluarga
 kartu.go       siklus tagihan kartu kredit: tanggal cetak, jatuh tempo, tagihan
 hutang.go      handler hutang piutang dan pembayaran per pihak
 anggota.go     halaman akun: ganti sandi, dan pencabutan akses anggota
+keluarga.go    buat/gabung keluarga dari akun mandiri
+laporan.go     laporan bulanan dan ekspor transaksi CSV
 templates/     layout + satu berkas per halaman
 static/        CSS design system Classical, app.css, app.js, ikon, manifest
 ```
 
 ## Yang sengaja belum ada
 
-Realtime sync, mode offline, laporan dan grafik lintas bulan, ekspor, anggaran per
-kategori, cicilan berjadwal, dan bunga kartu kredit. Semuanya ditambahkan kalau memang
+Realtime sync, mode offline, grafik lintas bulan, cicilan berjadwal, dan bunga kartu kredit. Semuanya ditambahkan kalau memang
 terasa kurang setelah dipakai, bukan sebelumnya.
 
 Dividen dan pemecahan saham belum ada: keduanya mengubah kuantitas atau modal

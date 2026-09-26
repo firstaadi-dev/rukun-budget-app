@@ -90,6 +90,11 @@ func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
+	cats, err := a.store.Categories(ctx, family(r), "expense")
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
 
 	cards, err := a.cardStatuses(ctx, family(r), wallets)
 	if err != nil {
@@ -107,6 +112,7 @@ func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
 		"Wallets":   viewWallets(wallets),
 		"Recent":    viewTxs(txs, a.today()),
 		"Breakdown": breakdown(spend, rates, a.base, namaBulan(awal)),
+		"Budgets":   budgetRows(cats, spend, rates, a.base),
 	})
 }
 
@@ -611,6 +617,7 @@ func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 		last := txs[len(txs)-1]
 		nextPage = txURL(q, "cursor", last.Date.Format(formatTanggal)+":"+strconv.FormatInt(last.ID, 10))
 	}
+	q.Del("cursor")
 
 	cats, err := a.store.Categories(ctx, family(r), "")
 	if err != nil {
@@ -635,7 +642,8 @@ func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 		"URLTanpaCari":     txURL(q, "cari", ""),
 		"URLTanpaKategori": txURL(q, "kategori", ""),
 		"Terpotong":        terpotong, "Batas": txListLimit, "NextPage": nextPage,
-		"Groups": groupTxs(viewTxs(txs, a.today())),
+		"ExportQuery": q.Encode(),
+		"Groups":      groupTxs(viewTxs(txs, a.today())),
 	})
 }
 
@@ -1247,6 +1255,7 @@ func (a *App) renderCategories(w http.ResponseWriter, r *http.Request, errMsg st
 		if c.Kind == "income" {
 			income = append(income, c)
 		} else {
+			c.BudgetText = FormatPlain(c.BudgetMinor, a.base)
 			expense = append(expense, c)
 		}
 	}
@@ -1255,8 +1264,29 @@ func (a *App) renderCategories(w http.ResponseWriter, r *http.Request, errMsg st
 	}
 	a.render(w, r, "kategori.html", map[string]any{
 		"Title": "Kategori", "Nav": "kategori",
-		"Expense": expense, "Income": income, "Error": errMsg,
+		"Expense": expense, "Income": income, "Error": errMsg, "Base": a.base,
 	})
+}
+
+func (a *App) categoryBudget(w http.ResponseWriter, r *http.Request) {
+	value := strings.TrimSpace(r.FormValue("anggaran"))
+	var amount int64
+	if value != "" {
+		var err error
+		amount, err = ParseAmount(value, a.base)
+		if err != nil || amount < 0 {
+			a.renderCategories(w, r, "Anggaran harus nominal positif atau kosong untuk menghapus.", http.StatusUnprocessableEntity)
+			return
+		}
+	}
+	if err := a.store.SetCategoryBudget(r.Context(), family(r), pathID(r), amount); errors.Is(err, ErrNotFound) {
+		a.notFound(w)
+		return
+	} else if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/kategori", http.StatusSeeOther)
 }
 
 func (a *App) categoryForm(w http.ResponseWriter, r *http.Request) {

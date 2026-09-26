@@ -397,6 +397,10 @@ a { color: var(--color-accent-700); }
 
 .cat-item { flex-direction: row; align-items: center; gap: 12px; }
 .cat-item form { display: flex; }
+.cat-item { flex-wrap: wrap; }
+.cat-item form[action$="/anggaran"] { flex-basis: 100%; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cat-item form[action$="/anggaran"] .input { width: min(180px, 100%); }
+progress { width: 100%; accent-color: var(--color-accent-700); }
 
 .anggota-item { flex-direction: row; align-items: center; gap: 8px; flex-wrap: wrap; }
 .anggota-item form { display: flex; margin-left: auto; }

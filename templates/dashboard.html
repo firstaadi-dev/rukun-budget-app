@@ -49,6 +49,21 @@
       — kursnya belum diketahui. Catat satu transfer lintas mata uang untuk menetapkannya.</p>
   {{end}}
 
+  {{with .Budgets}}
+  <section>
+    <div class="sec-head"><h6>Anggaran bulan ini</h6><a href="/kategori" class="small">Atur jatah</a></div>
+    <div class="stack-sm">
+      {{range .}}
+      <div class="card elev-sm stack-sm">
+        <div><strong>{{.Name}}</strong> · {{.Used}} dari {{.Limit}}</div>
+        <progress value="{{.Percent}}" max="100" aria-label="Anggaran {{.Name}} terpakai {{.Percent}} persen"></progress>
+        <div class="small{{if .Over}} m-out{{else}} text-muted{{end}}">{{if .Over}}Lewat {{.OverAmount}}{{else}}Sisa {{.Remaining}}{{end}}</div>
+      </div>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+
   {{if .Cards}}
     <section>
       <div class="sec-head">
@@ -70,7 +85,7 @@
       <section>
         <div class="sec-head">
           <h6>Per Kategori</h6>
-          <span class="text-muted small">{{.Periode}}</span>
+          <a href="/laporan" class="small">Laporan {{.Periode}}</a>
         </div>
         <div class="cat-cols">
           {{template "cat-breakdown" dict "Judul" "Pengeluaran" "Tone" "out" "Jenis" "expense" "Rows" .Expense "Total" .TotalOut}}

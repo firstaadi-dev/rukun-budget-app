@@ -27,6 +27,7 @@
         <a href="/" class="{{if eq .Nav "dashboard"}}on{{end}}">{{template "icon-home"}}Dashboard</a>
         <a href="/dompet" class="{{if eq .Nav "dompet"}}on{{end}}">{{template "icon-wallet"}}Dompet</a>
         <a href="/transaksi" class="{{if eq .Nav "transaksi"}}on{{end}}">{{template "icon-list"}}Transaksi</a>
+        <a href="/laporan" class="{{if eq .Nav "laporan"}}on{{end}}">{{template "icon-chart"}}Laporan</a>
         <a href="/hutang" class="{{if eq .Nav "hutang"}}on{{end}}">{{template "icon-hutang"}}Hutang</a>
         <a href="/investasi" class="{{if eq .Nav "investasi"}}on{{end}}">{{template "icon-invest"}}Investasi</a>
         <a href="/kategori" class="{{if eq .Nav "kategori"}}on{{end}}">{{template "icon-tag"}}Kategori</a>
@@ -56,7 +57,7 @@
       <a href="/transaksi" class="{{if eq .Nav "transaksi"}}on{{end}}">{{template "icon-list"}}<span>Transaksi</span></a>
       <a href="/hutang" class="{{if eq .Nav "hutang"}}on{{end}}">{{template "icon-hutang"}}<span>Hutang</span></a>
       <a href="/investasi" class="{{if eq .Nav "investasi"}}on{{end}}">{{template "icon-invest"}}<span>Investasi</span></a>
-      <a href="/kategori" class="{{if eq .Nav "kategori"}}on{{end}}">{{template "icon-tag"}}<span>Kategori</span></a>
+      <a href="/laporan" class="{{if eq .Nav "laporan"}}on{{end}}">{{template "icon-chart"}}<span>Laporan</span></a>
       {{/* Di ponsel sidebar tidak pernah tampil, jadi ini satu-satunya jalan
            menuju akun sendiri — dan satu-satunya jalan keluar dari aplikasi. */}}
       <a href="/pengaturan" class="{{if eq .Nav "akun"}}on{{end}}">{{template "icon-user"}}<span>Akun</span></a>
@@ -71,6 +72,7 @@
 {{define "icon-home"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7"/><path d="M9 22V12h6v10"/></svg>{{end}}
 {{define "icon-wallet"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>{{end}}
 {{define "icon-list"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>{{end}}
+{{define "icon-chart"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20h18"/><path d="M6 16v-5m6 5V4m6 12V8"/></svg>{{end}}
 {{define "icon-back"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>{{end}}
 {{define "icon-plus"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>{{end}}
 {{define "icon-out"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>{{end}}

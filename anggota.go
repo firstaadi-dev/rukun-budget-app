@@ -4,6 +4,8 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strings"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -25,6 +27,8 @@ var pesanSukses = map[string]string{
 	"sandi":    "Kata sandi diganti. Perangkat lain yang masih login diminta masuk ulang.",
 	"nonaktif": "Akses anggota itu dicabut. Catatan yang pernah dibuatnya tetap utuh.",
 	"aktif":    "Akses anggota itu dipulihkan.",
+	"kode":     "Kode undangan baru berlaku tujuh hari. Kode lama tidak bisa dipakai lagi.",
+	"username": "Nama akun diganti.",
 }
 
 func (a *App) settings(w http.ResponseWriter, r *http.Request) {
@@ -37,15 +41,67 @@ func (a *App) renderSettings(w http.ResponseWriter, r *http.Request, errMsg stri
 		a.fail(w, r, err)
 		return
 	}
+	f, err := a.store.FamilyByID(r.Context(), family(r))
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
 	if status != http.StatusOK {
 		w.WriteHeader(status)
 	}
 	a.render(w, r, "pengaturan.html", map[string]any{
 		"Title": "Akun", "Nav": "akun",
-		"Members": members,
-		"Sukses":  pesanSukses[r.URL.Query().Get("ok")],
-		"Error":   errMsg,
+		"Members":       members,
+		"InviteCode":    f.SignupCode,
+		"InviteURL":     inviteURL(r, f.SignupCode),
+		"InviteExpires": tanggalPendek(f.SignupCodeExpiresAt.In(a.loc)),
+		"InviteExpired": !f.SignupCodeExpiresAt.After(time.Now()),
+		"Sukses":        pesanSukses[r.URL.Query().Get("ok")],
+		"Error":         errMsg,
 	})
+}
+
+func (a *App) changeUsername(w http.ResponseWriter, r *http.Request) {
+	username := strings.ToLower(strings.TrimSpace(r.FormValue("username")))
+	if !usernamePattern.MatchString(username) {
+		a.renderSettings(w, r, "Nama akun harus 3–40 karakter: huruf kecil, angka, titik, garis bawah, atau tanda hubung.", http.StatusUnprocessableEntity)
+		return
+	}
+	hash, err := a.store.PasswordHash(r.Context(), family(r), userFrom(r.Context()).ID)
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(r.FormValue("sandi"))) != nil {
+		a.renderSettings(w, r, "Kata sandi salah.", http.StatusUnauthorized)
+		return
+	}
+	if err := a.store.SetUsername(r.Context(), userFrom(r.Context()).ID, username); err != nil {
+		a.renderSettings(w, r, "Nama akun sudah dipakai.", http.StatusConflict)
+		return
+	}
+	http.Redirect(w, r, "/pengaturan?ok=username", http.StatusSeeOther)
+}
+
+func (a *App) rotateFamilyCode(w http.ResponseWriter, r *http.Request) {
+	if !userFrom(r.Context()).Kepala {
+		a.renderSettings(w, r, "Hanya kepala keluarga yang bisa mengganti kode.", http.StatusForbidden)
+		return
+	}
+	hash, err := a.store.PasswordHash(r.Context(), family(r), userFrom(r.Context()).ID)
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(r.FormValue("sandi"))) != nil {
+		a.renderSettings(w, r, "Kata sandi salah.", http.StatusUnauthorized)
+		return
+	}
+	if _, err := a.store.UpdateFamily(r.Context(), family(r), "", newSignupCode()); err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/pengaturan?ok=kode", http.StatusSeeOther)
 }
 
 // changePassword mengganti sandi sendiri. Sandi lama tetap diminta meski yang

@@ -5,8 +5,8 @@
     <a href="/kategori/baru" class="btn btn-primary">Tambah{{template "icon-plus"}}</a>
   </div>
 
-  {{template "cat-group" dict "Judul" "Pengeluaran" "Tone" "out" "Jenis" "expense" "Items" .Expense}}
-  {{template "cat-group" dict "Judul" "Pemasukan" "Tone" "in" "Jenis" "income" "Items" .Income}}
+  {{template "cat-group" dict "Judul" "Pengeluaran" "Tone" "out" "Jenis" "expense" "Items" .Expense "Base" .Base}}
+  {{template "cat-group" dict "Judul" "Pemasukan" "Tone" "in" "Jenis" "income" "Items" .Income "Base" .Base}}
 </div>
 {{end}}
 
@@ -26,6 +26,13 @@
               {{if .Usage}}dipakai {{.Usage}} transaksi{{else}}belum dipakai{{end}}
             </span>
           </a>
+          {{if eq .Kind "expense"}}
+            <form method="post" action="/kategori/{{.ID}}/anggaran" class="stack-sm">
+              <label for="anggaran-{{.ID}}" class="small">Anggaran bulanan ({{$.Base}})</label>
+              <input class="input" id="anggaran-{{.ID}}" name="anggaran" inputmode="decimal" value="{{.BudgetText}}" placeholder="0">
+              <button type="submit" class="btn btn-secondary">Simpan</button>
+            </form>
+          {{end}}
           {{if not .Usage}}
             <form method="post" action="/kategori/{{.ID}}/hapus"
                   onsubmit="return confirm('Hapus kategori {{.Name}}?')">

@@ -20,6 +20,7 @@ import (
 	_ "time/tzdata" // Render menjalankan binary di image tanpa tzdata sistem.
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 )
 
 //go:embed templates/*.html
@@ -70,6 +71,9 @@ func env(key, def string) string {
 
 func main() {
 	log.SetFlags(log.Ltime)
+	if err := godotenv.Load(); err != nil && !errors.Is(err, os.ErrNotExist) {
+		log.Fatalf("gagal membaca .env: %v", err)
+	}
 
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -208,6 +212,9 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /daftar", a.registerForm)
 	mux.HandleFunc("POST /daftar", a.register)
 	mux.HandleFunc("POST /keluar", a.logout)
+	mux.Handle("GET /mulai", a.requireUser(a.startForm))
+	mux.Handle("POST /mulai/buat", a.requireUser(a.startCreate))
+	mux.Handle("POST /mulai/gabung", a.requireUser(a.startJoin))
 
 	// API admin sengaja tidak punya UI: pembuatan keluarga dilakukan developer
 	// lewat curl atau Postman, bukan oleh siapa pun yang membuka aplikasi.
@@ -215,9 +222,10 @@ func (a *App) routes() http.Handler {
 	mux.Handle("POST /admin/keluarga", a.requireAdmin(a.adminCreateFamily))
 	mux.Handle("PATCH /admin/keluarga/{id}", a.requireAdmin(a.adminPatchFamily))
 
-	auth := func(pattern string, h http.HandlerFunc) { mux.Handle(pattern, a.requireUser(h)) }
+	auth := func(pattern string, h http.HandlerFunc) { mux.Handle(pattern, a.requireFamily(h)) }
 
 	auth("GET /{$}", a.dashboard)
+	auth("GET /laporan", a.report)
 
 	auth("GET /dompet", a.walletList)
 	auth("GET /dompet/baru", a.walletForm)
@@ -254,6 +262,8 @@ func (a *App) routes() http.Handler {
 
 	auth("GET /pengaturan", a.settings)
 	auth("POST /pengaturan/sandi", a.changePassword)
+	auth("POST /pengaturan/username", a.changeUsername)
+	auth("POST /pengaturan/kode", a.rotateFamilyCode)
 	auth("POST /pengaturan/anggota/{id}/nonaktif", a.memberDisable)
 	auth("POST /pengaturan/anggota/{id}/aktif", a.memberEnable)
 
@@ -263,8 +273,10 @@ func (a *App) routes() http.Handler {
 	auth("GET /kategori/{id}/ubah", a.categoryForm)
 	auth("POST /kategori/{id}/ubah", a.categoryUpdate)
 	auth("POST /kategori/{id}/hapus", a.categoryDelete)
+	auth("POST /kategori/{id}/anggaran", a.categoryBudget)
 
 	auth("GET /transaksi", a.txList)
+	auth("GET /transaksi/ekspor", a.txExport)
 	auth("GET /transaksi/baru", a.txForm)
 	auth("POST /transaksi/baru", a.txCreate)
 	auth("GET /transaksi/{id}", a.txDetail)

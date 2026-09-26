@@ -1,0 +1,34 @@
+{{define "content"}}
+<div class="stack-lg">
+  <div class="page-head"><h4>Laporan</h4><a class="btn btn-secondary" href="/transaksi/ekspor?periode={{.Period.Nilai}}">Unduh transaksi</a></div>
+  <div class="periode">
+    <a class="btn btn-ghost btn-icon" href="/laporan?periode={{.Period.Prev}}" aria-label="Bulan sebelumnya">&lsaquo;</a>
+    <strong>{{.Period.Label}}</strong>
+    <a class="btn btn-ghost btn-icon" href="/laporan?periode={{.Period.Next}}" aria-label="Bulan berikutnya">&rsaquo;</a>
+  </div>
+  <div class="summary">
+    <div class="card"><div class="card-kicker">Pemasukan</div><div class="mid-figure m-in">{{.Breakdown.TotalIn}}</div></div>
+    <div class="card"><div class="card-kicker">Pengeluaran</div><div class="mid-figure m-out">{{.Breakdown.TotalOut}}</div></div>
+    <div class="card"><div class="card-kicker">Selisih</div><div class="mid-figure m-{{.Breakdown.NetTone}}">{{.Breakdown.Net}}</div></div>
+  </div>
+  {{with .Breakdown.Unconverted}}<p class="note">Mata uang tanpa kurs tidak ikut dijumlahkan: {{range $i, $c := .}}{{if $i}}, {{end}}{{$c}}{{end}}.</p>{{end}}
+  <section>
+    <div class="sec-head"><h6>Pengeluaran per kategori</h6><a href="/kategori" class="small">Kelola kategori</a></div>
+    {{range .Breakdown.Expense}}
+      <a class="card cat-bar" href="/transaksi?periode={{$.Period.Nilai}}&kategori={{urlquery .Name}}">
+        <span class="cat-bar-fill t-out" style="width:{{.Percent}}%"></span>
+        <span class="cat-bar-name">{{.Name}}</span><span class="cat-bar-amt">{{.Amount}}</span>
+      </a>
+    {{else}}<p class="empty">Belum ada pengeluaran pada bulan ini.</p>{{end}}
+  </section>
+  <section>
+    <div class="sec-head"><h6>Pemasukan per kategori</h6></div>
+    {{range .Breakdown.Income}}
+      <a class="card cat-bar" href="/transaksi?periode={{$.Period.Nilai}}&kategori={{urlquery .Name}}">
+        <span class="cat-bar-fill t-in" style="width:{{.Percent}}%"></span>
+        <span class="cat-bar-name">{{.Name}}</span><span class="cat-bar-amt">{{.Amount}}</span>
+      </a>
+    {{else}}<p class="empty">Belum ada pemasukan pada bulan ini.</p>{{end}}
+  </section>
+</div>
+{{end}}

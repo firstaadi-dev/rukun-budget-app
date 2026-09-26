@@ -1,14 +1,21 @@
 {{define "content"}}
 <div class="auth-card card elev-md">
   <div class="brand auth-brand">Rukun</div>
-  <p class="text-muted small">Gabung ke keuangan keluarga</p>
+  <p class="text-muted small">Buat akun dulu, lalu pilih keluarga</p>
 
   {{if .Error}}<p class="alert" role="alert">{{.Error}}</p>{{end}}
 
   <form method="post" action="/daftar" class="stack-sm">
     <div class="field">
+      <label for="username">Nama Akun</label>
+      <input class="input" id="username" name="username" required minlength="3" maxlength="40"
+             pattern="[a-z0-9][a-z0-9._-]{2,39}" autocomplete="username"
+             value="{{with .Form}}{{.Username}}{{end}}" placeholder="namaanda">
+      <p class="hint">Dipakai saat masuk; unik untuk setiap akun.</p>
+    </div>
+    <div class="field">
       <label for="nama">Nama</label>
-      <input class="input" id="nama" name="nama" required autofocus autocomplete="username"
+      <input class="input" id="nama" name="nama" required autofocus
              placeholder="Ayah" value="{{with .Form}}{{.Nama}}{{end}}">
       <p class="hint">Nama ini muncul di "Dicatat oleh" tiap transaksi.</p>
     </div>
@@ -18,13 +25,7 @@
              autocomplete="new-password">
       <p class="hint">Minimal 8 karakter.</p>
     </div>
-    <div class="field">
-      <label for="kode">Kode Undangan</label>
-      <input class="input" id="kode" name="kode" required autocomplete="off"
-             value="{{with .Form}}{{.Kode}}{{end}}" placeholder="abcde-fghij-klmno">
-      <p class="hint">Minta ke anggota keluarga yang sudah terdaftar.</p>
-    </div>
-    <button type="submit" class="btn btn-primary btn-block">Daftar</button>
+    <button type="submit" class="btn btn-primary btn-block">Buat akun</button>
   </form>
 
   <p class="small text-muted auth-alt">Sudah punya akun? <a href="/masuk">Masuk</a>.</p>

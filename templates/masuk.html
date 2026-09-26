@@ -7,16 +7,9 @@
 
   <form method="post" action="/masuk" class="stack-sm">
     <div class="field">
-      <label for="kode">Kode Keluarga</label>
-      <input class="input" id="kode" name="kode" required autocomplete="off"
-             value="{{with .Form}}{{.Kode}}{{end}}" placeholder="abcde-fghij-klmno">
-      <p class="hint">Menentukan keluarga mana yang dimaksud. Cukup diisi sekali,
-        setelah itu diingat di perangkat ini.</p>
-    </div>
-    <div class="field">
-      <label for="nama">Nama</label>
-      <input class="input" id="nama" name="nama" required autocomplete="username"
-             value="{{with .Form}}{{.Nama}}{{end}}">
+      <label for="username">Nama akun</label>
+      <input class="input" id="username" name="username" required autocomplete="username"
+             value="{{with .Form}}{{.Username}}{{end}}">
     </div>
     <div class="field">
       <label for="sandi">Kata Sandi</label>
@@ -25,8 +18,21 @@
     <button type="submit" class="btn btn-primary btn-block">Masuk</button>
   </form>
 
+  <details class="auth-alt">
+    <summary>Akun lama: masuk dengan nama dan kode keluarga</summary>
+    <form method="post" action="/masuk" class="stack-sm">
+      <div class="field"><label for="nama-lama">Nama</label>
+        <input class="input" id="nama-lama" name="nama" required value="{{with .Form}}{{.Nama}}{{end}}"></div>
+      <div class="field"><label for="kode-lama">Kode keluarga</label>
+        <input class="input" id="kode-lama" name="kode" required value="{{with .Form}}{{.Kode}}{{end}}"></div>
+      <div class="field"><label for="sandi-lama">Kata sandi</label>
+        <input class="input" id="sandi-lama" name="sandi" type="password" required autocomplete="current-password"></div>
+      <button type="submit" class="btn btn-secondary btn-block">Masuk ke akun lama</button>
+    </form>
+  </details>
+
   <p class="small text-muted auth-alt">
-    Anggota keluarga baru? <a href="/daftar">Daftar dengan kode undangan</a>.
+    Belum punya akun? <a href="/daftar">Buat akun</a>.
   </p>
 </div>
 {{end}}

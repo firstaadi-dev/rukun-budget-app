@@ -378,7 +378,20 @@ type CategoryBreakdown struct {
 	Income      []CategoryRow
 	TotalOut    string
 	TotalIn     string
+	Net         string
+	NetTone     string
 	Unconverted []string
+}
+
+func categoryAmount(s CategorySpend, rates map[string]Rate, base string) (int64, bool) {
+	if s.Currency == base {
+		return s.Minor, true
+	}
+	r, ok := rates[s.Currency+">"+base]
+	if !ok || !r.Valid() {
+		return 0, false
+	}
+	return r.Convert(s.Minor), true
 }
 
 // breakdown mengelompokkan pengeluaran dan pemasukan per kategori, dikonversi
@@ -391,17 +404,13 @@ func breakdown(spend []CategorySpend, rates map[string]Rate, base, periode strin
 	var missing []string
 
 	for _, s := range spend {
-		amount := s.Minor
-		if s.Currency != base {
-			r, ok := rates[s.Currency+">"+base]
-			if !ok || !r.Valid() {
-				if !seen[s.Currency] {
-					seen[s.Currency] = true
-					missing = append(missing, s.Currency)
-				}
-				continue
+		amount, ok := categoryAmount(s, rates, base)
+		if !ok {
+			if !seen[s.Currency] {
+				seen[s.Currency] = true
+				missing = append(missing, s.Currency)
 			}
-			amount = r.Convert(amount)
+			continue
 		}
 		if s.Kind == "income" {
 			in[s.Category] += amount
@@ -418,8 +427,42 @@ func breakdown(spend []CategorySpend, rates map[string]Rate, base, periode strin
 		Income:      incomeRows,
 		TotalOut:    Format(totalOut, base),
 		TotalIn:     Format(totalIn, base),
+		Net:         Format(totalIn-totalOut, base),
+		NetTone:     map[bool]string{true: "in", false: "out"}[totalIn >= totalOut],
 		Unconverted: missing,
 	}
+}
+
+type BudgetRow struct {
+	Name, Limit, Used, Remaining, OverAmount string
+	Percent                                  int
+	Over                                     bool
+}
+
+func budgetRows(categories []Category, spend []CategorySpend, rates map[string]Rate, base string) []BudgetRow {
+	used := map[string]int64{}
+	for _, s := range spend {
+		if s.Kind != "expense" {
+			continue
+		}
+		if amount, ok := categoryAmount(s, rates, base); ok {
+			used[s.Category] += amount
+		}
+	}
+	var rows []BudgetRow
+	for _, c := range categories {
+		if c.Kind != "expense" || c.BudgetMinor <= 0 {
+			continue
+		}
+		spent := used[c.Name]
+		rows = append(rows, BudgetRow{
+			Name: c.Name, Limit: Format(c.BudgetMinor, base), Used: Format(spent, base),
+			Remaining:  Format(c.BudgetMinor-spent, base),
+			OverAmount: Format(max(0, spent-c.BudgetMinor), base),
+			Percent:    int(min(100, float64(spent)/float64(c.BudgetMinor)*100)), Over: spent > c.BudgetMinor,
+		})
+	}
+	return rows
 }
 
 // categoryRows mengurutkan dari nominal terbesar dan menghitung porsi tiap

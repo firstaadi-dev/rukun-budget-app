@@ -26,6 +26,7 @@ func (s *Store) today() time.Time {
 }
 
 var ErrNotFound = errors.New("data tidak ditemukan")
+var ErrAlreadyLinked = errors.New("akun sudah terhubung ke keluarga")
 var ErrTradeDate = errors.New("tanggal transaksi investasi tidak boleh mendahului penjualan atau pembelian terakhir")
 var ErrInsufficientQty = errors.New("kuantitas jual melebihi yang dimiliki")
 var ErrTradeLocked = errors.New("hapus penjualan yang lebih baru lebih dulu agar harga pokok tetap benar")
@@ -559,10 +560,12 @@ func (s *Store) DeleteTx(ctx context.Context, familyID, id int64) error {
 // ---------- Kategori ----------
 
 type Category struct {
-	ID    int64
-	Kind  string // expense | income
-	Name  string
-	Usage int // jumlah transaksi yang memakainya
+	ID          int64
+	Kind        string // expense | income
+	Name        string
+	Usage       int // jumlah transaksi yang memakainya
+	BudgetMinor int64
+	BudgetText  string
 }
 
 // Categories mengembalikan kategori beserta jumlah pemakaiannya. kind kosong
@@ -574,7 +577,7 @@ type Category struct {
 // tabel transaksi sekaligus.
 func (s *Store) Categories(ctx context.Context, familyID int64, kind string) ([]Category, error) {
 	rows, err := s.db.Query(ctx, `
-		SELECT c.id, c.kind, c.name, COALESCE(p.jumlah, 0)
+		SELECT c.id, c.kind, c.name, COALESCE(p.jumlah, 0), c.budget_minor
 		FROM categories c
 		LEFT JOIN (
 			SELECT t.kind, t.category, count(*) AS jumlah
@@ -592,12 +595,21 @@ func (s *Store) Categories(ctx context.Context, familyID int64, kind string) ([]
 	var out []Category
 	for rows.Next() {
 		var c Category
-		if err := rows.Scan(&c.ID, &c.Kind, &c.Name, &c.Usage); err != nil {
+		if err := rows.Scan(&c.ID, &c.Kind, &c.Name, &c.Usage, &c.BudgetMinor); err != nil {
 			return nil, err
 		}
 		out = append(out, c)
 	}
 	return out, rows.Err()
+}
+
+func (s *Store) SetCategoryBudget(ctx context.Context, familyID, id, amount int64) error {
+	tag, err := s.db.Exec(ctx, `UPDATE categories SET budget_minor = $1
+		WHERE family_id = $2 AND id = $3 AND kind = 'expense'`, amount, familyID, id)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return err
 }
 
 // CategoryNames: nama saja, untuk mengisi pilihan di form transaksi.
@@ -706,8 +718,9 @@ func (s *Store) CategorySpending(ctx context.Context, familyID int64, from, to t
 		JOIN wallets w ON w.id = t.wallet_id
 		WHERE t.family_id = $1 AND t.kind IN ('expense', 'income')
 		  AND t.occurred_on >= $2 AND t.occurred_on < $3
+		  AND t.occurred_on <= $4::date
 		  AND NOT t.is_adjustment
-		GROUP BY t.kind, t.category, w.currency`, familyID, from, to)
+		GROUP BY t.kind, t.category, w.currency`, familyID, from, to, s.today())
 	if err != nil {
 		return nil, err
 	}
@@ -769,6 +782,7 @@ func (s *Store) Rates(ctx context.Context, familyID int64) (map[string]Rate, err
 type User struct {
 	ID         int64
 	Name       string
+	Username   string
 	FamilyID   int64
 	FamilyName string
 	// Kepala: anggota pertama keluarga ini, yaitu yang dibuat bersama
@@ -867,12 +881,86 @@ func (s *Store) DeleteUserSessions(ctx context.Context, familyID, userID int64) 
 	return err
 }
 
-func (s *Store) CreateUser(ctx context.Context, familyID int64, name, hash string) (int64, error) {
+func (s *Store) CreateUser(ctx context.Context, username, name, hash string) (int64, error) {
 	var id int64
 	err := s.db.QueryRow(ctx,
-		`INSERT INTO users (family_id, name, password_hash) VALUES ($1, $2, $3) RETURNING id`,
-		familyID, name, hash).Scan(&id)
+		`INSERT INTO users (username, name, password_hash) VALUES ($1, $2, $3) RETURNING id`,
+		username, name, hash).Scan(&id)
 	return id, err
+}
+
+func (s *Store) SetUsername(ctx context.Context, userID int64, username string) error {
+	_, err := s.db.Exec(ctx, `UPDATE users SET username = $1 WHERE id = $2`, username, userID)
+	return err
+}
+
+func (s *Store) JoinFamily(ctx context.Context, userID int64, code, name string) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	var familyID int64
+	if err := tx.QueryRow(ctx, `SELECT id FROM families WHERE signup_code = $1 AND signup_code_expires_at > now() FOR UPDATE`, code).Scan(&familyID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	tag, err := tx.Exec(ctx, `UPDATE users SET family_id = $1, name = $3 WHERE id = $2 AND family_id IS NULL`, familyID, userID, name)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrAlreadyLinked
+	}
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func (s *Store) CreateFamilyForUser(ctx context.Context, userID int64, name, code string) (Family, error) {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return Family{}, err
+	}
+	defer tx.Rollback(ctx)
+	var linked bool
+	if err := tx.QueryRow(ctx, `SELECT family_id IS NOT NULL FROM users WHERE id = $1 FOR UPDATE`, userID).Scan(&linked); err != nil {
+		return Family{}, err
+	}
+	if linked {
+		return Family{}, ErrAlreadyLinked
+	}
+	var f Family
+	if err := tx.QueryRow(ctx, `INSERT INTO families (name, signup_code) VALUES ($1, $2)
+		RETURNING id, name, signup_code, signup_code_expires_at, created_at`, name, code).
+		Scan(&f.ID, &f.Name, &f.SignupCode, &f.SignupCodeExpiresAt, &f.CreatedAt); err != nil {
+		return Family{}, err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE users SET family_id = $1 WHERE id = $2`, f.ID, userID); err != nil {
+		return Family{}, err
+	}
+	if _, err := tx.Exec(ctx, seedCategoriesSQL, f.ID); err != nil {
+		return Family{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return Family{}, err
+	}
+	return f, nil
+}
+
+func (s *Store) UserByUsername(ctx context.Context, username string) (User, string, error) {
+	var u User
+	var hash string
+	err := s.db.QueryRow(ctx, `
+		SELECT u.id, u.name, u.username, COALESCE(u.family_id, 0), COALESCE(f.name, ''),
+		       u.password_hash, u.disabled_at IS NOT NULL, COALESCE(`+kepalaKeluarga+`, false)
+		FROM users u LEFT JOIN families f ON f.id = u.family_id
+		WHERE lower(u.username) = lower($1)`, username).
+		Scan(&u.ID, &u.Name, &u.Username, &u.FamilyID, &u.FamilyName, &hash, &u.Disabled, &u.Kepala)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return User{}, "", ErrNotFound
+	}
+	return u, hash, err
 }
 
 // UserByName mencari anggota di dalam satu keluarga. Nama hanya unik per
@@ -881,11 +969,11 @@ func (s *Store) UserByName(ctx context.Context, familyID int64, name string) (Us
 	var u User
 	var hash string
 	err := s.db.QueryRow(ctx, `
-		SELECT u.id, u.name, u.family_id, f.name, u.password_hash,
+		SELECT u.id, u.name, u.username, u.family_id, f.name, u.password_hash,
 		       u.disabled_at IS NOT NULL, `+kepalaKeluarga+`
 		FROM users u JOIN families f ON f.id = u.family_id
 		WHERE u.family_id = $1 AND lower(u.name) = lower($2)`, familyID, name).
-		Scan(&u.ID, &u.Name, &u.FamilyID, &u.FamilyName, &hash, &u.Disabled, &u.Kepala)
+		Scan(&u.ID, &u.Name, &u.Username, &u.FamilyID, &u.FamilyName, &hash, &u.Disabled, &u.Kepala)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, "", ErrNotFound
 	}
@@ -915,12 +1003,12 @@ func (s *Store) CreateSession(ctx context.Context, token string, userID int64, u
 func (s *Store) SessionUser(ctx context.Context, token string) (User, error) {
 	var u User
 	err := s.db.QueryRow(ctx, `
-		SELECT u.id, u.name, u.family_id, f.name, `+kepalaKeluarga+`
+		SELECT u.id, u.name, u.username, COALESCE(u.family_id, 0), COALESCE(f.name, ''), COALESCE(`+kepalaKeluarga+`, false)
 		FROM sessions s
 		JOIN users u ON u.id = s.user_id
-		JOIN families f ON f.id = u.family_id
+		LEFT JOIN families f ON f.id = u.family_id
 		WHERE s.token = $1 AND s.expires_at > now() AND u.disabled_at IS NULL`, token).
-		Scan(&u.ID, &u.Name, &u.FamilyID, &u.FamilyName, &u.Kepala)
+		Scan(&u.ID, &u.Name, &u.Username, &u.FamilyID, &u.FamilyName, &u.Kepala)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrNotFound
 	}
@@ -940,17 +1028,18 @@ func (s *Store) PurgeSessions(ctx context.Context) error {
 // ---------- Keluarga ----------
 
 type Family struct {
-	ID         int64
-	Name       string
-	SignupCode string
-	Members    int
-	Wallets    int
-	Txs        int
-	CreatedAt  time.Time
+	ID                  int64
+	Name                string
+	SignupCode          string
+	SignupCodeExpiresAt time.Time
+	HeadUsername        string
+	Members             int
+	Wallets             int
+	Txs                 int
+	CreatedAt           time.Time
 }
 
-// FamilyByCode dipakai saat login dan pendaftaran: kode undangan yang
-// menentukan keluarga mana yang dimaksud.
+// FamilyByCode dipakai saat bergabung dan untuk login akun lama.
 func (s *Store) FamilyByCode(ctx context.Context, code string) (Family, error) {
 	var f Family
 	err := s.db.QueryRow(ctx,
@@ -962,9 +1051,19 @@ func (s *Store) FamilyByCode(ctx context.Context, code string) (Family, error) {
 	return f, err
 }
 
+func (s *Store) FamilyByID(ctx context.Context, familyID int64) (Family, error) {
+	var f Family
+	err := s.db.QueryRow(ctx, `SELECT id, name, signup_code, signup_code_expires_at FROM families WHERE id = $1`, familyID).
+		Scan(&f.ID, &f.Name, &f.SignupCode, &f.SignupCodeExpiresAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Family{}, ErrNotFound
+	}
+	return f, err
+}
+
 func (s *Store) Families(ctx context.Context) ([]Family, error) {
 	rows, err := s.db.Query(ctx, `
-		SELECT f.id, f.name, f.signup_code, f.created_at,
+		SELECT f.id, f.name, f.signup_code, f.signup_code_expires_at, f.created_at,
 		       (SELECT count(*) FROM users u WHERE u.family_id = f.id),
 		       (SELECT count(*) FROM wallets w WHERE w.family_id = f.id),
 		       (SELECT count(*) FROM transactions t WHERE t.family_id = f.id)
@@ -977,7 +1076,7 @@ func (s *Store) Families(ctx context.Context) ([]Family, error) {
 	var out []Family
 	for rows.Next() {
 		var f Family
-		if err := rows.Scan(&f.ID, &f.Name, &f.SignupCode, &f.CreatedAt,
+		if err := rows.Scan(&f.ID, &f.Name, &f.SignupCode, &f.SignupCodeExpiresAt, &f.CreatedAt,
 			&f.Members, &f.Wallets, &f.Txs); err != nil {
 			return nil, err
 		}
@@ -999,15 +1098,19 @@ func (s *Store) CreateFamily(ctx context.Context, name, code, headName, headHash
 	var f Family
 	if err := tx.QueryRow(ctx,
 		`INSERT INTO families (name, signup_code) VALUES ($1, $2)
-		 RETURNING id, name, signup_code, created_at`, name, code).
-		Scan(&f.ID, &f.Name, &f.SignupCode, &f.CreatedAt); err != nil {
+		 RETURNING id, name, signup_code, signup_code_expires_at, created_at`, name, code).
+		Scan(&f.ID, &f.Name, &f.SignupCode, &f.SignupCodeExpiresAt, &f.CreatedAt); err != nil {
 		return Family{}, err
 	}
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO users (family_id, name, password_hash) VALUES ($1, $2, $3)`,
-		f.ID, headName, headHash); err != nil {
+	var headID int64
+	if err := tx.QueryRow(ctx,
+		`WITH next_id AS (SELECT nextval(pg_get_serial_sequence('users', 'id')) AS id)
+		 INSERT INTO users (id, family_id, username, name, password_hash)
+		 SELECT id, $1, 'rukun:' || id, $2, $3 FROM next_id RETURNING id`,
+		f.ID, headName, headHash).Scan(&headID); err != nil {
 		return Family{}, err
 	}
+	f.HeadUsername = fmt.Sprintf("rukun:%d", headID)
 	if _, err := tx.Exec(ctx, seedCategoriesSQL, f.ID); err != nil {
 		return Family{}, err
 	}
@@ -1036,7 +1139,8 @@ FROM unnest(ARRAY['Gaji', 'Bonus', 'Hadiah', 'Investasi', 'Lainnya']) AS name`
 func (s *Store) UpdateFamily(ctx context.Context, id int64, name, code string) (Family, error) {
 	tag, err := s.db.Exec(ctx,
 		`UPDATE families SET name = COALESCE(NULLIF($1, ''), name),
-		        signup_code = COALESCE(NULLIF($2, ''), signup_code)
+		        signup_code = COALESCE(NULLIF($2, ''), signup_code),
+		        signup_code_expires_at = CASE WHEN $2 = '' THEN signup_code_expires_at ELSE now() + interval '7 days' END
 		 WHERE id = $3`, name, code, id)
 	if err != nil {
 		return Family{}, err
@@ -1046,8 +1150,8 @@ func (s *Store) UpdateFamily(ctx context.Context, id int64, name, code string) (
 	}
 	var f Family
 	err = s.db.QueryRow(ctx,
-		`SELECT id, name, signup_code, created_at FROM families WHERE id = $1`, id).
-		Scan(&f.ID, &f.Name, &f.SignupCode, &f.CreatedAt)
+		`SELECT id, name, signup_code, signup_code_expires_at, created_at FROM families WHERE id = $1`, id).
+		Scan(&f.ID, &f.Name, &f.SignupCode, &f.SignupCodeExpiresAt, &f.CreatedAt)
 	return f, err
 }
 
