@@ -780,11 +780,14 @@ func (s *Store) Rates(ctx context.Context, familyID int64) (map[string]Rate, err
 // ---------- User & sesi ----------
 
 type User struct {
-	ID         int64
-	Name       string
-	Username   string
-	FamilyID   int64
-	FamilyName string
+	ID            int64
+	Name          string
+	Username      string
+	Email         string
+	FirebaseUID   string
+	EmailVerified bool
+	FamilyID      int64
+	FamilyName    string
 	// Kepala: anggota pertama keluarga ini, yaitu yang dibuat bersama
 	// keluarganya lewat API admin. Dialah satu-satunya yang boleh menonaktifkan
 	// anggota lain. Perannya diturunkan dari urutan pendaftaran, bukan disimpan
@@ -895,6 +898,49 @@ func (s *Store) CreateUser(ctx context.Context, username, name, hash string) (in
 	return id, err
 }
 
+func (s *Store) CreateFirebaseUser(ctx context.Context, uid, email, name string) (int64, error) {
+	var id int64
+	err := s.db.QueryRow(ctx, `
+		INSERT INTO users (username, name, password_hash, email, firebase_uid)
+		VALUES ($1, $2, 'firebase-managed', $3, $4) RETURNING id`,
+		"fb-"+uid, name, email, uid).Scan(&id)
+	return id, err
+}
+
+func (s *Store) LinkFirebaseUser(ctx context.Context, userID int64, uid, email string, verified bool) error {
+	var verifiedAt any
+	if verified {
+		verifiedAt = time.Now()
+	}
+	tag, err := s.db.Exec(ctx, `
+		UPDATE users SET firebase_uid = $2, email = $3, email_verified_at = $4
+		WHERE id = $1 AND firebase_uid IS NULL`, userID, uid, email, verifiedAt)
+	if err == nil && tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return err
+}
+
+func (s *Store) FirebaseUser(ctx context.Context, uid string) (User, error) {
+	var u User
+	err := s.db.QueryRow(ctx, `
+		SELECT u.id, u.name, u.username, u.email, u.firebase_uid, u.email_verified_at IS NOT NULL,
+		       COALESCE(u.family_id, 0), COALESCE(f.name, ''), COALESCE(`+kepalaKeluarga+`, false),
+		       u.disabled_at IS NOT NULL
+		FROM users u LEFT JOIN families f ON f.id = u.family_id WHERE u.firebase_uid = $1`, uid).
+		Scan(&u.ID, &u.Name, &u.Username, &u.Email, &u.FirebaseUID, &u.EmailVerified, &u.FamilyID,
+			&u.FamilyName, &u.Kepala, &u.Disabled)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return User{}, ErrNotFound
+	}
+	return u, err
+}
+
+func (s *Store) MarkFirebaseEmailVerified(ctx context.Context, uid string) error {
+	_, err := s.db.Exec(ctx, `UPDATE users SET email_verified_at = COALESCE(email_verified_at, now()) WHERE firebase_uid = $1`, uid)
+	return err
+}
+
 func (s *Store) SetUsername(ctx context.Context, userID int64, username string) error {
 	_, err := s.db.Exec(ctx, `UPDATE users SET username = $1 WHERE id = $2`, username, userID)
 	return err
@@ -965,8 +1011,8 @@ func (s *Store) CreateFamilyForUser(ctx context.Context, userID int64, name, cod
 		return Family{}, ErrAlreadyLinked
 	}
 	var f Family
-	if err := tx.QueryRow(ctx, `INSERT INTO families (name, signup_code) VALUES ($1, $2)
-		RETURNING id, name, signup_code, signup_code_expires_at, created_at`, name, code).
+	if err := tx.QueryRow(ctx, `INSERT INTO families (name, signup_code, billing_owner_user_id) VALUES ($1, $2, $3)
+		RETURNING id, name, signup_code, signup_code_expires_at, created_at`, name, code, userID).
 		Scan(&f.ID, &f.Name, &f.SignupCode, &f.SignupCodeExpiresAt, &f.CreatedAt); err != nil {
 		return Family{}, err
 	}
@@ -1020,12 +1066,13 @@ func (s *Store) CreateSession(ctx context.Context, token string, userID int64, u
 func (s *Store) SessionUser(ctx context.Context, token string) (User, error) {
 	var u User
 	err := s.db.QueryRow(ctx, `
-		SELECT u.id, u.name, u.username, COALESCE(u.family_id, 0), COALESCE(f.name, ''), COALESCE(`+kepalaKeluarga+`, false)
+		SELECT u.id, u.name, u.username, COALESCE(u.email, ''), COALESCE(u.firebase_uid, ''),
+		       u.email_verified_at IS NOT NULL, COALESCE(u.family_id, 0), COALESCE(f.name, ''), COALESCE(`+kepalaKeluarga+`, false)
 		FROM sessions s
 		JOIN users u ON u.id = s.user_id
 		LEFT JOIN families f ON f.id = u.family_id
 		WHERE s.token = $1 AND s.expires_at > now() AND u.disabled_at IS NULL`, token).
-		Scan(&u.ID, &u.Name, &u.Username, &u.FamilyID, &u.FamilyName, &u.Kepala)
+		Scan(&u.ID, &u.Name, &u.Username, &u.Email, &u.FirebaseUID, &u.EmailVerified, &u.FamilyID, &u.FamilyName, &u.Kepala)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrNotFound
 	}
@@ -1125,6 +1172,9 @@ func (s *Store) CreateFamily(ctx context.Context, name, code, headName, headHash
 		 INSERT INTO users (id, family_id, username, name, password_hash)
 		 SELECT id, $1, 'rukun:' || id, $2, $3 FROM next_id RETURNING id`,
 		f.ID, headName, headHash).Scan(&headID); err != nil {
+		return Family{}, err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE families SET billing_owner_user_id = $1 WHERE id = $2`, headID, f.ID); err != nil {
 		return Family{}, err
 	}
 	f.HeadUsername = fmt.Sprintf("rukun:%d", headID)

@@ -31,6 +31,9 @@ akan terpotong oleh cara yang kedua.
 
 Migrasi berjalan otomatis saat start. Buka http://localhost:8080/daftar untuk membuat
 akun, lalu buat keluarga baru atau gabung dengan kode keluarga di halaman Mulai.
+Pendaftaran mengirim email verifikasi Firebase. `firebaseconfig.json` lokal berisi
+`apiKey` dan `projectId`, tidak dilacak Git; `.env.example` menyiapkan `APP_URL` untuk
+tautan kembali setelah verifikasi.
 
 Jalankan test (tidak butuh database):
 
@@ -78,6 +81,12 @@ Databasenya di **Neon**, bukan Postgres bawaan Render.
 4. Setelah deploy selesai, buka tab **Environment** dan salin `ADMIN_TOKEN` yang dibuat
    otomatis. Token itu dipakai untuk membuat keluarga lewat API admin — lihat
    "Membuat keluarga baru" di bawah.
+
+Blueprint juga meminta `APP_URL`, `FIREBASE_API_KEY`, dan `FIREBASE_PROJECT_ID`.
+Isi `APP_URL` dengan domain HTTPS utama Rukun dan dua nilai Firebase dari konfigurasi
+Web App. Pastikan domain yang sama ada di Authentication → Settings → Authorized
+domains. Private key service account tidak dipakai oleh integrasi REST ini; file-nya
+tetap diabaikan Git.
 
 Pilih region **Singapore** untuk web service-nya, sama dengan region proyek Neon
 (`ap-southeast`). Query yang menyeberang region menambah puluhan milidetik pada setiap

@@ -32,8 +32,8 @@ func TestLoginPageShowsOnlyNewAccountLogin(t *testing.T) {
 	w := httptest.NewRecorder()
 	a.loginForm(w, httptest.NewRequest("GET", "/masuk", nil))
 	body := w.Body.String()
-	if w.Code != 200 || !strings.Contains(body, `name="username"`) {
-		t.Fatalf("new account login form missing: %d", w.Code)
+	if w.Code != 200 || !strings.Contains(body, `name="identifier"`) {
+		t.Fatalf("email account login form missing: %d", w.Code)
 	}
 	if strings.Contains(body, "Akun lama") || strings.Contains(body, `name="kode"`) {
 		t.Fatal("public login page still exposes legacy login")

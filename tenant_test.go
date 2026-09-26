@@ -98,6 +98,9 @@ func TestMetodeStoreDataMenerimaFamilyID(t *testing.T) {
 		// Akun mandiri belum punya familyID. Pengaitan keluarga hanya boleh
 		// melalui CreateFamilyForUser/JoinFamily saat family_id masih NULL.
 		"CreateUser": true, "SetUsername": true, "UserByUsername": true,
+		// Firebase UID/email adalah identitas akun global, lalu dipetakan ke
+		// satu user Rukun. Tidak membaca catatan keuangan keluarga.
+		"CreateFirebaseUser": true, "FirebaseUser": true, "LinkFirebaseUser": true, "MarkFirebaseEmailVerified": true,
 		"JoinFamily": true, "CreateFamilyForUser": true,
 		// Migrasi nama akun oleh admin sengaja lintas keluarga dan hanya
 		// menyentuh pengguna yang masih memakai username sementara rukun:<id>.

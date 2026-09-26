@@ -7,11 +7,9 @@
 
   <form method="post" action="/daftar" class="stack-sm">
     <div class="field">
-      <label for="username">Nama Akun</label>
-      <input class="input" id="username" name="username" required minlength="3" maxlength="40"
-             pattern="[a-z0-9][a-z0-9._-]{2,39}" autocomplete="username"
-             value="{{with .Form}}{{.Username}}{{end}}" placeholder="namaanda">
-      <p class="hint">Dipakai saat masuk; unik untuk setiap akun.</p>
+      <label for="email">Email</label>
+      <input class="input" id="email" name="email" type="email" required maxlength="254"
+             autocomplete="email" value="{{with .Form}}{{.Email}}{{end}}" placeholder="nama@email.com">
     </div>
     <div class="field">
       <label for="nama">Nama</label>

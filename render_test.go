@@ -329,9 +329,9 @@ func TestPagesRender(t *testing.T) {
 		}, "Cabut akses"},
 
 		{"masuk.html", map[string]any{"NoChrome": true,
-			"Form": map[string]string{"Username": "ayah"}}, "Nama akun"},
+			"Form": map[string]string{"Identifier": "ayah@example.com"}}, "Email atau nama akun lama"},
 		{"daftar.html", map[string]any{"NoChrome": true,
-			"Form": map[string]string{"Nama": "Ayah", "Username": "ayah"}}, "Nama Akun"},
+			"Form": map[string]string{"Nama": "Ayah", "Email": "ayah@example.com"}}, "Email"},
 		{"mulai.html", map[string]any{"NoChrome": true, "Kode": "abcde-fghij-klmno",
 			"User": User{Name: "Ayah"}}, "Gabung keluarga"},
 		{"admin_migrasi.html", map[string]any{"NoChrome": true,

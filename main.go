@@ -39,6 +39,8 @@ type App struct {
 	loc           *time.Location
 	base          string // mata uang dasar untuk total di dashboard
 	admin         string // token API admin; kosong berarti API admin mati total
+	firebase      *firebaseAuth
+	publicURL     string
 	loginMu       sync.Mutex
 	loginFailures map[string]loginFailure
 }
@@ -74,6 +76,13 @@ func main() {
 	if err := godotenv.Load(); err != nil && !errors.Is(err, os.ErrNotExist) {
 		log.Fatalf("gagal membaca .env: %v", err)
 	}
+	firebase, err := loadFirebaseAuth()
+	if err != nil {
+		log.Fatalf("konfigurasi Firebase: %v", err)
+	}
+	if firebase == nil {
+		log.Print("Firebase Auth belum dikonfigurasi; pendaftaran email dinonaktifkan")
+	}
 
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -101,12 +110,14 @@ func main() {
 	}
 
 	app := &App{
-		store: &Store{db: pool, loc: loc},
-		pages: parsePages(),
-		ver:   assetVersion(),
-		loc:   loc,
-		base:  env("BASE_CURRENCY", "IDR"),
-		admin: os.Getenv("ADMIN_TOKEN"),
+		store:     &Store{db: pool, loc: loc},
+		pages:     parsePages(),
+		ver:       assetVersion(),
+		loc:       loc,
+		base:      env("BASE_CURRENCY", "IDR"),
+		admin:     os.Getenv("ADMIN_TOKEN"),
+		firebase:  firebase,
+		publicURL: strings.TrimRight(os.Getenv("APP_URL"), "/"),
 	}
 
 	if app.admin == "" {
@@ -263,6 +274,7 @@ func (a *App) routes() http.Handler {
 	auth("POST /hutang/pihak/{id}/bayar", a.payCreate)
 
 	auth("GET /pengaturan", a.settings)
+	auth("POST /pengaturan/tautkan-email", a.linkFirebase)
 	auth("POST /pengaturan/sandi", a.changePassword)
 	auth("POST /pengaturan/username", a.changeUsername)
 	auth("POST /pengaturan/kode", a.rotateFamilyCode)

@@ -7,3 +7,5 @@
 .env.*.local
 .neon
 /backups/
+firebaseconfig*.json
+*-firebase-adminsdk-*.json

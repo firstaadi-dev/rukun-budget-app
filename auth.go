@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"log"
 	"net"
 	"net/http"
@@ -150,14 +151,36 @@ func newToken() string {
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
+func (a *App) verifyCurrentPassword(ctx context.Context, u User, password string) (bool, *firebaseToken) {
+	if u.FirebaseUID != "" {
+		if a.firebase == nil {
+			return false, nil
+		}
+		token, err := a.firebase.signIn(ctx, u.Email, password)
+		if err != nil {
+			return false, nil
+		}
+		account, err := a.firebase.account(ctx, token.IDToken)
+		if err != nil || !account.EmailVerified || account.LocalID != u.FirebaseUID {
+			return false, nil
+		}
+		return true, &token
+	}
+	hash, err := a.store.PasswordHash(ctx, u.FamilyID, u.ID)
+	return err == nil && bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil, nil
+}
+
 func (a *App) loginForm(w http.ResponseWriter, r *http.Request) {
 	a.renderAuth(w, r, "masuk.html", nil, "")
 }
 
 func (a *App) login(w http.ResponseWriter, r *http.Request) {
-	username := strings.TrimSpace(r.FormValue("username"))
-	form := map[string]string{"Username": username}
-	if len(username) > 40 {
+	identifier := strings.TrimSpace(r.FormValue("identifier"))
+	if identifier == "" { // dukung form lama selama transisi deployment
+		identifier = strings.TrimSpace(r.FormValue("username"))
+	}
+	form := map[string]string{"Identifier": identifier}
+	if len(identifier) > 254 {
 		http.Error(w, "Isian masuk terlalu panjang.", http.StatusBadRequest)
 		return
 	}
@@ -165,7 +188,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		ip = r.RemoteAddr
 	}
-	key := ip + "|" + strings.ToLower(username)
+	key := ip + "|" + strings.ToLower(identifier)
 	if !a.loginAllowed(key) {
 		w.Header().Set("Retry-After", "900")
 		http.Error(w, "Terlalu banyak percobaan masuk. Coba lagi dalam 15 menit.", http.StatusTooManyRequests)
@@ -178,10 +201,54 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		a.renderAuth(w, r, "masuk.html", form, "Akun atau kata sandi salah.")
 	}
 
-	u, hash, err := a.store.UserByUsername(r.Context(), username)
-	if err != nil || bcrypt.CompareHashAndPassword([]byte(hash), []byte(r.FormValue("sandi"))) != nil {
-		fail()
-		return
+	var u User
+	if strings.Contains(identifier, "@") {
+		if a.firebase == nil {
+			fail()
+			return
+		}
+		email, err := normalizeEmail(identifier)
+		if err != nil {
+			fail()
+			return
+		}
+		token, err := a.firebase.signIn(r.Context(), email, r.FormValue("sandi"))
+		if err != nil {
+			fail()
+			return
+		}
+		account, err := a.firebase.account(r.Context(), token.IDToken)
+		if err != nil || account.LocalID != token.LocalID || !account.EmailVerified {
+			// Sandi sudah terbukti benar; kirim ulang verifikasi untuk membantu
+			// pengguna yang tidak menerima email pertama. Firebase membatasi spam.
+			if err == nil && account.LocalID == token.LocalID && !account.EmailVerified {
+				_ = a.firebase.sendVerification(r.Context(), token.IDToken, a.firebaseContinueURL(r))
+			}
+			a.loginFailed(key)
+			a.renderAuth(w, r, "masuk.html", form, "Email belum diverifikasi. Kami mengirim ulang tautan verifikasi; cek inbox dan folder spam.")
+			return
+		}
+		u, err = a.store.FirebaseUser(r.Context(), token.LocalID)
+		if errors.Is(err, ErrNotFound) || (err == nil && !strings.EqualFold(u.Email, account.Email)) {
+			fail()
+			return
+		}
+		if err != nil {
+			a.fail(w, r, err)
+			return
+		}
+		if err := a.store.MarkFirebaseEmailVerified(r.Context(), token.LocalID); err != nil {
+			a.fail(w, r, err)
+			return
+		}
+		u.EmailVerified = true
+	} else {
+		var hash string
+		u, hash, err = a.store.UserByUsername(r.Context(), identifier)
+		if err != nil || bcrypt.CompareHashAndPassword([]byte(hash), []byte(r.FormValue("sandi"))) != nil {
+			fail()
+			return
+		}
 	}
 	// Diperiksa sesudah sandinya cocok, bukan sebelum. Pesannya spesifik, dan
 	// yang spesifik hanya boleh terbaca oleh orang yang memang pemilik akunnya
@@ -206,36 +273,59 @@ func (a *App) registerForm(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) register(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(r.FormValue("nama"))
-	username := strings.ToLower(strings.TrimSpace(r.FormValue("username")))
+	email, emailErr := normalizeEmail(r.FormValue("email"))
 	sandi := r.FormValue("sandi")
-	form := map[string]string{"Nama": name, "Username": username}
+	form := map[string]string{"Nama": name, "Email": email}
 
 	fail := func(msg string) { a.renderAuth(w, r, "daftar.html", form, msg) }
+	if a.firebase == nil {
+		fail("Firebase Auth belum dikonfigurasi. Coba lagi nanti.")
+		return
+	}
 
 	if len(name) < 2 || len(name) > 128 {
 		fail("Nama harus 2–128 karakter.")
 		return
 	}
-	if !usernamePattern.MatchString(username) {
-		fail("Nama akun harus 3–40 karakter: huruf kecil, angka, titik, garis bawah, atau tanda hubung.")
+	if emailErr != nil {
+		fail("Masukkan alamat email yang valid.")
 		return
 	}
-	if len(sandi) < 8 || len(sandi) > 72 {
-		fail("Kata sandi harus 8–72 karakter.")
+	if len(sandi) < 8 || len(sandi) > 128 {
+		fail("Kata sandi harus 8–128 karakter.")
 		return
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(sandi), bcrypt.DefaultCost)
+	continueURL := a.firebaseContinueURL(r)
+	if continueURL == "" {
+		fail("APP_URL belum dikonfigurasi. Pendaftaran email belum bisa digunakan.")
+		return
+	}
+	token, err := a.firebase.signUp(r.Context(), email, sandi)
 	if err != nil {
-		a.fail(w, r, err)
+		if fe, ok := err.(firebaseError); ok && fe.Code == "EMAIL_EXISTS" {
+			fail("Email sudah terdaftar. Masuk menggunakan email tersebut.")
+			return
+		}
+		log.Printf("Firebase sign up gagal: %v", err)
+		fail("Tidak bisa membuat akun sekarang. Periksa email dan kata sandi, lalu coba lagi.")
 		return
 	}
-	id, err := a.store.CreateUser(r.Context(), username, name, string(hash))
+	_, err = a.store.CreateFirebaseUser(r.Context(), token.LocalID, email, name)
 	if err != nil {
-		fail("Nama akun sudah dipakai. Pilih yang lain.")
+		// Hapus akun Firebase jika pencatatan lokal gagal agar pendaftaran bisa diulang.
+		_ = a.firebase.call(r.Context(), "delete", map[string]string{"idToken": token.IDToken}, nil)
+		log.Printf("simpan akun Firebase lokal gagal: %v", err)
+		fail("Email sudah terhubung ke akun Rukun lain atau akun gagal disimpan.")
 		return
 	}
-	log.Printf("akun baru terdaftar: %q (id %d)", username, id)
-	a.startSession(w, r, id, "/mulai")
+	if err := a.firebase.sendVerification(r.Context(), token.IDToken, continueURL); err != nil {
+		log.Printf("kirim verifikasi Firebase gagal: %v", err)
+		a.renderAuth(w, r, "daftar.html", form, "Akun sudah dibuat, tetapi email verifikasi belum terkirim. Coba masuk kembali untuk mencoba lagi.")
+		return
+	}
+	a.render(w, r, "verifikasi_email.html", map[string]any{
+		"Title": "Verifikasi email", "NoChrome": true, "Email": email,
+	})
 }
 
 // newSession memberi perangkat ini sesi baru. Dipisah dari startSession karena
@@ -287,8 +377,9 @@ func (a *App) renderAuth(w http.ResponseWriter, r *http.Request, page string, fo
 		w.WriteHeader(http.StatusUnauthorized)
 	}
 	a.render(w, r, page, map[string]any{
-		"Form":     form,
-		"Error":    errMsg,
-		"NoChrome": true,
+		"Form":          form,
+		"Error":         errMsg,
+		"EmailVerified": r.URL.Query().Get("verified") == "1",
+		"NoChrome":      true,
 	})
 }

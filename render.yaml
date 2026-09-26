@@ -25,6 +25,15 @@ services:
       # mode transaksi yang bisa berbenturan dengan prepared statement pgx.
       - key: DATABASE_URL
         sync: false
+      # URL kanonis dipakai sebagai alamat kembali email verifikasi Firebase.
+      - key: APP_URL
+        sync: false
+      # Konfigurasi publik Firebase Web App. firebaseconfig.json lokal tidak
+      # ikut Git, jadi nilai ini dimasukkan melalui Environment Render.
+      - key: FIREBASE_API_KEY
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
       # Token API admin, dipakai untuk membuat keluarga baru lewat curl.
       # Dibuat acak oleh Render; lihat nilainya di tab Environment.
       # Kalau dikosongkan, endpoint /admin/* mati total.

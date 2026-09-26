@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -46,19 +47,19 @@ func TestAccountFamilyFlow(t *testing.T) {
 	}
 	username := fmt.Sprintf("flow%d", time.Now().UnixNano())
 	defer pool.Exec(ctx, `DELETE FROM users WHERE username IN ($1, $2, $3)`, username, username+"b", username+"c")
-	first := post("/daftar", url.Values{"username": {username}, "nama": {"Nia"}, "sandi": {"rahasia-aman-123"}}, nil)
-	if first.Code != http.StatusSeeOther || first.Header().Get("Location") != "/mulai" {
-		t.Fatalf("signup: %d %s", first.Code, first.Body.String())
+	passHash, err := bcrypt.GenerateFromPassword([]byte("rahasia-aman-123"), bcrypt.MinCost)
+	if err != nil {
+		t.Fatal(err)
 	}
-	var firstCookie *http.Cookie
-	for _, c := range first.Result().Cookies() {
-		if c.Name == sessionCookie {
-			firstCookie = c
-		}
+	firstID, err := store.CreateUser(ctx, username, "Nia", string(passHash))
+	if err != nil {
+		t.Fatal(err)
 	}
-	if firstCookie == nil {
-		t.Fatal("session cookie missing")
+	firstToken := newToken()
+	if err := store.CreateSession(ctx, firstToken, firstID, time.Now().Add(sessionTTL)); err != nil {
+		t.Fatal(err)
 	}
+	firstCookie := &http.Cookie{Name: sessionCookie, Value: firstToken}
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodGet, "http://rukun.test/", nil)
 	r.AddCookie(firstCookie)
@@ -82,16 +83,25 @@ func TestAccountFamilyFlow(t *testing.T) {
 	if !u.Kepala {
 		t.Fatal("creator is not family head")
 	}
-	second := post("/daftar", url.Values{"username": {username + "b"}, "nama": {"Nia"}, "sandi": {"rahasia-aman-123"}}, nil)
-	if second.Code != http.StatusSeeOther {
-		t.Fatalf("second signup: %d %s", second.Code, second.Body.String())
+	var billingOwner int64
+	var betaCohort string
+	var betaStarted time.Time
+	if err := pool.QueryRow(ctx, `SELECT billing_owner_user_id, beta_cohort, beta_started_at FROM families WHERE id = $1`, f.ID).
+		Scan(&billingOwner, &betaCohort, &betaStarted); err != nil {
+		t.Fatal(err)
 	}
-	var secondCookie *http.Cookie
-	for _, c := range second.Result().Cookies() {
-		if c.Name == sessionCookie {
-			secondCookie = c
-		}
+	if billingOwner != u.ID || betaCohort != "beta" || betaStarted.IsZero() {
+		t.Fatalf("family monetization metadata: owner=%d cohort=%q started=%v", billingOwner, betaCohort, betaStarted)
 	}
+	secondID, err := store.CreateUser(ctx, username+"b", "Nia", string(passHash))
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondToken := newToken()
+	if err := store.CreateSession(ctx, secondToken, secondID, time.Now().Add(sessionTTL)); err != nil {
+		t.Fatal(err)
+	}
+	secondCookie := &http.Cookie{Name: sessionCookie, Value: secondToken}
 	invite := httptest.NewRecorder()
 	r = httptest.NewRequest(http.MethodGet, "http://rukun.test/mulai?kode="+url.QueryEscape(f.SignupCode), nil)
 	h.ServeHTTP(invite, r)
@@ -129,7 +139,7 @@ func TestAccountFamilyFlow(t *testing.T) {
 	if _, err := store.CreateFamilyForUser(ctx, u2.ID, "Another", newSignupCode()); !errors.Is(err, ErrAlreadyLinked) {
 		t.Fatalf("second family: %v", err)
 	}
-	login := post("/masuk", url.Values{"username": {username + "b"}, "sandi": {"rahasia-aman-123"}}, nil)
+	login := post("/masuk", url.Values{"identifier": {username + "b"}, "sandi": {"rahasia-aman-123"}}, nil)
 	if login.Code != http.StatusSeeOther || login.Header().Get("Location") != "/" {
 		t.Fatalf("account login: %d %s", login.Code, login.Body.String())
 	}
@@ -166,7 +176,7 @@ func TestAccountFamilyFlow(t *testing.T) {
 	if err != nil || legacyUser.FamilyID != f.ID || bcrypt.CompareHashAndPassword([]byte(hash), []byte("rahasia-aman-123")) != nil {
 		t.Fatalf("migrated account lost access or family link: user=%+v err=%v", legacyUser, err)
 	}
-	migratedLogin := post("/masuk", url.Values{"username": {username + "c"}, "sandi": {"rahasia-aman-123"}}, nil)
+	migratedLogin := post("/masuk", url.Values{"identifier": {username + "c"}, "sandi": {"rahasia-aman-123"}}, nil)
 	if migratedLogin.Code != http.StatusSeeOther || migratedLogin.Header().Get("Location") != "/" {
 		t.Fatalf("migrated account login: %d %s", migratedLogin.Code, migratedLogin.Body.String())
 	}
@@ -263,5 +273,30 @@ func TestAccountFamilyFlow(t *testing.T) {
 		if page.Code != http.StatusOK || !strings.Contains(page.Body.String(), tc.want) {
 			t.Fatalf("%s: %d, missing %q, body: %s", tc.path, page.Code, tc.want, page.Body.String())
 		}
+	}
+	linkedEmail := fmt.Sprintf("integration-%d@example.test", firstID)
+	linkedUID := fmt.Sprintf("integration-uid-%d", firstID)
+	if err := store.LinkFirebaseUser(ctx, firstID, linkedUID, linkedEmail, true); err != nil {
+		t.Fatal(err)
+	}
+	linked, err := store.FirebaseUser(ctx, linkedUID)
+	if err != nil || linked.ID != firstID || linked.FamilyID != f.ID || linked.Email != linkedEmail || !linked.EmailVerified {
+		t.Fatalf("linked Firebase user: %+v, %v", linked, err)
+	}
+	firebase := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/accounts:signInWithPassword":
+			_ = json.NewEncoder(w).Encode(firebaseToken{IDToken: "integration-token", LocalID: linkedUID, Email: linkedEmail})
+		case "/accounts:lookup":
+			_ = json.NewEncoder(w).Encode(map[string]any{"users": []firebaseAccount{{LocalID: linkedUID, Email: linkedEmail, EmailVerified: true}}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer firebase.Close()
+	a.firebase = &firebaseAuth{apiKey: "test", endpoint: firebase.URL, client: firebase.Client()}
+	emailLogin := post("/masuk", url.Values{"identifier": {linkedEmail}, "sandi": {"firebase-test-password"}}, nil)
+	if emailLogin.Code != http.StatusSeeOther || emailLogin.Header().Get("Location") != "/" {
+		t.Fatalf("linked email login: %d %s", emailLogin.Code, emailLogin.Body.String())
 	}
 }
