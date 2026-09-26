@@ -29,6 +29,16 @@ func TestSameOrigin(t *testing.T) {
 	if !sameOrigin(r) {
 		t.Fatal("forwarded public host was rejected")
 	}
+	r = httptest.NewRequest("POST", "https://rukun.firsta.my.id/mulai/gabung", nil)
+	r.Header.Set("Origin", "null")
+	r.Header.Set("Sec-Fetch-Site", "same-origin")
+	if !sameOrigin(r) {
+		t.Fatal("same-origin opaque origin was rejected")
+	}
+	r.Header.Set("Sec-Fetch-Site", "cross-site")
+	if sameOrigin(r) {
+		t.Fatal("cross-site opaque origin was accepted")
+	}
 }
 
 func TestLoginLimit(t *testing.T) {

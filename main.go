@@ -309,6 +309,12 @@ func (a *App) routes() http.Handler {
 // tidak mengirimnya; klien tanpa keduanya tidak boleh mengubah data via cookie.
 func sameOrigin(r *http.Request) bool {
 	raw := r.Header.Get("Origin")
+	// Some Chromium/WebView form submissions send an opaque Origin. The
+	// Fetch Metadata header still tells us whether the browser considered this
+	// request same-origin; reject opaque origins without that signal.
+	if raw == "null" {
+		return strings.EqualFold(strings.TrimSpace(r.Header.Get("Sec-Fetch-Site")), "same-origin")
+	}
 	if raw == "" {
 		raw = r.Referer()
 	}
