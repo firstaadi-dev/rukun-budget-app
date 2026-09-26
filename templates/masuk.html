@@ -8,9 +8,9 @@
 
   <form method="post" action="/masuk" class="stack-sm">
     <div class="field">
-      <label for="identifier">Email atau nama akun lama</label>
-      <input class="input" id="identifier" name="identifier" type="text" required autocomplete="username"
-             value="{{with .Form}}{{.Identifier}}{{end}}">
+      <label for="email">Email</label>
+      <input class="input" id="email" name="email" type="email" required autocomplete="email"
+             value="{{with .Form}}{{.Email}}{{end}}">
     </div>
     <div class="field">
       <label for="sandi">Kata Sandi</label>

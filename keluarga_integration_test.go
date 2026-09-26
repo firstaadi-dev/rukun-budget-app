@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"golang.org/x/crypto/bcrypt"
 )
 
 func TestAccountFamilyFlow(t *testing.T) {
@@ -32,7 +31,37 @@ func TestAccountFamilyFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 	store := &Store{db: pool, loc: time.UTC}
-	a := &App{store: store, pages: parsePages(), loc: time.UTC, base: "IDR"}
+	suffix := fmt.Sprintf("%d", time.Now().UnixNano())
+	firstUID, secondUID, thirdUID := "flow-a-"+suffix, "flow-b-"+suffix, "flow-c-"+suffix
+	firstEmail, secondEmail, thirdEmail := "flow-a-"+suffix+"@example.test", "flow-b-"+suffix+"@example.test", "flow-c-"+suffix+"@example.test"
+	uidByEmail := map[string]string{firstEmail: firstUID, secondEmail: secondUID}
+	emailByUID := map[string]string{firstUID: firstEmail, secondUID: secondEmail}
+	firebase := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var in struct {
+			Email    string `json:"email"`
+			Password string `json:"password"`
+			IDToken  string `json:"idToken"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+			t.Error(err)
+			return
+		}
+		switch r.URL.Path {
+		case "/accounts:signInWithPassword":
+			uid := uidByEmail[in.Email]
+			if uid == "" || in.Password != "rahasia-aman-123" {
+				http.Error(w, `{"error":{"message":"INVALID_LOGIN_CREDENTIALS"}}`, http.StatusBadRequest)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(firebaseToken{IDToken: uid, LocalID: uid, Email: in.Email})
+		case "/accounts:lookup":
+			_ = json.NewEncoder(w).Encode(map[string]any{"users": []firebaseAccount{{LocalID: in.IDToken, Email: emailByUID[in.IDToken], EmailVerified: true}}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer firebase.Close()
+	a := &App{store: store, pages: parsePages(), loc: time.UTC, base: "IDR", firebase: &firebaseAuth{apiKey: "test", endpoint: firebase.URL, client: firebase.Client()}}
 	h := a.routes()
 	post := func(path string, values url.Values, cookie *http.Cookie) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(http.MethodPost, "http://rukun.test"+path, strings.NewReader(values.Encode()))
@@ -45,14 +74,12 @@ func TestAccountFamilyFlow(t *testing.T) {
 		h.ServeHTTP(w, r)
 		return w
 	}
-	username := fmt.Sprintf("flow%d", time.Now().UnixNano())
-	defer pool.Exec(ctx, `DELETE FROM users WHERE username IN ($1, $2, $3)`, username, username+"b", username+"c")
-	passHash, err := bcrypt.GenerateFromPassword([]byte("rahasia-aman-123"), bcrypt.MinCost)
+	defer pool.Exec(ctx, `DELETE FROM users WHERE firebase_uid IN ($1, $2, $3)`, firstUID, secondUID, thirdUID)
+	firstID, err := store.CreateFirebaseUser(ctx, firstUID, firstEmail, "Nia")
 	if err != nil {
 		t.Fatal(err)
 	}
-	firstID, err := store.CreateUser(ctx, username, "Nia", string(passHash))
-	if err != nil {
+	if err := store.MarkFirebaseEmailVerified(ctx, firstUID); err != nil {
 		t.Fatal(err)
 	}
 	firstToken := newToken()
@@ -71,7 +98,7 @@ func TestAccountFamilyFlow(t *testing.T) {
 	if created.Code != http.StatusSeeOther || created.Header().Get("Location") != "/" {
 		t.Fatalf("create family: %d %s", created.Code, created.Body.String())
 	}
-	u, _, err := store.UserByUsername(ctx, username)
+	u, err := store.FirebaseUser(ctx, firstUID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,8 +120,11 @@ func TestAccountFamilyFlow(t *testing.T) {
 	if billingOwner != u.ID || betaCohort != "beta" || betaStarted.IsZero() {
 		t.Fatalf("family monetization metadata: owner=%d cohort=%q started=%v", billingOwner, betaCohort, betaStarted)
 	}
-	secondID, err := store.CreateUser(ctx, username+"b", "Nia", string(passHash))
+	secondID, err := store.CreateFirebaseUser(ctx, secondUID, secondEmail, "Nia")
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := store.MarkFirebaseEmailVerified(ctx, secondUID); err != nil {
 		t.Fatal(err)
 	}
 	secondToken := newToken()
@@ -129,7 +159,7 @@ func TestAccountFamilyFlow(t *testing.T) {
 	if joined.Code != http.StatusSeeOther || joined.Header().Get("Location") != "/" {
 		t.Fatalf("join: %d %s", joined.Code, joined.Body.String())
 	}
-	u2, _, err := store.UserByUsername(ctx, username+"b")
+	u2, err := store.FirebaseUser(ctx, secondUID)
 	if err != nil || u2.FamilyID != f.ID {
 		t.Fatalf("joined user: %+v %v", u2, err)
 	}
@@ -139,46 +169,9 @@ func TestAccountFamilyFlow(t *testing.T) {
 	if _, err := store.CreateFamilyForUser(ctx, u2.ID, "Another", newSignupCode()); !errors.Is(err, ErrAlreadyLinked) {
 		t.Fatalf("second family: %v", err)
 	}
-	login := post("/masuk", url.Values{"identifier": {username + "b"}, "sandi": {"rahasia-aman-123"}}, nil)
+	login := post("/masuk", url.Values{"email": {secondEmail}, "sandi": {"rahasia-aman-123"}}, nil)
 	if login.Code != http.StatusSeeOther || login.Header().Get("Location") != "/" {
 		t.Fatalf("account login: %d %s", login.Code, login.Body.String())
-	}
-	legacyHash, err := bcrypt.GenerateFromPassword([]byte("rahasia-aman-123"), bcrypt.MinCost)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var legacyID int64
-	if err := pool.QueryRow(ctx, `INSERT INTO users (username, name, password_hash, family_id)
-		VALUES ($1, 'Nia lama', $2, $3) RETURNING id`, "legacy-temp-"+username, string(legacyHash), f.ID).Scan(&legacyID); err != nil {
-		t.Fatal(err)
-	}
-	defer pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, legacyID)
-	if _, err := pool.Exec(ctx, `UPDATE users SET username = 'rukun:' || id WHERE id = $1`, legacyID); err != nil {
-		t.Fatal(err)
-	}
-	candidates, err := store.LegacyAccounts(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
-	found := false
-	for _, candidate := range candidates {
-		if candidate.ID == legacyID {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatal("legacy placeholder missing from admin migration list")
-	}
-	if updated, err := store.AdminSetLegacyUsername(ctx, legacyID, username+"c"); err != nil || !updated {
-		t.Fatalf("admin account migration: updated=%v err=%v", updated, err)
-	}
-	legacyUser, hash, err := store.UserByUsername(ctx, username+"c")
-	if err != nil || legacyUser.FamilyID != f.ID || bcrypt.CompareHashAndPassword([]byte(hash), []byte("rahasia-aman-123")) != nil {
-		t.Fatalf("migrated account lost access or family link: user=%+v err=%v", legacyUser, err)
-	}
-	migratedLogin := post("/masuk", url.Values{"identifier": {username + "c"}, "sandi": {"rahasia-aman-123"}}, nil)
-	if migratedLogin.Code != http.StatusSeeOther || migratedLogin.Header().Get("Location") != "/" {
-		t.Fatalf("migrated account login: %d %s", migratedLogin.Code, migratedLogin.Body.String())
 	}
 	settings := httptest.NewRecorder()
 	r = httptest.NewRequest(http.MethodGet, "http://rukun.test/pengaturan", nil)
@@ -195,7 +188,7 @@ func TestAccountFamilyFlow(t *testing.T) {
 	if wrongPassword.Code != http.StatusUnauthorized {
 		t.Fatalf("wrong password rotated code: %d", wrongPassword.Code)
 	}
-	thirdID, err := store.CreateUser(ctx, username+"c", "Cici", "unused-hash")
+	thirdID, err := store.CreateFirebaseUser(ctx, thirdUID, thirdEmail, "Cici")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -274,28 +267,7 @@ func TestAccountFamilyFlow(t *testing.T) {
 			t.Fatalf("%s: %d, missing %q, body: %s", tc.path, page.Code, tc.want, page.Body.String())
 		}
 	}
-	linkedEmail := fmt.Sprintf("integration-%d@example.test", firstID)
-	linkedUID := fmt.Sprintf("integration-uid-%d", firstID)
-	if err := store.LinkFirebaseUser(ctx, firstID, linkedUID, linkedEmail, true); err != nil {
-		t.Fatal(err)
-	}
-	linked, err := store.FirebaseUser(ctx, linkedUID)
-	if err != nil || linked.ID != firstID || linked.FamilyID != f.ID || linked.Email != linkedEmail || !linked.EmailVerified {
-		t.Fatalf("linked Firebase user: %+v, %v", linked, err)
-	}
-	firebase := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/accounts:signInWithPassword":
-			_ = json.NewEncoder(w).Encode(firebaseToken{IDToken: "integration-token", LocalID: linkedUID, Email: linkedEmail})
-		case "/accounts:lookup":
-			_ = json.NewEncoder(w).Encode(map[string]any{"users": []firebaseAccount{{LocalID: linkedUID, Email: linkedEmail, EmailVerified: true}}})
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	defer firebase.Close()
-	a.firebase = &firebaseAuth{apiKey: "test", endpoint: firebase.URL, client: firebase.Client()}
-	emailLogin := post("/masuk", url.Values{"identifier": {linkedEmail}, "sandi": {"firebase-test-password"}}, nil)
+	emailLogin := post("/masuk", url.Values{"email": {firstEmail}, "sandi": {"rahasia-aman-123"}}, nil)
 	if emailLogin.Code != http.StatusSeeOther || emailLogin.Header().Get("Location") != "/" {
 		t.Fatalf("linked email login: %d %s", emailLogin.Code, emailLogin.Body.String())
 	}

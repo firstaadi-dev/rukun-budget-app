@@ -329,13 +329,11 @@ func TestPagesRender(t *testing.T) {
 		}, "Cabut akses"},
 
 		{"masuk.html", map[string]any{"NoChrome": true,
-			"Form": map[string]string{"Identifier": "ayah@example.com"}}, "Email atau nama akun lama"},
+			"Form": map[string]string{"Email": "ayah@example.com"}}, "Email"},
 		{"daftar.html", map[string]any{"NoChrome": true,
 			"Form": map[string]string{"Nama": "Ayah", "Email": "ayah@example.com"}}, "Email"},
 		{"mulai.html", map[string]any{"NoChrome": true, "Kode": "abcde-fghij-klmno",
 			"User": User{Name: "Ayah"}}, "Gabung keluarga"},
-		{"admin_migrasi.html", map[string]any{"NoChrome": true,
-			"Accounts": []LegacyAccount{{ID: 1, Name: "Ayah", FamilyName: "Keluarga"}}}, "Migrasi akun lama"},
 	}
 
 	for _, c := range cases {

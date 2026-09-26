@@ -94,17 +94,13 @@ func TestMetodeStoreDataMenerimaFamilyID(t *testing.T) {
 	// yang dipakai API admin.
 	dikecualikan := map[string]bool{
 		"CreateSession": true, "SessionUser": true, "DeleteSession": true, "PurgeSessions": true,
-		"FamilyByCode": true, "Families": true, "CreateFamily": true, "UpdateFamily": true,
-		// Akun mandiri belum punya familyID. Pengaitan keluarga hanya boleh
-		// melalui CreateFamilyForUser/JoinFamily saat family_id masih NULL.
-		"CreateUser": true, "SetUsername": true, "UserByUsername": true,
+		"FamilyByCode": true, "Families": true, "UpdateFamily": true,
 		// Firebase UID/email adalah identitas akun global, lalu dipetakan ke
 		// satu user Rukun. Tidak membaca catatan keuangan keluarga.
-		"CreateFirebaseUser": true, "FirebaseUser": true, "LinkFirebaseUser": true, "MarkFirebaseEmailVerified": true,
+		"CreateFirebaseUser": true, "FirebaseUser": true, "MarkFirebaseEmailVerified": true,
+		// Akun mandiri belum punya familyID. Pengaitan keluarga hanya boleh
+		// melalui CreateFamilyForUser/JoinFamily saat family_id masih NULL.
 		"JoinFamily": true, "CreateFamilyForUser": true,
-		// Migrasi nama akun oleh admin sengaja lintas keluarga dan hanya
-		// menyentuh pengguna yang masih memakai username sementara rukun:<id>.
-		"LegacyAccounts": true, "AdminSetLegacyUsername": true,
 
 		// Harga pasar, bukan catatan keluarga. Harga SPUS sama untuk siapa pun
 		// yang memegangnya, tidak ada satu pun angka milik keluarga di tabel

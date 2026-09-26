@@ -12,51 +12,12 @@
     <div class="card-kicker">Masuk sebagai</div>
     <div class="mid-figure">{{.User.Name}}</div>
     <div class="card-body small text-muted">
-      {{if .User.FirebaseUID}}{{.User.Email}}{{else}}@{{.User.Username}}{{end}} · {{.Family}}{{if .User.Kepala}} · kepala keluarga{{end}}
+      {{.User.Email}} · {{.Family}}{{if .User.Kepala}} · kepala keluarga{{end}}
     </div>
     <form method="post" action="/keluar">
       <button type="submit" class="btn btn-secondary btn-block">Keluar</button>
     </form>
   </section>
-
-  <section>
-    <div class="sec-head"><h6>Nama Akun</h6></div>
-    {{if .User.FirebaseUID}}
-    {{if .User.EmailVerified}}
-    <p class="hint">Email sudah terverifikasi dan bisa dipakai untuk masuk.</p>
-    {{else}}
-    <p class="hint">Menunggu verifikasi email. Masuk dengan username lama sampai verifikasi selesai.</p>
-    {{end}}
-    {{else if eq .User.Username (printf "rukun:%d" .User.ID)}}
-    <p class="hint">Akun ini menunggu migrasi admin. Hubungi admin untuk menetapkan nama akun sebelum masuk lewat alur baru.</p>
-    {{else}}
-    <form method="post" action="/pengaturan/username" class="stack-sm">
-      <label for="username">Dipakai untuk masuk tanpa kode keluarga</label>
-      <input class="input" id="username" name="username" required minlength="3" maxlength="40"
-             pattern="[a-z0-9][a-z0-9._-]{2,39}" value="{{.User.Username}}" autocomplete="username">
-      <p class="hint">Gunakan nama yang mudah diingat saat masuk.</p>
-      <label for="username-sandi">Kata sandi sekarang</label>
-      <input class="input" id="username-sandi" name="sandi" type="password" required autocomplete="current-password">
-      <button type="submit" class="btn btn-secondary">Simpan nama akun</button>
-    </form>
-    {{end}}
-  </section>
-
-  {{if and .FirebaseEnabled (not .User.FirebaseUID)}}
-  <section class="card elev-sm stack-sm">
-    <h6>Hubungkan email</h6>
-    <p class="hint">Data keluarga dan transaksi tetap di akun ini. Setelah email diverifikasi, kamu bisa masuk menggunakan email dan kata sandi Firebase.</p>
-    <form method="post" action="/pengaturan/tautkan-email" class="stack-sm">
-      <label for="tautkan-email">Email</label>
-      <input class="input" id="tautkan-email" name="email" type="email" required maxlength="254" autocomplete="email">
-      <label for="tautkan-sandi-firebase">Kata sandi Firebase</label>
-      <input class="input" id="tautkan-sandi-firebase" name="sandi_firebase" type="password" required minlength="8" maxlength="128" autocomplete="new-password">
-      <label for="tautkan-sandi-lama">Kata sandi akun lama</label>
-      <input class="input" id="tautkan-sandi-lama" name="sandi_lama" type="password" required autocomplete="current-password">
-      <button type="submit" class="btn btn-secondary">Hubungkan email</button>
-    </form>
-  </section>
-  {{end}}
 
   {{if .User.Kepala}}
   <section class="card elev-sm stack-sm">

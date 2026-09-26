@@ -8,11 +8,8 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"regexp"
 	"strings"
 	"time"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 const (
@@ -21,8 +18,6 @@ const (
 	pendingInviteCookie = "rukun_pending_invite"
 	sessionTTL          = 30 * 24 * time.Hour
 )
-
-var usernamePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{2,39}$`)
 
 type loginFailure struct {
 	count int
@@ -152,22 +147,18 @@ func newToken() string {
 }
 
 func (a *App) verifyCurrentPassword(ctx context.Context, u User, password string) (bool, *firebaseToken) {
-	if u.FirebaseUID != "" {
-		if a.firebase == nil {
-			return false, nil
-		}
-		token, err := a.firebase.signIn(ctx, u.Email, password)
-		if err != nil {
-			return false, nil
-		}
-		account, err := a.firebase.account(ctx, token.IDToken)
-		if err != nil || !account.EmailVerified || account.LocalID != u.FirebaseUID {
-			return false, nil
-		}
-		return true, &token
+	if a.firebase == nil || u.FirebaseUID == "" {
+		return false, nil
 	}
-	hash, err := a.store.PasswordHash(ctx, u.FamilyID, u.ID)
-	return err == nil && bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil, nil
+	token, err := a.firebase.signIn(ctx, u.Email, password)
+	if err != nil {
+		return false, nil
+	}
+	account, err := a.firebase.account(ctx, token.IDToken)
+	if err != nil || !account.EmailVerified || account.LocalID != u.FirebaseUID {
+		return false, nil
+	}
+	return true, &token
 }
 
 func (a *App) loginForm(w http.ResponseWriter, r *http.Request) {
@@ -175,12 +166,9 @@ func (a *App) loginForm(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) login(w http.ResponseWriter, r *http.Request) {
-	identifier := strings.TrimSpace(r.FormValue("identifier"))
-	if identifier == "" { // dukung form lama selama transisi deployment
-		identifier = strings.TrimSpace(r.FormValue("username"))
-	}
-	form := map[string]string{"Identifier": identifier}
-	if len(identifier) > 254 {
+	emailInput := strings.TrimSpace(r.FormValue("email"))
+	form := map[string]string{"Email": emailInput}
+	if len(emailInput) > 254 {
 		http.Error(w, "Isian masuk terlalu panjang.", http.StatusBadRequest)
 		return
 	}
@@ -188,7 +176,7 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		ip = r.RemoteAddr
 	}
-	key := ip + "|" + strings.ToLower(identifier)
+	key := ip + "|" + strings.ToLower(emailInput)
 	if !a.loginAllowed(key) {
 		w.Header().Set("Retry-After", "900")
 		http.Error(w, "Terlalu banyak percobaan masuk. Coba lagi dalam 15 menit.", http.StatusTooManyRequests)
@@ -201,55 +189,45 @@ func (a *App) login(w http.ResponseWriter, r *http.Request) {
 		a.renderAuth(w, r, "masuk.html", form, "Akun atau kata sandi salah.")
 	}
 
-	var u User
-	if strings.Contains(identifier, "@") {
-		if a.firebase == nil {
-			fail()
-			return
-		}
-		email, err := normalizeEmail(identifier)
-		if err != nil {
-			fail()
-			return
-		}
-		token, err := a.firebase.signIn(r.Context(), email, r.FormValue("sandi"))
-		if err != nil {
-			fail()
-			return
-		}
-		account, err := a.firebase.account(r.Context(), token.IDToken)
-		if err != nil || account.LocalID != token.LocalID || !account.EmailVerified {
-			// Sandi sudah terbukti benar; kirim ulang verifikasi untuk membantu
-			// pengguna yang tidak menerima email pertama. Firebase membatasi spam.
-			if err == nil && account.LocalID == token.LocalID && !account.EmailVerified {
-				_ = a.firebase.sendVerification(r.Context(), token.IDToken, a.firebaseContinueURL(r))
-			}
-			a.loginFailed(key)
-			a.renderAuth(w, r, "masuk.html", form, "Email belum diverifikasi. Kami mengirim ulang tautan verifikasi; cek inbox dan folder spam.")
-			return
-		}
-		u, err = a.store.FirebaseUser(r.Context(), token.LocalID)
-		if errors.Is(err, ErrNotFound) || (err == nil && !strings.EqualFold(u.Email, account.Email)) {
-			fail()
-			return
-		}
-		if err != nil {
-			a.fail(w, r, err)
-			return
-		}
-		if err := a.store.MarkFirebaseEmailVerified(r.Context(), token.LocalID); err != nil {
-			a.fail(w, r, err)
-			return
-		}
-		u.EmailVerified = true
-	} else {
-		var hash string
-		u, hash, err = a.store.UserByUsername(r.Context(), identifier)
-		if err != nil || bcrypt.CompareHashAndPassword([]byte(hash), []byte(r.FormValue("sandi"))) != nil {
-			fail()
-			return
-		}
+	if a.firebase == nil {
+		fail()
+		return
 	}
+	email, err := normalizeEmail(emailInput)
+	if err != nil {
+		fail()
+		return
+	}
+	token, err := a.firebase.signIn(r.Context(), email, r.FormValue("sandi"))
+	if err != nil {
+		fail()
+		return
+	}
+	account, err := a.firebase.account(r.Context(), token.IDToken)
+	if err != nil || account.LocalID != token.LocalID || !account.EmailVerified {
+		// Sandi sudah terbukti benar; kirim ulang verifikasi untuk membantu
+		// pengguna yang tidak menerima email pertama. Firebase membatasi spam.
+		if err == nil && account.LocalID == token.LocalID && !account.EmailVerified {
+			_ = a.firebase.sendVerification(r.Context(), token.IDToken, a.firebaseContinueURL(r))
+		}
+		a.loginFailed(key)
+		a.renderAuth(w, r, "masuk.html", form, "Email belum diverifikasi. Kami mengirim ulang tautan verifikasi; cek inbox dan folder spam.")
+		return
+	}
+	u, err := a.store.FirebaseUser(r.Context(), token.LocalID)
+	if errors.Is(err, ErrNotFound) || (err == nil && !strings.EqualFold(u.Email, account.Email)) {
+		fail()
+		return
+	}
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	if err := a.store.MarkFirebaseEmailVerified(r.Context(), token.LocalID); err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	u.EmailVerified = true
 	// Diperiksa sesudah sandinya cocok, bukan sebelum. Pesannya spesifik, dan
 	// yang spesifik hanya boleh terbaca oleh orang yang memang pemilik akunnya
 	// — kalau tidak, ia jadi cara menebak nama anggota keluarga lain.

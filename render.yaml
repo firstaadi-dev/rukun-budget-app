@@ -34,7 +34,7 @@ services:
         sync: false
       - key: FIREBASE_PROJECT_ID
         sync: false
-      # Token API admin, dipakai untuk membuat keluarga baru lewat curl.
+      # Token API admin, dipakai untuk melihat/mengelola keluarga lewat curl.
       # Dibuat acak oleh Render; lihat nilainya di tab Environment.
       # Kalau dikosongkan, endpoint /admin/* mati total.
       - key: ADMIN_TOKEN

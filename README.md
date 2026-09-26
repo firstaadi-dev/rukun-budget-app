@@ -79,8 +79,7 @@ Databasenya di **Neon**, bukan Postgres bawaan Render.
    `DATABASE_URL`; tempel connection string tadi. Nilainya disimpan di dashboard, tidak
    pernah masuk git.
 4. Setelah deploy selesai, buka tab **Environment** dan salin `ADMIN_TOKEN` yang dibuat
-   otomatis. Token itu dipakai untuk membuat keluarga lewat API admin — lihat
-   "Membuat keluarga baru" di bawah.
+   otomatis. Token itu dipakai untuk melihat dan mengubah keluarga lewat API admin.
 
 Blueprint juga meminta `APP_URL`, `FIREBASE_API_KEY`, dan `FIREBASE_PROJECT_ID`.
 Isi `APP_URL` dengan domain HTTPS utama Rukun dan dua nilai Firebase dari konfigurasi
@@ -177,24 +176,8 @@ kode untuk mengundang anggota terlihat di halaman **Akun** dan bisa diganti dari
 Tautan undangan yang dibuka tanpa login langsung menuju `/daftar`; kodenya disimpan
 sementara sampai akun selesai dibuat dan bergabung.
 
-API admin lama masih tersedia untuk membuat keluarga secara manual:
-
-Isi `ADMIN_TOKEN` di environment, lalu:
-
-```bash
-curl -X POST https://rukun.example.com/admin/keluarga \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"nama":"Keluarga Santoso","kepala":{"nama":"Ayah","sandi":"minimal-8-karakter"}}'
-```
-
-Balasannya memuat `kepala.username` untuk login serta `kode_daftar` untuk mengundang
-anggota. Akun lama dimigrasikan admin lewat halaman khusus yang tidak ditautkan dari
-login publik: buka `/admin/migrasi-akun-lama`, lalu masukkan `admin` dan `ADMIN_TOKEN`
-saat browser meminta autentikasi. Ganti username sementara `rukun:<id>` dengan nama akun
-yang akan dipakai anggota. Kata sandi lama dan tautan keluarganya tetap dipertahankan.
-
-Melihat semua keluarga beserta kodenya:
+API admin tetap tersedia untuk melihat dan mengubah keluarga. Isi `ADMIN_TOKEN`
+di environment. Untuk melihat semua keluarga beserta kodenya:
 
 ```bash
 curl -H "Authorization: Bearer $ADMIN_TOKEN" https://rukun.example.com/admin/keluarga
@@ -214,9 +197,9 @@ keberadaannya pun tidak ketahuan.
 
 ### Login dan kode keluarga
 
-Login biasa hanya memakai **nama akun** yang unik dan kata sandi. Nama tampilan anggota
-tetap boleh sama di keluarga yang berbeda. Akun baru tanpa keluarga memilih untuk
-membuat keluarga atau bergabung di `/mulai`.
+Login memakai **email dan kata sandi Firebase**. Nama tampilan anggota boleh sama
+di keluarga yang berbeda. Akun baru tanpa keluarga memilih untuk membuat keluarga
+atau bergabung di `/mulai`.
 
 Kode keluarga dipakai untuk bergabung dan berlaku tujuh hari. Kepala keluarga bisa
 membagikan kode atau tautan dari halaman Akun dan membuat kode baru sewaktu-waktu.
@@ -225,11 +208,7 @@ data keluarga bagi pemilik akun baru, perlakukan sebagai rahasia:
 
 - **Bagikan lewat jalur pribadi**, jangan ditulis di grup.
 - **Putar kode bila tautan terlanjur tersebar.** Kode lama langsung tidak berlaku;
-  anggota yang sudah bergabung tetap bisa masuk dengan nama akun.
-
-Untuk akun yang sudah ada sebelum perubahan ini, nama akun awal berbentuk `rukun:<id>`.
-Admin menggantinya dari `/admin/migrasi-akun-lama`; anggota lalu masuk dengan username
-yang ditetapkan dan kata sandi lamanya. Tautan keluarga serta kata sandi tidak berubah.
+  anggota yang sudah bergabung tetap bisa masuk dengan email.
 
 ## Anggaran, laporan, dan ekspor
 
@@ -272,8 +251,8 @@ Penyaring itu ada di satu tempat saja, dan hilangnya tidak menimbulkan error apa
 anggota yang sudah dicabut cuma diam-diam tetap bisa masuk. `anggota_test.go` menjaganya
 secara mekanis, sama seperti `tenant_test.go` menjaga penyaring `family_id`.
 
-**Yang boleh mencabut hanya kepala keluarga**, yaitu anggota pertama — yang membuat
-keluarga atau dibuat bersama keluarganya lewat API admin. Perannya diturunkan dari urutan pendaftaran, bukan
+**Yang boleh mencabut hanya kepala keluarga**, yaitu anggota pertama yang membuat
+keluarga. Perannya diturunkan dari urutan pendaftaran, bukan
 disimpan sebagai kolom sendiri, jadi tidak ada keluarga yang bisa kehilangan kepalanya
 karena satu baris data salah ubah. Kepala keluarga sendiri tidak bisa dinonaktifkan oleh
 siapa pun, dan itu dijaga di query `SetMemberActive`, bukan cuma di handler: keluarga yang
@@ -649,7 +628,7 @@ otomatis memakai URL baru, jadi tidak ada pengguna yang tersangkut versi lama.
 main.go        wiring, rute, sidik jari aset
 migrate.go     penerap migrasi berurutan dengan advisory lock
 migrations/    skema, satu berkas per perubahan
-admin.go       API admin tanpa UI untuk membuat dan mengubah keluarga
+admin.go       API admin tanpa UI untuk melihat dan mengubah keluarga
 handlers.go    handler HTTP dan validasi form
 store.go       akses database (pgx)
 money.go       nominal int64, kurs sebagai rasio, format Indonesia
@@ -658,7 +637,7 @@ harga.go       harga saham, ETF, dan emas dunia; cache di memori, plus pencarian
 nab.go         NAB seluruh reksadana Indonesia; penyegar latar, cache dan pencarian di memori
 investasi.go   model posisi dan lot, kuantitas eksak, untung-rugi, handler
 view.go        view model dan pelabelan tanggal
-auth.go        sesi cookie, bcrypt, login dan pendaftaran per keluarga
+auth.go        sesi cookie, login dan pendaftaran Firebase
 kartu.go       siklus tagihan kartu kredit: tanggal cetak, jatuh tempo, tagihan
 hutang.go      handler hutang piutang dan pembayaran per pihak
 anggota.go     halaman akun: ganti sandi, dan pencabutan akses anggota

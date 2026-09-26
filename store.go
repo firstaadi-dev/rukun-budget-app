@@ -782,14 +782,13 @@ func (s *Store) Rates(ctx context.Context, familyID int64) (map[string]Rate, err
 type User struct {
 	ID            int64
 	Name          string
-	Username      string
 	Email         string
 	FirebaseUID   string
 	EmailVerified bool
 	FamilyID      int64
 	FamilyName    string
-	// Kepala: anggota pertama keluarga ini, yaitu yang dibuat bersama
-	// keluarganya lewat API admin. Dialah satu-satunya yang boleh menonaktifkan
+	// Kepala: anggota pertama keluarga ini, yaitu pembuat keluarga.
+	// Dialah satu-satunya yang boleh menonaktifkan
 	// anggota lain. Perannya diturunkan dari urutan pendaftaran, bukan disimpan
 	// sebagai kolom sendiri: dengan begitu tidak ada keluarga yang bisa
 	// kehilangan kepalanya karena satu baris data salah ubah.
@@ -797,12 +796,6 @@ type User struct {
 	// Disabled: aksesnya sudah dicabut. Sesi yang sudah berjalan ikut mati
 	// karena SessionUser menyaringnya.
 	Disabled bool
-}
-
-type LegacyAccount struct {
-	ID         int64
-	Name       string
-	FamilyName string
 }
 
 // Member: satu anggota beserta jejaknya, untuk halaman pengaturan.
@@ -841,28 +834,6 @@ func (s *Store) Members(ctx context.Context, familyID int64) ([]Member, error) {
 	return out, rows.Err()
 }
 
-// PasswordHash dipakai untuk memastikan yang mengganti sandi memang tahu sandi
-// lamanya. Tanpa itu, perangkat yang tertinggal dalam keadaan login bisa
-// mengunci pemiliknya sendiri keluar dari akunnya.
-func (s *Store) PasswordHash(ctx context.Context, familyID, id int64) (string, error) {
-	var hash string
-	err := s.db.QueryRow(ctx,
-		`SELECT password_hash FROM users WHERE id = $1 AND family_id = $2`, id, familyID).Scan(&hash)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return "", ErrNotFound
-	}
-	return hash, err
-}
-
-func (s *Store) SetPassword(ctx context.Context, familyID, id int64, hash string) error {
-	tag, err := s.db.Exec(ctx,
-		`UPDATE users SET password_hash = $1 WHERE id = $2 AND family_id = $3`, hash, id, familyID)
-	if err == nil && tag.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-	return err
-}
-
 // SetMemberActive mencabut atau memulihkan akses seorang anggota. Kepala
 // keluarga dikecualikan di query-nya sendiri, bukan hanya di handler: keluarga
 // yang kepalanya nonaktif tidak punya siapa pun yang bisa memulihkannya lagi.
@@ -890,45 +861,22 @@ func (s *Store) DeleteUserSessions(ctx context.Context, familyID, userID int64) 
 	return err
 }
 
-func (s *Store) CreateUser(ctx context.Context, username, name, hash string) (int64, error) {
-	var id int64
-	err := s.db.QueryRow(ctx,
-		`INSERT INTO users (username, name, password_hash) VALUES ($1, $2, $3) RETURNING id`,
-		username, name, hash).Scan(&id)
-	return id, err
-}
-
 func (s *Store) CreateFirebaseUser(ctx context.Context, uid, email, name string) (int64, error) {
 	var id int64
 	err := s.db.QueryRow(ctx, `
-		INSERT INTO users (username, name, password_hash, email, firebase_uid)
-		VALUES ($1, $2, 'firebase-managed', $3, $4) RETURNING id`,
-		"fb-"+uid, name, email, uid).Scan(&id)
+		INSERT INTO users (name, email, firebase_uid)
+		VALUES ($1, $2, $3) RETURNING id`, name, email, uid).Scan(&id)
 	return id, err
-}
-
-func (s *Store) LinkFirebaseUser(ctx context.Context, userID int64, uid, email string, verified bool) error {
-	var verifiedAt any
-	if verified {
-		verifiedAt = time.Now()
-	}
-	tag, err := s.db.Exec(ctx, `
-		UPDATE users SET firebase_uid = $2, email = $3, email_verified_at = $4
-		WHERE id = $1 AND firebase_uid IS NULL`, userID, uid, email, verifiedAt)
-	if err == nil && tag.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-	return err
 }
 
 func (s *Store) FirebaseUser(ctx context.Context, uid string) (User, error) {
 	var u User
 	err := s.db.QueryRow(ctx, `
-		SELECT u.id, u.name, u.username, u.email, u.firebase_uid, u.email_verified_at IS NOT NULL,
+		SELECT u.id, u.name, u.email, u.firebase_uid, u.email_verified_at IS NOT NULL,
 		       COALESCE(u.family_id, 0), COALESCE(f.name, ''), COALESCE(`+kepalaKeluarga+`, false),
 		       u.disabled_at IS NOT NULL
 		FROM users u LEFT JOIN families f ON f.id = u.family_id WHERE u.firebase_uid = $1`, uid).
-		Scan(&u.ID, &u.Name, &u.Username, &u.Email, &u.FirebaseUID, &u.EmailVerified, &u.FamilyID,
+		Scan(&u.ID, &u.Name, &u.Email, &u.FirebaseUID, &u.EmailVerified, &u.FamilyID,
 			&u.FamilyName, &u.Kepala, &u.Disabled)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrNotFound
@@ -939,39 +887,6 @@ func (s *Store) FirebaseUser(ctx context.Context, uid string) (User, error) {
 func (s *Store) MarkFirebaseEmailVerified(ctx context.Context, uid string) error {
 	_, err := s.db.Exec(ctx, `UPDATE users SET email_verified_at = COALESCE(email_verified_at, now()) WHERE firebase_uid = $1`, uid)
 	return err
-}
-
-func (s *Store) SetUsername(ctx context.Context, userID int64, username string) error {
-	_, err := s.db.Exec(ctx, `UPDATE users SET username = $1 WHERE id = $2`, username, userID)
-	return err
-}
-
-func (s *Store) LegacyAccounts(ctx context.Context) ([]LegacyAccount, error) {
-	rows, err := s.db.Query(ctx, `
-		SELECT u.id, u.name, COALESCE(f.name, '')
-		FROM users u LEFT JOIN families f ON f.id = u.family_id
-		WHERE u.username = 'rukun:' || u.id::text
-		ORDER BY u.id`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var accounts []LegacyAccount
-	for rows.Next() {
-		var account LegacyAccount
-		if err := rows.Scan(&account.ID, &account.Name, &account.FamilyName); err != nil {
-			return nil, err
-		}
-		accounts = append(accounts, account)
-	}
-	return accounts, rows.Err()
-}
-
-func (s *Store) AdminSetLegacyUsername(ctx context.Context, userID int64, username string) (bool, error) {
-	tag, err := s.db.Exec(ctx, `
-		UPDATE users SET username = $1
-		WHERE id = $2 AND username = 'rukun:' || id::text`, username, userID)
-	return tag.RowsAffected() == 1, err
 }
 
 func (s *Store) JoinFamily(ctx context.Context, userID int64, code, name string) error {
@@ -1028,21 +943,6 @@ func (s *Store) CreateFamilyForUser(ctx context.Context, userID int64, name, cod
 	return f, nil
 }
 
-func (s *Store) UserByUsername(ctx context.Context, username string) (User, string, error) {
-	var u User
-	var hash string
-	err := s.db.QueryRow(ctx, `
-		SELECT u.id, u.name, u.username, COALESCE(u.family_id, 0), COALESCE(f.name, ''),
-		       u.password_hash, u.disabled_at IS NOT NULL, COALESCE(`+kepalaKeluarga+`, false)
-		FROM users u LEFT JOIN families f ON f.id = u.family_id
-		WHERE lower(u.username) = lower($1)`, username).
-		Scan(&u.ID, &u.Name, &u.Username, &u.FamilyID, &u.FamilyName, &hash, &u.Disabled, &u.Kepala)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return User{}, "", ErrNotFound
-	}
-	return u, hash, err
-}
-
 func (s *Store) UserCount(ctx context.Context, familyID int64) (int, error) {
 	var n int
 	err := s.db.QueryRow(ctx, `SELECT count(*) FROM users WHERE family_id = $1`, familyID).Scan(&n)
@@ -1066,13 +966,14 @@ func (s *Store) CreateSession(ctx context.Context, token string, userID int64, u
 func (s *Store) SessionUser(ctx context.Context, token string) (User, error) {
 	var u User
 	err := s.db.QueryRow(ctx, `
-		SELECT u.id, u.name, u.username, COALESCE(u.email, ''), COALESCE(u.firebase_uid, ''),
+		SELECT u.id, u.name, COALESCE(u.email, ''), COALESCE(u.firebase_uid, ''),
 		       u.email_verified_at IS NOT NULL, COALESCE(u.family_id, 0), COALESCE(f.name, ''), COALESCE(`+kepalaKeluarga+`, false)
 		FROM sessions s
 		JOIN users u ON u.id = s.user_id
 		LEFT JOIN families f ON f.id = u.family_id
-		WHERE s.token = $1 AND s.expires_at > now() AND u.disabled_at IS NULL`, token).
-		Scan(&u.ID, &u.Name, &u.Username, &u.Email, &u.FirebaseUID, &u.EmailVerified, &u.FamilyID, &u.FamilyName, &u.Kepala)
+		WHERE s.token = $1 AND s.expires_at > now() AND u.disabled_at IS NULL
+		  AND u.firebase_uid IS NOT NULL AND u.email_verified_at IS NOT NULL`, token).
+		Scan(&u.ID, &u.Name, &u.Email, &u.FirebaseUID, &u.EmailVerified, &u.FamilyID, &u.FamilyName, &u.Kepala)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrNotFound
 	}
@@ -1096,7 +997,6 @@ type Family struct {
 	Name                string
 	SignupCode          string
 	SignupCodeExpiresAt time.Time
-	HeadUsername        string
 	Members             int
 	Wallets             int
 	Txs                 int
@@ -1147,45 +1047,6 @@ func (s *Store) Families(ctx context.Context) ([]Family, error) {
 		out = append(out, f)
 	}
 	return out, rows.Err()
-}
-
-// CreateFamily membuat keluarga beserta kepala keluarganya dan kategori
-// bawaannya dalam satu transaksi. Keluarga tanpa anggota tidak ada gunanya, dan
-// keluarga tanpa kategori membuat form transaksi pertama buntu.
-func (s *Store) CreateFamily(ctx context.Context, name, code, headName, headHash string) (Family, error) {
-	tx, err := s.db.Begin(ctx)
-	if err != nil {
-		return Family{}, err
-	}
-	defer tx.Rollback(ctx)
-
-	var f Family
-	if err := tx.QueryRow(ctx,
-		`INSERT INTO families (name, signup_code) VALUES ($1, $2)
-		 RETURNING id, name, signup_code, signup_code_expires_at, created_at`, name, code).
-		Scan(&f.ID, &f.Name, &f.SignupCode, &f.SignupCodeExpiresAt, &f.CreatedAt); err != nil {
-		return Family{}, err
-	}
-	var headID int64
-	if err := tx.QueryRow(ctx,
-		`WITH next_id AS (SELECT nextval(pg_get_serial_sequence('users', 'id')) AS id)
-		 INSERT INTO users (id, family_id, username, name, password_hash)
-		 SELECT id, $1, 'rukun:' || id, $2, $3 FROM next_id RETURNING id`,
-		f.ID, headName, headHash).Scan(&headID); err != nil {
-		return Family{}, err
-	}
-	if _, err := tx.Exec(ctx, `UPDATE families SET billing_owner_user_id = $1 WHERE id = $2`, headID, f.ID); err != nil {
-		return Family{}, err
-	}
-	f.HeadUsername = fmt.Sprintf("rukun:%d", headID)
-	if _, err := tx.Exec(ctx, seedCategoriesSQL, f.ID); err != nil {
-		return Family{}, err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return Family{}, err
-	}
-	f.Members = 1
-	return f, nil
 }
 
 // seedCategoriesSQL memasang kategori bawaan untuk keluarga baru. Daftarnya

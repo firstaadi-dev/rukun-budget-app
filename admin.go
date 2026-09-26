@@ -10,14 +10,10 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
-// API pengelolaan keluarga sengaja tidak punya UI. Membuat keluarga baru berarti
-// membuat penyimpanan data terpisah, jadi hanya developer yang melakukannya atas
-// permintaan manual. Migrasi username lama punya halaman terpisah yang dilindungi
-// token admin dan tidak ditautkan dari UI publik.
+// API pengelolaan keluarga sengaja tidak punya UI. Akun dan keluarga baru
+// dibuat sendiri oleh pengguna setelah mendaftar lewat Firebase.
 //
 // Aksesnya lewat header: Authorization: Bearer <ADMIN_TOKEN>.
 // Tanpa ADMIN_TOKEN di environment, endpoint JSON membalas 404 —
@@ -36,56 +32,6 @@ func (a *App) requireAdmin(next http.HandlerFunc) http.Handler {
 			return
 		}
 		next(w, r)
-	})
-}
-
-// requireAdminPage protects the unlinked account-migration screen with the
-// existing admin token. Basic auth lets an administrator open its URL directly.
-func (a *App) requireAdminPage(next http.HandlerFunc) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if a.admin == "" {
-			a.notFound(w)
-			return
-		}
-		user, token, ok := r.BasicAuth()
-		if !ok || user != "admin" || subtle.ConstantTimeCompare([]byte(token), []byte(a.admin)) != 1 {
-			w.Header().Set("WWW-Authenticate", `Basic realm="Rukun admin", charset="UTF-8"`)
-			http.Error(w, "Akses admin diperlukan.", http.StatusUnauthorized)
-			return
-		}
-		next(w, r)
-	})
-}
-
-func (a *App) adminLegacyAccounts(w http.ResponseWriter, r *http.Request) {
-	message := ""
-	if r.Method == http.MethodPost {
-		id, err := strconv.ParseInt(r.FormValue("id"), 10, 64)
-		username := strings.ToLower(strings.TrimSpace(r.FormValue("username")))
-		if err != nil || id < 1 || !usernamePattern.MatchString(username) {
-			message = "ID atau nama akun tidak valid."
-			w.WriteHeader(http.StatusUnprocessableEntity)
-		} else {
-			updated, err := a.store.AdminSetLegacyUsername(r.Context(), id, username)
-			if err != nil {
-				message = "Nama akun sudah dipakai atau perubahan gagal."
-				w.WriteHeader(http.StatusConflict)
-			} else if !updated {
-				message = "Akun itu sudah dimigrasikan atau tidak ditemukan."
-				w.WriteHeader(http.StatusConflict)
-			} else {
-				http.Redirect(w, r, "/admin/migrasi-akun-lama", http.StatusSeeOther)
-				return
-			}
-		}
-	}
-	accounts, err := a.store.LegacyAccounts(r.Context())
-	if err != nil {
-		a.fail(w, r, err)
-		return
-	}
-	a.render(w, r, "admin_migrasi.html", map[string]any{
-		"Title": "Migrasi akun lama", "NoChrome": true, "Accounts": accounts, "Error": message,
 	})
 }
 
@@ -149,80 +95,13 @@ func (a *App) adminListFamilies(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"keluarga": out})
 }
 
-type createFamilyRequest struct {
-	Nama   string `json:"nama"`
-	Kepala struct {
-		Nama  string `json:"nama"`
-		Sandi string `json:"sandi"`
-	} `json:"kepala"`
-	KodeDaftar string `json:"kode_daftar"` // ditolak bila diisi; kode harus acak
-}
-
-// POST /admin/keluarga
-func (a *App) adminCreateFamily(w http.ResponseWriter, r *http.Request) {
-	var req createFamilyRequest
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "body bukan JSON yang valid"})
-		return
-	}
-
-	req.Nama = strings.TrimSpace(req.Nama)
-	req.Kepala.Nama = strings.TrimSpace(req.Kepala.Nama)
-	req.KodeDaftar = strings.TrimSpace(req.KodeDaftar)
-
-	switch {
-	case len(req.Nama) < 2:
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "nama keluarga minimal 2 karakter"})
-		return
-	case len(req.Kepala.Nama) < 2:
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "nama kepala keluarga minimal 2 karakter"})
-		return
-	case len(req.Kepala.Sandi) < 8:
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "kata sandi kepala keluarga minimal 8 karakter"})
-		return
-	}
-	if req.KodeDaftar != "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "kode daftar dibuat otomatis; jangan isi kode_daftar"})
-		return
-	}
-	req.KodeDaftar = newSignupCode()
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(req.Kepala.Sandi), bcrypt.DefaultCost)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
-		return
-	}
-
-	f, err := a.store.CreateFamily(r.Context(), req.Nama, req.KodeDaftar, req.Kepala.Nama, string(hash))
-	if err != nil {
-		// Penyebab yang wajar cuma kode daftar kembar, tapi sebabnya tetap
-		// dicatat: pernah ada bug yang tersembunyi di balik pesan umum ini.
-		log.Printf("gagal membuat keluarga %q: %v", req.Nama, err)
-		writeJSON(w, http.StatusConflict, map[string]string{
-			"error": "gagal membuat keluarga, kemungkinan kode daftar sudah dipakai",
-		})
-		return
-	}
-	log.Printf("keluarga baru dibuat lewat API admin: %q (id %d), kepala %q",
-		f.Name, f.ID, req.Kepala.Nama)
-
-	writeJSON(w, http.StatusCreated, map[string]any{
-		"keluarga": a.toFamilyJSON(f),
-		"kepala":   map[string]string{"nama": req.Kepala.Nama, "username": f.HeadUsername},
-		"catatan":  "Anggota membuat akun di /daftar lalu bergabung dengan kode_daftar di /mulai.",
-	})
-}
-
 type patchFamilyRequest struct {
 	Nama      string `json:"nama"`
 	PutarKode bool   `json:"putar_kode"`
 }
 
 // PATCH /admin/keluarga/{id} — ganti nama dan/atau putar kode undangan.
-// Memutar kode adalah cara menutup pendaftaran setelah semua anggota masuk;
-// anggota yang sudah punya akun tidak terpengaruh karena kode hanya dipakai
-// saat mendaftar. Tapi kode itu juga dipakai saat login untuk menentukan
-// keluarga, jadi kode barunya perlu dibagikan ulang.
+// Memutar kode menutup undangan lama; anggota yang sudah bergabung tetap punya akses.
 func (a *App) adminPatchFamily(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {

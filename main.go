@@ -81,7 +81,7 @@ func main() {
 		log.Fatalf("konfigurasi Firebase: %v", err)
 	}
 	if firebase == nil {
-		log.Print("Firebase Auth belum dikonfigurasi; pendaftaran email dinonaktifkan")
+		log.Fatal("Firebase Auth belum dikonfigurasi")
 	}
 
 	dsn := os.Getenv("DATABASE_URL")
@@ -121,7 +121,7 @@ func main() {
 	}
 
 	if app.admin == "" {
-		log.Print("ADMIN_TOKEN kosong: API admin dimatikan, keluarga baru tidak bisa dibuat")
+		log.Print("ADMIN_TOKEN kosong: API admin dimatikan")
 	}
 
 	// "off" mematikan pengambilan kurs; aplikasi lalu hanya memakai kurs dari
@@ -223,16 +223,12 @@ func (a *App) routes() http.Handler {
 	mux.HandleFunc("GET /daftar", a.registerForm)
 	mux.HandleFunc("POST /daftar", a.register)
 	mux.HandleFunc("POST /keluar", a.logout)
-	mux.Handle("GET /admin/migrasi-akun-lama", a.requireAdminPage(a.adminLegacyAccounts))
-	mux.Handle("POST /admin/migrasi-akun-lama", a.requireAdminPage(a.adminLegacyAccounts))
 	mux.Handle("GET /mulai", a.requireUser(a.startForm))
 	mux.Handle("POST /mulai/buat", a.requireUser(a.startCreate))
 	mux.Handle("POST /mulai/gabung", a.requireUser(a.startJoin))
 
-	// API admin untuk keluarga sengaja tidak punya UI; halaman migrasi akun
-	// terpisah dan dibatasi ADMIN_TOKEN lewat Basic Auth.
+	// API admin untuk keluarga sengaja tidak punya UI.
 	mux.Handle("GET /admin/keluarga", a.requireAdmin(a.adminListFamilies))
-	mux.Handle("POST /admin/keluarga", a.requireAdmin(a.adminCreateFamily))
 	mux.Handle("PATCH /admin/keluarga/{id}", a.requireAdmin(a.adminPatchFamily))
 
 	auth := func(pattern string, h http.HandlerFunc) { mux.Handle(pattern, a.requireFamily(h)) }
@@ -274,9 +270,7 @@ func (a *App) routes() http.Handler {
 	auth("POST /hutang/pihak/{id}/bayar", a.payCreate)
 
 	auth("GET /pengaturan", a.settings)
-	auth("POST /pengaturan/tautkan-email", a.linkFirebase)
 	auth("POST /pengaturan/sandi", a.changePassword)
-	auth("POST /pengaturan/username", a.changeUsername)
 	auth("POST /pengaturan/kode", a.rotateFamilyCode)
 	auth("POST /pengaturan/anggota/{id}/nonaktif", a.memberDisable)
 	auth("POST /pengaturan/anggota/{id}/aktif", a.memberEnable)

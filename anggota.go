@@ -4,11 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 // Halaman pengaturan: akun sendiri dan daftar anggota keluarga.
@@ -29,8 +25,6 @@ var pesanSukses = map[string]string{
 	"nonaktif": "Akses anggota itu dicabut. Catatan yang pernah dibuatnya tetap utuh.",
 	"aktif":    "Akses anggota itu dipulihkan.",
 	"kode":     "Kode undangan baru berlaku tujuh hari. Kode lama tidak bisa dipakai lagi.",
-	"username": "Nama akun diganti.",
-	"tautkan":  "Akun Firebase tertaut. Verifikasi email sebelum masuk menggunakan email; jika tautannya belum tiba, coba masuk dengan email untuk mengirim ulang.",
 }
 
 func (a *App) settings(w http.ResponseWriter, r *http.Request) {
@@ -53,111 +47,14 @@ func (a *App) renderSettings(w http.ResponseWriter, r *http.Request, errMsg stri
 	}
 	a.render(w, r, "pengaturan.html", map[string]any{
 		"Title": "Akun", "Nav": "akun",
-		"FirebaseEnabled": a.firebase != nil,
-		"Members":         members,
-		"InviteCode":      f.SignupCode,
-		"InviteURL":       inviteURL(r, f.SignupCode),
-		"InviteExpires":   tanggalPendek(f.SignupCodeExpiresAt.In(a.loc)),
-		"InviteExpired":   !f.SignupCodeExpiresAt.After(time.Now()),
-		"Sukses":          pesanSukses[r.URL.Query().Get("ok")],
-		"Error":           errMsg,
+		"Members":       members,
+		"InviteCode":    f.SignupCode,
+		"InviteURL":     inviteURL(r, f.SignupCode),
+		"InviteExpires": tanggalPendek(f.SignupCodeExpiresAt.In(a.loc)),
+		"InviteExpired": !f.SignupCodeExpiresAt.After(time.Now()),
+		"Sukses":        pesanSukses[r.URL.Query().Get("ok")],
+		"Error":         errMsg,
 	})
-}
-
-func (a *App) changeUsername(w http.ResponseWriter, r *http.Request) {
-	u := userFrom(r.Context())
-	if u.Username == "rukun:"+strconv.FormatInt(u.ID, 10) {
-		a.renderSettings(w, r, "Akun lama harus dimigrasikan admin sebelum nama akun bisa diganti.", http.StatusForbidden)
-		return
-	}
-	username := strings.ToLower(strings.TrimSpace(r.FormValue("username")))
-	if !usernamePattern.MatchString(username) {
-		a.renderSettings(w, r, "Nama akun harus 3–40 karakter: huruf kecil, angka, titik, garis bawah, atau tanda hubung.", http.StatusUnprocessableEntity)
-		return
-	}
-	if ok, _ := a.verifyCurrentPassword(r.Context(), u, r.FormValue("sandi")); !ok {
-		a.renderSettings(w, r, "Kata sandi salah.", http.StatusUnauthorized)
-		return
-	}
-	if err := a.store.SetUsername(r.Context(), userFrom(r.Context()).ID, username); err != nil {
-		a.renderSettings(w, r, "Nama akun sudah dipakai.", http.StatusConflict)
-		return
-	}
-	http.Redirect(w, r, "/pengaturan?ok=username", http.StatusSeeOther)
-}
-
-func (a *App) linkFirebase(w http.ResponseWriter, r *http.Request) {
-	u := userFrom(r.Context())
-	fail := func(message string, status int) { a.renderSettings(w, r, message, status) }
-	if u.FirebaseUID != "" {
-		fail("Akun ini sudah ditautkan ke Firebase.", http.StatusConflict)
-		return
-	}
-	if a.firebase == nil {
-		fail("Firebase Auth belum dikonfigurasi.", http.StatusServiceUnavailable)
-		return
-	}
-	email, err := normalizeEmail(r.FormValue("email"))
-	if err != nil {
-		fail("Masukkan alamat email yang valid.", http.StatusBadRequest)
-		return
-	}
-	password := r.FormValue("sandi_firebase")
-	if len(password) < 8 || len(password) > 128 {
-		fail("Kata sandi Firebase harus 8–128 karakter.", http.StatusBadRequest)
-		return
-	}
-	if hash, err := a.store.PasswordHash(r.Context(), family(r), u.ID); err != nil ||
-		bcrypt.CompareHashAndPassword([]byte(hash), []byte(r.FormValue("sandi_lama"))) != nil {
-		fail("Kata sandi akun lama salah.", http.StatusUnauthorized)
-		return
-	}
-	continueURL := a.firebaseContinueURL(r)
-	if continueURL == "" {
-		fail("APP_URL belum dikonfigurasi.", http.StatusServiceUnavailable)
-		return
-	}
-
-	token, err := a.firebase.signIn(r.Context(), email, password)
-	created := false
-	if err != nil {
-		fe, ok := err.(firebaseError)
-		if !ok || (fe.Code != "INVALID_LOGIN_CREDENTIALS" && fe.Code != "EMAIL_NOT_FOUND" && fe.Code != "USER_NOT_FOUND") {
-			fail("Tidak bisa menghubungkan akun Firebase. Periksa email dan kata sandi Firebase.", http.StatusBadGateway)
-			return
-		}
-		token, err = a.firebase.signUp(r.Context(), email, password)
-		if err != nil {
-			if fe, ok := err.(firebaseError); ok && fe.Code == "EMAIL_EXISTS" {
-				fail("Email sudah terdaftar. Masukkan kata sandi Firebase yang benar.", http.StatusConflict)
-			} else {
-				fail("Akun Firebase tidak bisa dibuat. Periksa email dan kata sandi.", http.StatusBadGateway)
-			}
-			return
-		}
-		created = true
-	}
-	account, err := a.firebase.account(r.Context(), token.IDToken)
-	if err != nil || account.LocalID != token.LocalID || !strings.EqualFold(account.Email, email) {
-		if created {
-			_ = a.firebase.call(r.Context(), "delete", map[string]string{"idToken": token.IDToken}, nil)
-		}
-		fail("Identitas Firebase tidak dapat diverifikasi.", http.StatusBadGateway)
-		return
-	}
-	if err := a.store.LinkFirebaseUser(r.Context(), u.ID, account.LocalID, email, account.EmailVerified); err != nil {
-		if created {
-			_ = a.firebase.call(r.Context(), "delete", map[string]string{"idToken": token.IDToken}, nil)
-		}
-		fail("Email atau akun Firebase sudah terhubung ke akun Rukun lain.", http.StatusConflict)
-		return
-	}
-	if !account.EmailVerified {
-		if err := a.firebase.sendVerification(r.Context(), token.IDToken, continueURL); err != nil {
-			log.Printf("kirim verifikasi tautan akun gagal untuk user id %d: %v", u.ID, err)
-		}
-	}
-	http.Redirect(w, r, "/pengaturan?ok=tautkan", http.StatusSeeOther)
 }
 
 func (a *App) rotateFamilyCode(w http.ResponseWriter, r *http.Request) {
@@ -198,21 +95,9 @@ func (a *App) changePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if u.FirebaseUID != "" {
-		if err := a.firebase.updatePassword(r.Context(), firebaseToken.IDToken, baru); err != nil {
-			a.renderSettings(w, r, "Kata sandi Firebase gagal diperbarui. Coba lagi.", http.StatusBadGateway)
-			return
-		}
-	} else {
-		baruHash, err := bcrypt.GenerateFromPassword([]byte(baru), bcrypt.DefaultCost)
-		if err != nil {
-			a.fail(w, r, err)
-			return
-		}
-		if err := a.store.SetPassword(r.Context(), family(r), u.ID, string(baruHash)); err != nil {
-			a.fail(w, r, err)
-			return
-		}
+	if err := a.firebase.updatePassword(r.Context(), firebaseToken.IDToken, baru); err != nil {
+		a.renderSettings(w, r, "Kata sandi Firebase gagal diperbarui. Coba lagi.", http.StatusBadGateway)
+		return
 	}
 
 	// Sandi diganti biasanya justru karena yang lama diduga bocor. Sesi yang

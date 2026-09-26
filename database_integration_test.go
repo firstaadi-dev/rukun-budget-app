@@ -27,12 +27,18 @@ func TestDatabaseMoneyFlows(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := &Store{db: pool, loc: time.UTC}
-	f, err := s.CreateFamily(ctx, "Integration", fmt.Sprintf("integration-%d", time.Now().UnixNano()), "Tester", "unused-hash")
+	suffix := time.Now().UnixNano()
+	uid := fmt.Sprintf("integration-%d", suffix)
+	userID, err := s.CreateFirebaseUser(ctx, uid, uid+"@example.test", "Tester")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := s.CreateFamilyForUser(ctx, userID, "Integration", newSignupCode())
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer pool.Exec(ctx, `DELETE FROM families WHERE id = $1`, f.ID)
-	u, _, err := s.UserByUsername(ctx, f.HeadUsername)
+	u, err := s.FirebaseUser(ctx, uid)
 	if err != nil {
 		t.Fatal(err)
 	}
