@@ -80,6 +80,36 @@ func TestDatabaseMoneyFlows(t *testing.T) {
 	if w.BalanceMinor != 960 {
 		t.Fatalf("wallet balance %d, want 960", w.BalanceMinor)
 	}
+	atSettlement, creditsSince, err := s.CardBalances(ctx, f.ID, wid, today)
+	if err != nil || atSettlement != 960 || creditsSince != 0 {
+		t.Fatalf("card balances: %d, %d, %v", atSettlement, creditsSince, err)
+	}
+	symbol := fmt.Sprintf("SQLC-%d", suffix)
+	defer pool.Exec(ctx, `DELETE FROM quotes WHERE symbol = $1`, symbol)
+	if err := s.SaveQuotes(ctx, map[string]Kuotasi{symbol: {
+		PriceE4: 12_000, Currency: "IDR", At: time.Now().UTC(), Nama: "Test Asset",
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	quoted, err := s.Quotes(ctx, []string{symbol})
+	if err != nil || quoted[symbol].PriceE4 != 12_000 || quoted[symbol].Diambil {
+		t.Fatalf("saved quote: %+v %v", quoted, err)
+	}
+	allQuotes, err := s.AllQuotes(ctx)
+	if err != nil || allQuotes[symbol].Currency != "IDR" {
+		t.Fatalf("all quotes missing saved symbol: %v", err)
+	}
+	partyID, err := s.EnsureParty(ctx, f.ID, "Pihak Test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	parties, err := s.Parties(ctx, f.ID)
+	if err != nil || len(parties) != 1 || parties[0].ID != partyID {
+		t.Fatalf("party with no balance: %+v %v", parties, err)
+	}
+	if err := s.DeleteParty(ctx, f.ID, partyID); err != nil {
+		t.Fatal(err)
+	}
 	trades, err := s.Transactions(ctx, f.ID, TxFilter{Investment: vid})
 	if err != nil {
 		t.Fatal(err)

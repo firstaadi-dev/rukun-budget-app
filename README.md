@@ -41,6 +41,11 @@ Jalankan test (tidak butuh database):
 go test ./...
 ```
 
+Seluruh query data aplikasi dikelola di `sqlc/queries/`.
+Setelah mengubah query atau migrasi, jalankan `sqlc generate` (sqlc v1.30)
+dan commit perubahan `internal/db/` bersama sumber SQL. `pgx` langsung hanya
+dipakai oleh penerap migrasi dan untuk membuka transaksi database.
+
 ## Backup dan uji pemulihan
 
 Produksi memakai **pemulihan bawaan Neon**. Proyek ini saat ini menyimpan riwayat
@@ -154,15 +159,15 @@ dijaga di dua lapis, bukan satu:
 **Lapis aplikasi.** Setiap metode `Store` yang menyentuh data keuangan keluarga menerima
 `familyID` sebagai argumen, dan tidak ada varian tanpa batas yang bisa dipanggil. Nilai
 itu selalu berasal dari sesi login, tidak pernah dari parameter URL atau isian form.
-Penyaring `family_id` juga sudah menempel di dalam potongan query `walletSelect` dan
-`txSelect`, jadi query baru mewarisinya tanpa perlu diingat.
+Penyaring `family_id` berada di query `GetWallets` dan `GetTransactions` di sqlc.
 
 **Lapis database.** `transactions` punya kolom `family_id` sendiri — sengaja
 didenormalisasi — sehingga foreign key gabungan `(family_id, wallet_id)` bisa merujuk
 `wallets (family_id, id)`. Akibatnya tidak ada nilai `wallet_id` yang bisa disimpan
 kalau dompetnya milik keluarga lain, berapa pun cerobohnya kode di atasnya.
 
-`tenant_test.go` menjaga lapis pertama secara mekanis: ia membaca `store.go` dan gagal
+`tenant_test.go` menjaga lapis pertama secara mekanis: ia membaca `store*.go`
+dan `sqlc/queries/*.sql`, lalu gagal
 kalau ada query yang menyentuh tabel data tanpa menyebut `family_id`, atau ada metode
 `Store` data keuangan baru yang tidak menerima `familyID`. Metode akun mandiri dan
 pengaitan keluarga dikecualikan karena akun baru belum punya keluarga. Kesalahan semacam itu tidak menimbulkan
@@ -248,8 +253,8 @@ dicabut adalah aksesnya: `disabled_at` terisi, seluruh sesinya dihapus, dan `Ses
 menyaringnya sehingga pencabutan berlaku di semua perangkatnya pada permintaan berikutnya.
 
 Penyaring itu ada di satu tempat saja, dan hilangnya tidak menimbulkan error apa pun —
-anggota yang sudah dicabut cuma diam-diam tetap bisa masuk. `anggota_test.go` menjaganya
-secara mekanis, sama seperti `tenant_test.go` menjaga penyaring `family_id`.
+anggota yang sudah dicabut cuma diam-diam tetap bisa masuk. Tes integrasi
+`TestAccountFamilyFlow` memeriksa bahwa sesi anggota nonaktif ditolak.
 
 **Yang boleh mencabut hanya kepala keluarga**, yaitu anggota pertama yang membuat
 keluarga. Perannya diturunkan dari urutan pendaftaran, bukan
@@ -341,7 +346,7 @@ satu tabel `investments`, bukan tiga. Yang berbeda cuma satuannya (gram, lembar,
 cara harganya didapat, dan dari mana uangnya diambil.
 
 **Pembelian menumpang `transactions`, bukan tabel sendiri.** Alasannya sama dengan hutang
-piutang: saldo dompet diturunkan dari satu query di `walletSelect`, dan sumber kedua yang
+piutang: saldo dompet diturunkan dari satu query `GetWallets`, dan sumber kedua yang
 juga menggerakkan saldo akan menyimpang tanpa ketahuan. Jenisnya `invest_buy`, dengan
 kolom `investment_id` dan `qty_e8`. Di daftar transaksi ia bernada netral, bukan
 "keluar" — uangnya memang meninggalkan dompet, tapi tidak habis; ia berubah bentuk jadi
@@ -600,15 +605,15 @@ transaksi database di `RenameCategory`, dan menghapus kategori yang masih dipaka
 ditolak.
 
 **Hutang piutang menumpang tabel `transactions`, bukan tabel sendiri.** Saldo dompet
-dihitung dari satu query di `walletSelect`; kalau ada tabel kedua yang juga menggerakkan
+dihitung dari satu query `GetWallets`; kalau ada tabel kedua yang juga menggerakkan
 saldo, query itu harus menggabungkan dua sumber dan keduanya bisa menyimpang tanpa
 ketahuan. Konsekuensinya `wallet_id` jadi nullable, dan CHECK `transactions_bentuk`
 yang menentukan kolom mana wajib untuk tiap jenis. Menambah jenis transaksi berarti
-menyentuh CHECK itu **dan** daftar `kindMenambahSaldo` di `store.go` — jenis yang
+menyentuh CHECK itu **dan** daftar `kindMenambahSaldo` di `store_transaction.go` — jenis yang
 terlewat di salah satunya membuat saldo bohong tanpa error apa pun.
 
 **Saldo dompet tidak disimpan.** Selalu dihitung dari `initial_balance_minor` ditambah
-transaksinya (`walletSelect` di `store.go`). Tidak ada kolom yang bisa melenceng dari
+transaksinya (`GetWallets` di `sqlc/queries/wallets.sql`). Tidak ada kolom yang bisa melenceng dari
 catatan. Kalau nanti transaksi sudah ratusan ribu baris, barulah pertimbangkan cache.
 
 **Total dashboard jujur soal yang tidak diketahui.** Dompet bermata uang yang kursnya
@@ -629,8 +634,12 @@ main.go        wiring, rute, sidik jari aset
 migrate.go     penerap migrasi berurutan dengan advisory lock
 migrations/    skema, satu berkas per perubahan
 admin.go       API admin tanpa UI untuk melihat dan mengubah keluarga
-handlers.go    handler HTTP dan validasi form
-store.go       akses database (pgx)
+handlers.go    fungsi render dan helper HTTP bersama
+handler_*.go   handler dan validasi form per domain
+store.go       tipe Store dan aturan akses database bersama
+store_*.go     akses database per domain, masih satu package
+sqlc/queries/  sumber seluruh query data aplikasi
+internal/db/   kode pgx hasil sqlc generate; jangan diedit manual
 money.go       nominal int64, kurs sebagai rasio, format Indonesia
 rates.go       kurs pasar dari API, cache di memori, gabung dengan kurs transfer
 harga.go       harga saham, ETF, dan emas dunia; cache di memori, plus pencarian ticker

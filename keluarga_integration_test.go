@@ -271,4 +271,10 @@ func TestAccountFamilyFlow(t *testing.T) {
 	if emailLogin.Code != http.StatusSeeOther || emailLogin.Header().Get("Location") != "/" {
 		t.Fatalf("linked email login: %d %s", emailLogin.Code, emailLogin.Body.String())
 	}
+	if err := store.SetMemberActive(ctx, f.ID, u2.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.SessionUser(ctx, secondToken); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("disabled member kept session access: %v", err)
+	}
 }

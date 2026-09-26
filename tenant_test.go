@@ -4,6 +4,8 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -13,7 +15,7 @@ import (
 // tidak menimbulkan error, tidak membuat test lain merah, dan tidak terlihat
 // sampai ada yang melapor — jadi dijaga di sini secara mekanis.
 //
-// Yang diperiksa: setiap query SQL di store.go yang menyentuh tabel data
+// Yang diperiksa: setiap query SQL di file store dan sqlc yang menyentuh tabel data
 // keluarga harus menyebut family_id. Bukan bukti kebenaran, tapi cukup untuk
 // menangkap query baru yang ditambahkan tanpa penyaring.
 func TestSetiapQueryDataMenyaringFamilyID(t *testing.T) {
@@ -23,27 +25,23 @@ func TestSetiapQueryDataMenyaringFamilyID(t *testing.T) {
 	tabelData := []string{"wallets", "transactions", "categories", "investments"}
 
 	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "store.go", nil, 0)
+	files, err := filepath.Glob("store*.go")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	var pelanggaran []string
-	ast.Inspect(file, func(n ast.Node) bool {
-		lit, ok := n.(*ast.BasicLit)
-		if !ok || lit.Kind != token.STRING {
-			return true
-		}
-		q := strings.ToLower(lit.Value)
+	check := func(q, location string) {
+		q = strings.ToLower(q)
 		if !strings.Contains(q, "select") && !strings.Contains(q, "insert") &&
 			!strings.Contains(q, "update") && !strings.Contains(q, "delete") {
-			return true
+			return
 		}
 		// Query yang memang lintas keluarga: yang membaca tabel families itu
 		// sendiri, dipakai API admin.
 		if strings.Contains(q, "from families") || strings.Contains(q, "into families") ||
 			strings.Contains(q, "update families") {
-			return true
+			return
 		}
 		// Daftar simbol yang perlu diambil harganya. Ia menyentuh investments,
 		// tapi yang dibacanya cuma kode bursa dan jenis posisinya — bukan berapa
@@ -52,7 +50,10 @@ func TestSetiapQueryDataMenyaringFamilyID(t *testing.T) {
 		// sama sekali per keluarga justru memperbesar kemungkinan ditolak
 		// sumbernya. Lihat SimbolDipakai.
 		if strings.Contains(q, "distinct symbol, kind from investments") {
-			return true
+			return
+		}
+		if strings.Contains(q, "nextval('tx_series_seq')") {
+			return // sequence global; tidak membaca transaksi keluarga
 		}
 		for _, tabel := range tabelData {
 			if !strings.Contains(q, tabel) {
@@ -61,29 +62,40 @@ func TestSetiapQueryDataMenyaringFamilyID(t *testing.T) {
 			if strings.Contains(q, "family_id") {
 				continue
 			}
-			pos := fset.Position(lit.Pos())
-			pelanggaran = append(pelanggaran,
-				"store.go:"+itoa(pos.Line)+" menyentuh "+tabel+" tanpa menyaring family_id")
+			pelanggaran = append(pelanggaran, location+" menyentuh "+tabel+" tanpa menyaring family_id")
 			break
 		}
-		return true
-	})
+	}
+	for _, name := range files {
+		file, err := parser.ParseFile(fset, name, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ast.Inspect(file, func(n ast.Node) bool {
+			lit, ok := n.(*ast.BasicLit)
+			if ok && lit.Kind == token.STRING {
+				check(lit.Value, fset.Position(lit.Pos()).String())
+			}
+			return true
+		})
+	}
+	queries, err := filepath.Glob("sqlc/queries/*.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range queries {
+		body, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, query := range strings.Split(string(body), "-- name:") {
+			check(query, name)
+		}
+	}
 
 	for _, v := range pelanggaran {
 		t.Error(v)
 	}
-}
-
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var b []byte
-	for n > 0 {
-		b = append([]byte{byte('0' + n%10)}, b...)
-		n /= 10
-	}
-	return string(b)
 }
 
 // Metode Store yang menyentuh data keluarga harus menerima familyID. Tanpa
@@ -113,36 +125,41 @@ func TestMetodeStoreDataMenerimaFamilyID(t *testing.T) {
 	}
 
 	fset := token.NewFileSet()
-	file, err := parser.ParseFile(fset, "store.go", nil, 0)
+	files, err := filepath.Glob("store*.go")
 	if err != nil {
 		t.Fatal(err)
 	}
+	for _, name := range files {
+		file, err := parser.ParseFile(fset, name, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, decl := range file.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Recv == nil || !ast.IsExported(fn.Name.Name) || dikecualikan[fn.Name.Name] {
+				continue
+			}
+			star, ok := fn.Recv.List[0].Type.(*ast.StarExpr)
+			if !ok {
+				continue
+			}
+			if ident, ok := star.X.(*ast.Ident); !ok || ident.Name != "Store" {
+				continue
+			}
 
-	for _, decl := range file.Decls {
-		fn, ok := decl.(*ast.FuncDecl)
-		if !ok || fn.Recv == nil || !ast.IsExported(fn.Name.Name) || dikecualikan[fn.Name.Name] {
-			continue
-		}
-		star, ok := fn.Recv.List[0].Type.(*ast.StarExpr)
-		if !ok {
-			continue
-		}
-		if ident, ok := star.X.(*ast.Ident); !ok || ident.Name != "Store" {
-			continue
-		}
-
-		var punya bool
-		for _, p := range fn.Type.Params.List {
-			for _, name := range p.Names {
-				if name.Name == "familyID" {
-					punya = true
+			var punya bool
+			for _, p := range fn.Type.Params.List {
+				for _, name := range p.Names {
+					if name.Name == "familyID" {
+						punya = true
+					}
 				}
 			}
-		}
-		if !punya {
-			t.Errorf("Store.%s menyentuh data keluarga tapi tidak menerima familyID; "+
-				"tambahkan argumen itu atau daftarkan di pengecualian dengan alasannya",
-				fn.Name.Name)
+			if !punya {
+				t.Errorf("Store.%s menyentuh data keluarga tapi tidak menerima familyID; "+
+					"tambahkan argumen itu atau daftarkan di pengecualian dengan alasannya",
+					fn.Name.Name)
+			}
 		}
 	}
 }

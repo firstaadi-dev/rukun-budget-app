@@ -11,7 +11,7 @@ import (
 // Hutang piutang dicatat di tabel transactions yang sama dengan pengeluaran dan
 // pemasukan, memakai empat jenis: debt_in, debt_pay, loan_out, loan_in.
 //
-// Alasannya saldo dompet dihitung dari satu query di walletSelect. Kalau hutang
+// Alasannya saldo dompet dihitung dari satu query GetWallets. Kalau hutang
 // piutang punya tabel sendiri yang juga menggerakkan saldo, query itu harus
 // menggabungkan dua sumber, dan keduanya bisa menyimpang tanpa ketahuan.
 //

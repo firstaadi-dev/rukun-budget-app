@@ -248,7 +248,7 @@ $$('input[inputmode="decimal"]').forEach((el) => {
     return { fromMajor: Number(fm) / Number(pf), toMajor: Number(tm) / Number(pt), src };
   }
 
-  // Arah kutipan kurs harus sama persis dengan quoteDirection di handlers.go,
+  // Arah kutipan kurs harus sama persis dengan quoteDirection di handler_transaction.go,
   // kalau tidak angka yang diketik user akan ditafsirkan terbalik oleh server.
   function quoteDir(a, b) {
     const r = known(a, b);
