@@ -22,6 +22,13 @@ func TestSameOrigin(t *testing.T) {
 			t.Errorf("origin %q forwarded %q: got %v, want %v", tc.origin, tc.forwarded, got, tc.want)
 		}
 	}
+	r := httptest.NewRequest("POST", "http://internal:8080/mulai/gabung", nil)
+	r.Header.Set("Origin", "https://rukun.firsta.my.id")
+	r.Header.Set("X-Forwarded-Host", "rukun.firsta.my.id")
+	r.Header.Set("X-Forwarded-Proto", "https")
+	if !sameOrigin(r) {
+		t.Fatal("forwarded public host was rejected")
+	}
 }
 
 func TestLoginLimit(t *testing.T) {
