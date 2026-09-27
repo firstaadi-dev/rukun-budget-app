@@ -49,6 +49,14 @@ func awalBulan(t time.Time) time.Time {
 	return time.Date(y, m, 1, 0, 0, 0, 0, t.Location())
 }
 
+func awalPeriode(t time.Time, hariMulai int) time.Time {
+	awal := awalBulan(t).AddDate(0, 0, hariMulai-1)
+	if t.Day() < hariMulai {
+		awal = awal.AddDate(0, -1, 0)
+	}
+	return awal
+}
+
 func namaBulan(t time.Time) string {
 	return fmt.Sprintf("%s %d", bulanID[int(t.Month())], t.Year())
 }
@@ -108,6 +116,13 @@ const (
 // jatuh ke tampilan bawaan, bukan ke daftar kosong yang terlihat seperti data
 // hilang.
 func bacaPeriode(nilai, dari, sampai string, today time.Time) Periode {
+	return bacaPeriodeKustom(nilai, dari, sampai, today, 1)
+}
+
+func bacaPeriodeKustom(nilai, dari, sampai string, today time.Time, hariMulai int) Periode {
+	if hariMulai < 1 || hariMulai > 28 {
+		hariMulai = 1
+	}
 	// Rentang khusus menang atas periode bulanan. Keduanya menjawab pertanyaan
 	// yang sama, dan yang tanggalnya ditulis sendiri adalah yang lebih spesifik.
 	if p, ok := bacaRentang(dari, sampai, today.Location()); ok {
@@ -116,18 +131,26 @@ func bacaPeriode(nilai, dari, sampai string, today time.Time) Periode {
 	if nilai == periodeSemua {
 		return Periode{Nilai: periodeSemua, Label: "Seluruh waktu", Frasa: "di seluruh catatan", Semua: true}
 	}
-	awal := awalBulan(today)
+	awalBerjalan := awalPeriode(today, hariMulai)
+	awal := awalBerjalan
 	if t, err := time.ParseInLocation(formatPeriode, nilai, today.Location()); err == nil {
-		awal = t
+		awal = time.Date(t.Year(), t.Month(), hariMulai, 0, 0, 0, 0, today.Location())
+	}
+	akhir := awal.AddDate(0, 1, 0).AddDate(0, 0, -1)
+	label := namaBulan(awal)
+	frasa := "di " + label
+	if hariMulai != 1 {
+		label = fmt.Sprintf("%d %s – %d %s %d", awal.Day(), bulanID[int(awal.Month())], akhir.Day(), bulanID[int(akhir.Month())], akhir.Year())
+		frasa = "pada " + label
 	}
 	return Periode{
 		Nilai:    awal.Format(formatPeriode),
-		Label:    namaBulan(awal),
-		Frasa:    "di " + namaBulan(awal),
+		Label:    label,
+		Frasa:    frasa,
 		From:     awal,
 		To:       awal.AddDate(0, 1, 0),
 		Bulan:    true,
-		BulanIni: awal.Equal(awalBulan(today)),
+		BulanIni: awal.Equal(awalBerjalan),
 		Prev:     awal.AddDate(0, -1, 0).Format(formatPeriode),
 		Next:     awal.AddDate(0, 1, 0).Format(formatPeriode),
 	}

@@ -54,7 +54,7 @@ func (q *Queries) GetFamilyByCode(ctx context.Context, signupCode string) (GetFa
 }
 
 const getFamilyByID = `-- name: GetFamilyByID :one
-SELECT id, name, signup_code, signup_code_expires_at FROM families WHERE id = $1
+SELECT id, name, signup_code, signup_code_expires_at, period_start_day FROM families WHERE id = $1
 `
 
 type GetFamilyByIDRow struct {
@@ -62,6 +62,7 @@ type GetFamilyByIDRow struct {
 	Name                string
 	SignupCode          string
 	SignupCodeExpiresAt pgtype.Timestamptz
+	PeriodStartDay      int16
 }
 
 func (q *Queries) GetFamilyByID(ctx context.Context, id int64) (GetFamilyByIDRow, error) {
@@ -72,12 +73,13 @@ func (q *Queries) GetFamilyByID(ctx context.Context, id int64) (GetFamilyByIDRow
 		&i.Name,
 		&i.SignupCode,
 		&i.SignupCodeExpiresAt,
+		&i.PeriodStartDay,
 	)
 	return i, err
 }
 
 const getFamilyDetail = `-- name: GetFamilyDetail :one
-SELECT id, name, signup_code, signup_code_expires_at, created_at
+SELECT id, name, signup_code, signup_code_expires_at, created_at, period_start_day
 FROM families WHERE id = $1
 `
 
@@ -87,6 +89,7 @@ type GetFamilyDetailRow struct {
 	SignupCode          string
 	SignupCodeExpiresAt pgtype.Timestamptz
 	CreatedAt           pgtype.Timestamptz
+	PeriodStartDay      int16
 }
 
 func (q *Queries) GetFamilyDetail(ctx context.Context, id int64) (GetFamilyDetailRow, error) {
@@ -98,6 +101,7 @@ func (q *Queries) GetFamilyDetail(ctx context.Context, id int64) (GetFamilyDetai
 		&i.SignupCode,
 		&i.SignupCodeExpiresAt,
 		&i.CreatedAt,
+		&i.PeriodStartDay,
 	)
 	return i, err
 }
@@ -308,6 +312,23 @@ type UpdateFamilyParams struct {
 
 func (q *Queries) UpdateFamily(ctx context.Context, arg UpdateFamilyParams) (int64, error) {
 	result, err := q.db.Exec(ctx, updateFamily, arg.Name, arg.Code, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const updateFamilyPeriodStartDay = `-- name: UpdateFamilyPeriodStartDay :execrows
+UPDATE families SET period_start_day = $2 WHERE id = $1
+`
+
+type UpdateFamilyPeriodStartDayParams struct {
+	ID             int64
+	PeriodStartDay int16
+}
+
+func (q *Queries) UpdateFamilyPeriodStartDay(ctx context.Context, arg UpdateFamilyPeriodStartDayParams) (int64, error) {
+	result, err := q.db.Exec(ctx, updateFamilyPeriodStartDay, arg.ID, arg.PeriodStartDay)
 	if err != nil {
 		return 0, err
 	}

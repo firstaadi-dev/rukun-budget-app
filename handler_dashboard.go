@@ -27,8 +27,13 @@ func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
 	// Ringkasan per kategori dibatasi bulan berjalan: itu rentang yang dipakai
 	// keluarga saat menilai "bulan ini boros di mana", dan membuat angkanya
 	// bisa dibandingkan antar bulan.
-	awal := awalBulan(a.today())
-	spend, err := a.store.CategorySpending(ctx, family(r), awal, awal.AddDate(0, 1, 0))
+	f, err := a.store.FamilyByID(ctx, family(r))
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	p := bacaPeriodeKustom("", "", "", a.today(), f.PeriodStartDay)
+	spend, err := a.store.CategorySpending(ctx, family(r), p.From, p.To)
 	if err != nil {
 		a.fail(w, r, err)
 		return
@@ -54,7 +59,7 @@ func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
 		"Summary":   summarize(wallets, rates, a.base),
 		"Wallets":   viewWallets(wallets),
 		"Recent":    viewTxs(txs, a.today()),
-		"Breakdown": breakdown(spend, rates, a.base, namaBulan(awal)),
+		"Breakdown": breakdown(spend, rates, a.base, p.Label),
 		"Budgets":   budgetRows(cats, spend, rates, a.base),
 	})
 }

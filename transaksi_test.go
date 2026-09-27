@@ -52,6 +52,27 @@ func TestBacaPeriode(t *testing.T) {
 	}
 }
 
+func TestBacaPeriodeTanggalGajian(t *testing.T) {
+	loc := time.FixedZone("WIB", 7*3600)
+	for _, tc := range []struct {
+		day              int
+		wantFrom, wantTo string
+	}{
+		{27, "2026-07-28", "2026-08-28"},
+		{28, "2026-08-28", "2026-09-28"},
+		{31, "2026-08-28", "2026-09-28"},
+	} {
+		today := time.Date(2026, 8, tc.day, 0, 0, 0, 0, loc)
+		p := bacaPeriodeKustom("", "", "", today, 28)
+		if p.From.Format(formatTanggal) != tc.wantFrom || p.To.Format(formatTanggal) != tc.wantTo {
+			t.Errorf("tgl %d: rentang %s..%s, mau %s..%s", tc.day, p.From.Format(formatTanggal), p.To.Format(formatTanggal), tc.wantFrom, tc.wantTo)
+		}
+		if !p.BulanIni || p.Prev != p.From.AddDate(0, -1, 0).Format(formatPeriode) {
+			t.Errorf("tgl %d: periode berjalan/tetangga salah: %+v", tc.day, p)
+		}
+	}
+}
+
 // Rentang tanggal sendiri. Yang paling mudah salah di sini bukan rentang yang
 // lengkap, melainkan ujungnya: "sampai 15 Agustus" yang diam-diam berhenti di
 // 14 Agustus akan menyembunyikan sehari penuh transaksi tanpa memberi tanda.

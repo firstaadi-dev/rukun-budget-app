@@ -46,7 +46,7 @@ SELECT count(*) FROM users WHERE family_id = $1;
 SELECT id, name, signup_code FROM families WHERE signup_code = $1;
 
 -- name: GetFamilyByID :one
-SELECT id, name, signup_code, signup_code_expires_at FROM families WHERE id = $1;
+SELECT id, name, signup_code, signup_code_expires_at, period_start_day FROM families WHERE id = $1;
 
 -- name: ListFamilies :many
 SELECT f.id, f.name, f.signup_code, f.signup_code_expires_at, f.created_at,
@@ -62,5 +62,8 @@ UPDATE families SET name = COALESCE(NULLIF(sqlc.arg(name)::text, ''), name),
 WHERE id = sqlc.arg(id);
 
 -- name: GetFamilyDetail :one
-SELECT id, name, signup_code, signup_code_expires_at, created_at
+SELECT id, name, signup_code, signup_code_expires_at, created_at, period_start_day
 FROM families WHERE id = $1;
+
+-- name: UpdateFamilyPeriodStartDay :execrows
+UPDATE families SET period_start_day = $2 WHERE id = $1;

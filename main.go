@@ -270,6 +270,7 @@ func (a *App) routes() http.Handler {
 	auth("POST /hutang/pihak/{id}/bayar", a.payCreate)
 
 	auth("GET /pengaturan", a.settings)
+	auth("POST /pengaturan/periode", a.updatePeriodStartDay)
 	auth("POST /pengaturan/sandi", a.changePassword)
 	auth("POST /pengaturan/kode", a.rotateFamilyCode)
 	auth("POST /pengaturan/anggota/{id}/nonaktif", a.memberDisable)

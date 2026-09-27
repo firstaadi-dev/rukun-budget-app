@@ -220,6 +220,7 @@ type Family struct {
 	Wallets             int
 	Txs                 int
 	CreatedAt           time.Time
+	PeriodStartDay      int
 }
 
 // FamilyByCode memvalidasi kode undangan saat akun bergabung.
@@ -237,7 +238,7 @@ func (s *Store) FamilyByID(ctx context.Context, familyID int64) (Family, error) 
 		return Family{}, ErrNotFound
 	}
 	return Family{ID: row.ID, Name: row.Name, SignupCode: row.SignupCode,
-		SignupCodeExpiresAt: row.SignupCodeExpiresAt.Time}, err
+		SignupCodeExpiresAt: row.SignupCodeExpiresAt.Time, PeriodStartDay: int(row.PeriodStartDay)}, err
 }
 
 func (s *Store) Families(ctx context.Context) ([]Family, error) {
@@ -267,5 +268,16 @@ func (s *Store) UpdateFamily(ctx context.Context, id int64, name, code string) (
 	}
 	row, err := q.GetFamilyDetail(ctx, id)
 	return Family{ID: row.ID, Name: row.Name, SignupCode: row.SignupCode,
-		SignupCodeExpiresAt: row.SignupCodeExpiresAt.Time, CreatedAt: row.CreatedAt.Time}, err
+		SignupCodeExpiresAt: row.SignupCodeExpiresAt.Time, CreatedAt: row.CreatedAt.Time,
+		PeriodStartDay: int(row.PeriodStartDay)}, err
+}
+
+func (s *Store) UpdateFamilyPeriodStartDay(ctx context.Context, familyID int64, day int) error {
+	rows, err := sqlcdb.New(s.db).UpdateFamilyPeriodStartDay(ctx, sqlcdb.UpdateFamilyPeriodStartDayParams{
+		ID: familyID, PeriodStartDay: int16(day),
+	})
+	if err == nil && rows == 0 {
+		return ErrNotFound
+	}
+	return err
 }

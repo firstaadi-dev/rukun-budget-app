@@ -111,7 +111,12 @@ func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 		q.Del("dompet")
 	}
 
-	periode := bacaPeriode(q.Get("periode"), q.Get("dari"), q.Get("sampai"), a.today())
+	f, err := a.store.FamilyByID(ctx, family(r))
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	periode := bacaPeriodeKustom(q.Get("periode"), q.Get("dari"), q.Get("sampai"), a.today(), f.PeriodStartDay)
 	var beforeDate time.Time
 	var beforeID int64
 	if parts := strings.Split(q.Get("cursor"), ":"); len(parts) == 2 {

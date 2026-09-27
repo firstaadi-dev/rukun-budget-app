@@ -4,6 +4,8 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -21,6 +23,7 @@ import (
 // redirect supaya tidak terkirim ulang saat halaman disegarkan, dan penanda
 // singkat di URL adalah cara paling murah membawa satu kalimat menyeberanginya.
 var pesanSukses = map[string]string{
+	"periode":  "Tanggal awal periode disimpan.",
 	"sandi":    "Kata sandi diganti. Perangkat lain yang masih login diminta masuk ulang.",
 	"nonaktif": "Akses anggota itu dicabut. Catatan yang pernah dibuatnya tetap utuh.",
 	"aktif":    "Akses anggota itu dipulihkan.",
@@ -47,14 +50,28 @@ func (a *App) renderSettings(w http.ResponseWriter, r *http.Request, errMsg stri
 	}
 	a.render(w, r, "pengaturan.html", map[string]any{
 		"Title": "Akun", "Nav": "akun",
-		"Members":       members,
-		"InviteCode":    f.SignupCode,
-		"InviteURL":     inviteURL(r, f.SignupCode),
-		"InviteExpires": tanggalPendek(f.SignupCodeExpiresAt.In(a.loc)),
-		"InviteExpired": !f.SignupCodeExpiresAt.After(time.Now()),
-		"Sukses":        pesanSukses[r.URL.Query().Get("ok")],
-		"Error":         errMsg,
+		"Members":        members,
+		"InviteCode":     f.SignupCode,
+		"InviteURL":      inviteURL(r, f.SignupCode),
+		"InviteExpires":  tanggalPendek(f.SignupCodeExpiresAt.In(a.loc)),
+		"InviteExpired":  !f.SignupCodeExpiresAt.After(time.Now()),
+		"PeriodStartDay": f.PeriodStartDay,
+		"Sukses":         pesanSukses[r.URL.Query().Get("ok")],
+		"Error":          errMsg,
 	})
+}
+
+func (a *App) updatePeriodStartDay(w http.ResponseWriter, r *http.Request) {
+	day, err := strconv.Atoi(strings.TrimSpace(r.FormValue("hari_mulai")))
+	if err != nil || day < 1 || day > 28 {
+		a.renderSettings(w, r, "Tanggal awal periode harus antara 1 sampai 28.", http.StatusBadRequest)
+		return
+	}
+	if err := a.store.UpdateFamilyPeriodStartDay(r.Context(), family(r), day); err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/pengaturan?ok=periode", http.StatusSeeOther)
 }
 
 func (a *App) rotateFamilyCode(w http.ResponseWriter, r *http.Request) {

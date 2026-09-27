@@ -26,6 +26,7 @@ type Family struct {
 	BillingOwnerUserID  pgtype.Int8
 	BetaStartedAt       pgtype.Timestamptz
 	BetaCohort          string
+	PeriodStartDay      int16
 }
 
 type Investment struct {

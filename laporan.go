@@ -13,7 +13,12 @@ func (a *App) report(w http.ResponseWriter, r *http.Request) {
 	if month == periodeSemua {
 		month = ""
 	}
-	p := bacaPeriode(month, "", "", a.today())
+	f, err := a.store.FamilyByID(r.Context(), family(r))
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	p := bacaPeriodeKustom(month, "", "", a.today(), f.PeriodStartDay)
 	spend, err := a.store.CategorySpending(r.Context(), family(r), p.From, p.To)
 	if err != nil {
 		a.fail(w, r, err)
@@ -53,7 +58,12 @@ func (a *App) txExport(w http.ResponseWriter, r *http.Request) {
 	if walletID < 0 {
 		walletID = 0
 	}
-	p := bacaPeriode(q.Get("periode"), q.Get("dari"), q.Get("sampai"), a.today())
+	f, err := a.store.FamilyByID(r.Context(), family(r))
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	p := bacaPeriodeKustom(q.Get("periode"), q.Get("dari"), q.Get("sampai"), a.today(), f.PeriodStartDay)
 	txs, err := a.store.Transactions(r.Context(), family(r), TxFilter{
 		Kinds: kindsForFilter(kind), Category: category, Cari: strings.TrimSpace(q.Get("cari")),
 		WalletID: walletID, From: p.From, To: p.To,

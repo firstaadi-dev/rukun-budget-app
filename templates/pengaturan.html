@@ -5,6 +5,17 @@
   </div>
 
   {{if .Sukses}}<p class="banner" role="status">{{.Sukses}}</p>{{end}}
+  {{if .Error}}<p class="banner" role="alert">{{.Error}}</p>{{end}}
+
+  <section class="card elev-sm stack-sm">
+    <h6>Awal Periode Bulanan</h6>
+    <p class="hint">Atur sesuai tanggal gajian agar pemasukan gaji masuk di awal periode.</p>
+    <form method="post" action="/pengaturan/periode" class="stack-sm">
+      <label for="hari_mulai">Tanggal awal (1–28)</label>
+      <input class="input" id="hari_mulai" name="hari_mulai" type="number" min="1" max="28" required value="{{.PeriodStartDay}}">
+      <button type="submit" class="btn btn-primary">Simpan</button>
+    </form>
+  </section>
 
   {{/* Sekaligus satu-satunya tombol Keluar yang bisa dijangkau dari ponsel:
        sidebar yang memuatnya baru muncul mulai lebar 900px. */}}
