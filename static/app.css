@@ -755,6 +755,87 @@ a.seg-opt.on { background: var(--color-accent-100); color: var(--color-accent-70
 .btn-danger:hover { background: color-mix(in srgb, var(--money-out) 12%, transparent); }
 .btn-danger:active { background: color-mix(in srgb, var(--money-out) 22%, transparent); }
 
+/* ---------- tema Rukun Ceria ---------- */
+
+:root[data-theme="ceria"] {
+  --color-bg: #fff8f4;
+  --color-surface: #fffefa;
+  --color-text: #453b47;
+  --color-accent: #c85f7a;
+  --color-accent-2: #8b79b5;
+  --color-divider: color-mix(in srgb, #cbaab7 38%, transparent);
+  --color-neutral-100: #fff1f3;
+  --color-neutral-200: #f8e7eb;
+  --color-neutral-300: #ead5dc;
+  --color-neutral-400: #d4b9c4;
+  --color-neutral-500: #b4919f;
+  --color-neutral-600: #876d79;
+  --color-neutral-700: #65505c;
+  --color-neutral-800: #4c3b47;
+  --color-neutral-900: #322630;
+  --color-accent-100: #ffedf1;
+  --color-accent-200: #fbd9e1;
+  --color-accent-300: #f3bdcc;
+  --color-accent-400: #e99bb0;
+  --color-accent-500: #d97892;
+  --color-accent-600: #bd5875;
+  --color-accent-700: #984258;
+  --color-accent-800: #713144;
+  --color-accent-900: #4d202f;
+  --color-accent-2-100: #f2efff;
+  --color-accent-2-200: #e3ddfb;
+  --color-accent-2-300: #cfc5f2;
+  --color-accent-2-400: #b6a8e5;
+  --color-accent-2-500: #9b89d0;
+  --color-accent-2-600: #806db6;
+  --color-accent-2-700: #685694;
+  --color-accent-2-800: #4e416f;
+  --color-accent-2-900: #372d4f;
+  --font-heading: ui-rounded, "Trebuchet MS", system-ui, sans-serif;
+  --font-heading-weight: 700;
+  --font-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --shadow-sm: 0 3px 10px color-mix(in srgb, #b86f87 12%, transparent);
+  --shadow-md: 0 7px 20px color-mix(in srgb, #b86f87 15%, transparent);
+  --shadow-lg: 0 14px 36px color-mix(in srgb, #b86f87 20%, transparent);
+  --money-in: #568c73;
+  --money-out: #bf6270;
+}
+
+:root[data-theme="ceria"] body {
+  background-color: var(--color-bg);
+  background-image: radial-gradient(circle at 4% 3%, #fbe3e9 0, transparent 24rem),
+    radial-gradient(circle at 96% 82%, #eeebff 0, transparent 28rem);
+}
+:root[data-theme="ceria"] h6 { letter-spacing: .02em; text-transform: none; }
+:root[data-theme="ceria"] .card { background: var(--color-surface); border-color: color-mix(in srgb, var(--color-accent) 15%, transparent); }
+:root[data-theme="ceria"] .btn { border-radius: 999px; }
+:root[data-theme="ceria"] .btn-primary { color: white; background: var(--color-accent); border-color: var(--color-accent); box-shadow: 0 3px 8px color-mix(in srgb, var(--color-accent) 24%, transparent); }
+:root[data-theme="ceria"] .btn-primary:hover { background: var(--color-accent-700); }
+:root[data-theme="ceria"] .btn-secondary { background: var(--color-surface); border-color: var(--color-divider); }
+:root[data-theme="ceria"] .input { background: var(--color-surface); border-radius: var(--radius-md); }
+:root[data-theme="ceria"] .tag { border-radius: 999px; }
+:root[data-theme="ceria"] .sidebar nav a.on { box-shadow: inset 3px 0 var(--color-accent); }
+:root[data-theme="ceria"] .page-head h4::after { content: " ✿"; color: var(--color-accent); font-size: .58em; vertical-align: top; }
+
+.theme-switch { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.theme-switch button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 7px 10px; border: 1px solid var(--color-divider); border-radius: var(--radius-md); color: var(--color-text); background: var(--color-surface); font: inherit; cursor: pointer; }
+.theme-switch button[aria-pressed="true"] { border-color: var(--color-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 18%, transparent); }
+.theme-preview { display: flex; align-items: center; gap: 2px; width: 32px; height: 24px; padding: 3px; border: 1px solid var(--color-divider); border-radius: 7px; background: #f3f2f2; }
+.theme-preview i { width: 7px; height: 14px; border-radius: 4px; background: #b68235; }
+.theme-preview i:nth-child(2) { height: 18px; background: #eae9e9; }
+.theme-preview i:nth-child(3) { background: #7d5411; }
+.theme-preview-ceria { background: #fff8f4; border-color: #f3bdcc; }
+.theme-preview-ceria i { background: #c85f7a; }
+.theme-preview-ceria i:nth-child(2) { background: #eeebff; }
+.theme-preview-ceria i:nth-child(3) { background: #568c73; }
+.account-overview { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 700px) {
+  .account-overview { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }
+}
+
 /* ---------- investasi ---------- */
 
 /* Nilai sekarang berdiri paling depan, selisih tepat di bawahnya. Yang ingin

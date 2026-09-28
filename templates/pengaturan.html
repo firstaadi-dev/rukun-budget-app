@@ -7,7 +7,7 @@
   {{if .Sukses}}<p class="banner" role="status">{{.Sukses}}</p>{{end}}
   {{if .Error}}<p class="banner" role="alert">{{.Error}}</p>{{end}}
 
-  <div class="account-grid">
+  <div class="account-grid account-overview">
    <section class="card elev-sm stack-sm">
     <h6>Periode Bulanan</h6>
     <p class="hint">Sesuaikan dengan tanggal gajian agar pemasukan masuk di awal periode.</p>
@@ -29,6 +29,20 @@
     <form method="post" action="/keluar">
       <button type="submit" class="btn btn-secondary btn-block">Keluar</button>
     </form>
+   </section>
+   <section class="card elev-sm stack-sm">
+    <h6>Tampilan</h6>
+    <p class="hint">Pilih nuansa Rukun di browser ini.</p>
+    <div class="theme-switch" role="group" aria-label="Pilih tema aplikasi">
+      <button type="button" data-theme-choice="klasik" aria-pressed="true">
+        <span class="theme-preview theme-preview-klasik" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>Klasik</span>
+      </button>
+      <button type="button" data-theme-choice="ceria" aria-pressed="false">
+        <span class="theme-preview theme-preview-ceria" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>Ceria</span>
+      </button>
+    </div>
    </section>
   </div>
 

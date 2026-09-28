@@ -50,6 +50,24 @@ const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 const curOf = (sel) => sel.selectedOptions[0]?.dataset.currency || 'IDR';
 const symOf = (sel) => sel.selectedOptions[0]?.dataset.symbol || '';
 
+// ---------- tema tampilan ----------
+
+const themeChoices = $$('[data-theme-choice]');
+function setTheme(theme, save = false) {
+  const value = theme === 'ceria' ? 'ceria' : 'klasik';
+  if (value === 'ceria') document.documentElement.dataset.theme = value;
+  else delete document.documentElement.dataset.theme;
+  themeChoices.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.themeChoice === value)));
+  const color = value === 'ceria' ? '#fff8f4' : '#f3f2f2';
+  const meta = $('meta[name="theme-color"]');
+  if (meta) meta.content = color;
+  if (save) {
+    try { localStorage.setItem('rukun-theme', value); } catch { /* Tema tetap berlaku sampai halaman dibuka ulang. */ }
+  }
+}
+themeChoices.forEach((button) => button.addEventListener('click', () => setTheme(button.dataset.themeChoice, true)));
+try { setTheme(localStorage.getItem('rukun-theme') || 'klasik'); } catch { setTheme('klasik'); }
+
 // ---------- kolom nominal: hanya angka, dengan pemisah ribuan ----------
 
 // inputmode="decimal" cuma memberi saran keyboard di ponsel; di desktop huruf
