@@ -33,8 +33,7 @@ a { color: var(--color-accent-700); }
   position: fixed;
   inset: auto 0 0 0;
   display: grid;
-  /* Tujuh kolom, dan itu batasnya. Di layar 360px tiap kolom tinggal 51px —
-     cukup untuk ikon dan label sependek "Investasi", tidak untuk yang kedelapan. */
+  /* Delapan kolom memenuhi layar kecil; label panjang dipotong di bawah. */
   grid-template-columns: repeat(8, 1fr);
   background: var(--color-surface);
   border-top: 1px solid var(--color-divider);
@@ -446,6 +445,28 @@ a { color: var(--color-accent-700); }
   .cat-item-deletable > form[action$="/hapus"] { grid-column: 2; grid-row: 1; }
 }
 progress { width: 100%; accent-color: var(--color-accent-700); }
+
+.budget-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.budget-summary .card { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.budget-summary strong { font-size: 19px; overflow-wrap: anywhere; }
+.budget-total { grid-column: 1 / -1; }
+.budget-item { display: flex; flex-direction: column; gap: 8px; }
+.budget-item-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.budget-item-head > strong { min-width: 0; overflow-wrap: anywhere; }
+.budget-value { display: flex; flex-direction: column; align-items: flex-end; text-align: right; flex-shrink: 0; }
+.budget-item-foot { text-align: right; }
+.budget-edit { border-top: 1px solid var(--color-divider); padding-top: 8px; }
+.budget-edit > summary { display: flex; cursor: pointer; list-style: none; font-size: 12px; }
+.budget-edit > summary::-webkit-details-marker { display: none; }
+.budget-edit > summary::before { content: "＋"; margin-right: 5px; }
+.budget-edit[open] > summary::before { content: "−"; }
+.budget-edit .cat-budget { display: flex; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.budget-edit .cat-budget label { margin-right: auto; }
+.budget-edit .cat-budget .input { flex: 1; width: 120px; }
+@media (min-width: 600px) {
+  .budget-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .budget-total { grid-column: auto; }
+}
 
 .anggota-item { flex-direction: row; align-items: center; gap: 8px; flex-wrap: wrap; }
 .anggota-item form { display: flex; margin-left: auto; }

@@ -6,6 +6,13 @@ import (
 	"strings"
 )
 
+type budgetItem struct {
+	Category
+	Used, Remaining, OverAmount string
+	Percent                     int
+	HasLimit, Over              bool
+}
+
 func (a *App) budgetList(w http.ResponseWriter, r *http.Request) {
 	id := family(r)
 	cats, err := a.store.Categories(r.Context(), id, "expense")
@@ -29,7 +36,6 @@ func (a *App) budgetList(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
-	used := map[string]string{}
 	amounts := map[string]int64{}
 	for _, s := range spend {
 		if s.Kind == "expense" {
@@ -38,16 +44,25 @@ func (a *App) budgetList(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	for k, n := range amounts {
-		used[k] = Format(n, a.base)
-	}
+	var totalUsed, totalLimit int64
+	unbudgeted := 0
+	items := make([]budgetItem, len(cats))
 	for i := range cats {
 		cats[i].BudgetText = FormatPlain(cats[i].BudgetMinor, a.base)
-		if _, ok := used[cats[i].Name]; !ok {
-			used[cats[i].Name] = Format(0, a.base)
+		spent := amounts[cats[i].Name]
+		items[i] = budgetItem{Category: cats[i], Used: Format(spent, a.base), HasLimit: cats[i].BudgetMinor > 0,
+			Remaining:  Format(max(0, cats[i].BudgetMinor-spent), a.base),
+			OverAmount: Format(max(0, spent-cats[i].BudgetMinor), a.base),
+			Percent:    int(min(100, float64(spent)/float64(max(1, cats[i].BudgetMinor))*100)), Over: spent > cats[i].BudgetMinor}
+		totalUsed += spent
+		totalLimit += cats[i].BudgetMinor
+		if cats[i].BudgetMinor == 0 {
+			unbudgeted++
 		}
 	}
-	a.render(w, r, "anggaran.html", map[string]any{"Title": "Anggaran", "Nav": "anggaran", "Base": a.base, "Period": p.Label, "Categories": cats, "Used": used})
+	a.render(w, r, "anggaran.html", map[string]any{"Title": "Anggaran", "Nav": "anggaran", "Base": a.base, "Period": p.Label,
+		"Categories": items, "TotalUsed": Format(totalUsed, a.base), "TotalLimit": Format(totalLimit, a.base),
+		"Available": Format(max(0, totalLimit-totalUsed), a.base), "Unbudgeted": unbudgeted})
 }
 
 func (a *App) categoryBudget(w http.ResponseWriter, r *http.Request) {

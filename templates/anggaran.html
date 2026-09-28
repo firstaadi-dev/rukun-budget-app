@@ -1,20 +1,45 @@
 {{define "content"}}
-<div class="stack-lg">
-  <div class="page-head"><h4>Anggaran</h4><span class="small text-muted">{{.Period}}</span></div>
-  <p class="hint">Atur batas pengeluaran per kategori. Pemakaian mengikuti periode keluarga dan mata uang dasar {{.Base}}.</p>
-  {{if .Categories}}
-  <div class="stack-sm">
-    {{range .Categories}}
-    <section class="card stack-sm">
-      <div class="sec-head"><strong>{{.Name}}</strong><span>{{index $.Used .Name | printf "%v"}}</span></div>
-      <form method="post" action="/kategori/{{.ID}}/anggaran" class="cat-budget">
-        <label for="anggaran-{{.ID}}" class="small">Batas · {{$.Base}}</label>
-        <input class="input" id="anggaran-{{.ID}}" name="anggaran" inputmode="decimal" value="{{.BudgetText}}" placeholder="0">
-        <button type="submit" class="btn btn-secondary">Simpan</button>
-      </form>
-    </section>
-    {{end}}
+<div class="stack-lg budget-page">
+  <div class="page-head">
+    <div><h4>Anggaran</h4><p class="small text-muted">Pengeluaran · {{.Period}}</p></div>
+    <a href="/kategori" class="btn btn-secondary">Kelola kategori</a>
   </div>
+
+  <section class="budget-summary" aria-label="Ringkasan anggaran">
+    <div class="card budget-total"><span class="card-kicker">Batas anggaran</span><strong>{{.TotalLimit}}</strong><span class="small text-muted">{{.Base}} · periode ini</span></div>
+    <div class="card"><span class="card-kicker">Terpakai</span><strong>{{.TotalUsed}}</strong><span class="small text-muted">semua kategori</span></div>
+    <div class="card"><span class="card-kicker">Sisa anggaran</span><strong>{{.Available}}</strong><span class="small text-muted">dari batas yang diatur</span></div>
+  </section>
+
+  {{if .Unbudgeted}}<p class="note">{{.Unbudgeted}} kategori belum memiliki batas anggaran. Atur batasnya di baris kategori agar pemakaian bisa dipantau.</p>{{end}}
+
+  {{if .Categories}}
+  <section class="stack-sm">
+    <div class="sec-head"><h6>Anggaran per kategori</h6><span class="small text-muted">{{len .Categories}} kategori</span></div>
+    {{range .Categories}}
+    <article class="card budget-item">
+      <div class="budget-item-head">
+        <strong>{{.Name}}</strong>
+        <div class="budget-value"><strong class="{{if .Over}}m-out{{end}}">{{.Used}}</strong>
+          <span class="small text-muted">{{if .HasLimit}}dari {{.BudgetText}}{{else}}belum dianggarkan{{end}}</span>
+        </div>
+      </div>
+      {{if .HasLimit}}
+        <progress value="{{.Percent}}" max="100" aria-label="{{.Name}} terpakai {{.Percent}} persen"></progress>
+        <div class="budget-item-foot small {{if .Over}}m-out{{else}}text-muted{{end}}">{{if .Over}}Melewati batas {{.OverAmount}}{{else}}Sisa {{.Remaining}}{{end}}</div>
+      {{else}}<div class="budget-item-foot small text-muted">Atur batas bulanan untuk kategori ini.</div>{{end}}
+      <details class="budget-edit">
+        <summary class="linkish">{{if .HasLimit}}Ubah batas{{else}}Atur batas{{end}}</summary>
+        <form method="post" action="/kategori/{{.ID}}/anggaran" class="cat-budget">
+          <label for="anggaran-{{.ID}}" class="small">Batas per periode · {{$.Base}}</label>
+          <input class="input" id="anggaran-{{.ID}}" name="anggaran" inputmode="decimal" value="{{.BudgetText}}" placeholder="0" aria-label="Batas {{.Name}} dalam {{$.Base}}">
+          <button type="submit" class="btn btn-secondary">Simpan</button>
+        </form>
+        <p class="tiny text-muted">Kosongkan atau isi 0 untuk melepas batas.</p>
+      </details>
+    </article>
+    {{end}}
+  </section>
   {{else}}<p class="empty">Belum ada kategori pengeluaran. <a href="/kategori/baru">Tambah kategori</a>.</p>{{end}}
 </div>
 {{end}}
