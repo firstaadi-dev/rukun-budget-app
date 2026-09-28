@@ -6,6 +6,11 @@
     <strong>{{.Period.Label}}</strong>
     <a class="btn btn-ghost btn-icon" href="/laporan?periode={{.Period.Next}}" aria-label="Bulan berikutnya">&rsaquo;</a>
   </div>
+  <section class="report-kpis" aria-label="Ringkasan periode">
+    <div class="card"><span class="card-kicker">Transaksi pemasukan &amp; pengeluaran</span><strong>{{.TransactionCount}}</strong><span class="small text-muted">periode ini</span></div>
+    <div class="card"><span class="card-kicker">Rata-rata keluar per hari</span><strong>{{.AvgDaily}}</strong></div>
+    <div class="card"><span class="card-kicker">Rasio tersimpan</span><strong>{{.SavingRate}}</strong><span class="small text-muted">selisih ÷ pemasukan</span></div>
+  </section>
   <div class="report-summary">
     <section class="card report-flow">
       <h6>Arus kas</h6>
@@ -13,6 +18,7 @@
         <div class="report-flow-label"><span class="m-in">Pemasukan</span><strong>{{.Breakdown.TotalIn}}</strong></div>
         <div class="report-track"><span class="t-in" style="width:{{.Breakdown.InPercent}}%"></span></div>
       </div>
+      <p class="report-insight small text-muted">{{.ExpenseChange}}</p>
       <div class="report-flow-row">
         <div class="report-flow-label"><span class="m-out">Pengeluaran</span><strong>{{.Breakdown.TotalOut}}</strong></div>
         <div class="report-track"><span class="t-out" style="width:{{.Breakdown.OutPercent}}%"></span></div>
@@ -57,5 +63,21 @@
       {{else}}<p class="report-empty">Belum ada pemasukan. <a href="/transaksi/baru?jenis=income">Catat pemasukan</a></p>{{end}}
     </section>
   </div>
+  {{if .Budgets}}
+  <section class="card report-budget">
+    <div class="sec-head"><h6>Performa anggaran</h6><a href="/anggaran" class="small">Kelola batas</a></div>
+    <p class="small text-muted">Realisasi pengeluaran dibanding batas kategori pada {{.Period.Label}}.</p>
+    <div class="stack-sm">
+      {{range .Budgets}}
+      <a class="report-budget-row" href="/transaksi?periode={{$.Period.Nilai}}&kategori={{urlquery .Name}}">
+        <span class="report-budget-name">{{.Name}}</span>
+        <span class="report-budget-amount">{{.Used}} <span class="text-muted">/ {{.Limit}}</span></span>
+        <progress value="{{.Percent}}" max="100" aria-label="{{.Name}} terpakai {{.Percent}} persen"></progress>
+        <span class="report-budget-status small {{if .Over}}m-out{{else}}text-muted{{end}}">{{if .Over}}Lewat {{.OverAmount}}{{else}}Sisa {{.Remaining}}{{end}}</span>
+      </a>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
 </div>
 {{end}}

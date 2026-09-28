@@ -400,16 +400,18 @@ type CategoryRow struct {
 }
 
 type CategoryBreakdown struct {
-	Periode     string
-	Expense     []CategoryRow
-	Income      []CategoryRow
-	TotalOut    string
-	TotalIn     string
-	OutPercent  int
-	InPercent   int
-	Net         string
-	NetTone     string
-	Unconverted []string
+	Periode       string
+	Expense       []CategoryRow
+	Income        []CategoryRow
+	TotalOut      string
+	TotalIn       string
+	TotalOutMinor int64
+	TotalInMinor  int64
+	OutPercent    int
+	InPercent     int
+	Net           string
+	NetTone       string
+	Unconverted   []string
 }
 
 func categoryAmount(s CategorySpend, rates map[string]Rate, base string) (int64, bool) {
@@ -458,16 +460,18 @@ func breakdown(spend []CategorySpend, rates map[string]Rate, base, periode strin
 		inPercent = int(float64(totalIn) * 100 / float64(terbesar))
 	}
 	return CategoryBreakdown{
-		Periode:     periode,
-		Expense:     expenseRows,
-		Income:      incomeRows,
-		TotalOut:    Format(totalOut, base),
-		TotalIn:     Format(totalIn, base),
-		OutPercent:  outPercent,
-		InPercent:   inPercent,
-		Net:         Format(totalIn-totalOut, base),
-		NetTone:     map[bool]string{true: "in", false: "out"}[totalIn >= totalOut],
-		Unconverted: missing,
+		Periode:       periode,
+		Expense:       expenseRows,
+		Income:        incomeRows,
+		TotalOut:      Format(totalOut, base),
+		TotalIn:       Format(totalIn, base),
+		TotalOutMinor: totalOut,
+		TotalInMinor:  totalIn,
+		OutPercent:    outPercent,
+		InPercent:     inPercent,
+		Net:           Format(totalIn-totalOut, base),
+		NetTone:       map[bool]string{true: "in", false: "out"}[totalIn >= totalOut],
+		Unconverted:   missing,
 	}
 }
 

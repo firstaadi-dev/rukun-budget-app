@@ -176,6 +176,14 @@ func (s *Store) CategorySpending(ctx context.Context, familyID int64, from, to t
 	return out, nil
 }
 
+func (s *Store) ReportTransactionCount(ctx context.Context, familyID int64, from, to time.Time) (int64, error) {
+	r, err := sqlcdb.New(s.db).GetReportTransactionCount(ctx, sqlcdb.GetReportTransactionCountParams{
+		FamilyID: familyID, FromDate: pgtype.Date{Time: from, Valid: true},
+		ToDate: pgtype.Date{Time: to, Valid: true}, Today: pgtype.Date{Time: s.today(), Valid: true},
+	})
+	return r.Total, err
+}
+
 // ---------- Kurs ----------
 
 // Rates mengembalikan kurs terakhir untuk tiap pasangan mata uang, diambil

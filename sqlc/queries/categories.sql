@@ -52,6 +52,15 @@ WHERE t.family_id = sqlc.arg(family_id) AND t.kind IN ('expense', 'income')
   AND t.occurred_on <= sqlc.arg(today)::date AND NOT t.is_adjustment
 GROUP BY t.kind, t.category, w.currency;
 
+-- name: GetReportTransactionCount :one
+SELECT count(*) FILTER (WHERE kind = 'expense')::bigint AS expenses,
+       count(*) FILTER (WHERE kind = 'income')::bigint AS incomes,
+       count(*) FILTER (WHERE kind IN ('expense','income'))::bigint AS total
+FROM transactions
+WHERE family_id = sqlc.arg(family_id) AND occurred_on >= sqlc.arg(from_date)::date
+  AND occurred_on < sqlc.arg(to_date)::date AND occurred_on <= sqlc.arg(today)::date
+  AND NOT is_adjustment;
+
 -- name: GetTransferRates :many
 SELECT DISTINCT ON (w.currency, w2.currency)
        w.currency AS from_currency, w2.currency AS to_currency,

@@ -191,6 +191,41 @@ func (q *Queries) GetCategorySpending(ctx context.Context, arg GetCategorySpendi
 	return items, nil
 }
 
+const getReportTransactionCount = `-- name: GetReportTransactionCount :one
+SELECT count(*) FILTER (WHERE kind = 'expense')::bigint AS expenses,
+       count(*) FILTER (WHERE kind = 'income')::bigint AS incomes,
+       count(*) FILTER (WHERE kind IN ('expense','income'))::bigint AS total
+FROM transactions
+WHERE family_id = $1 AND occurred_on >= $2::date
+  AND occurred_on < $3::date AND occurred_on <= $4::date
+  AND NOT is_adjustment
+`
+
+type GetReportTransactionCountParams struct {
+	FamilyID int64
+	FromDate pgtype.Date
+	ToDate   pgtype.Date
+	Today    pgtype.Date
+}
+
+type GetReportTransactionCountRow struct {
+	Expenses int64
+	Incomes  int64
+	Total    int64
+}
+
+func (q *Queries) GetReportTransactionCount(ctx context.Context, arg GetReportTransactionCountParams) (GetReportTransactionCountRow, error) {
+	row := q.db.QueryRow(ctx, getReportTransactionCount,
+		arg.FamilyID,
+		arg.FromDate,
+		arg.ToDate,
+		arg.Today,
+	)
+	var i GetReportTransactionCountRow
+	err := row.Scan(&i.Expenses, &i.Incomes, &i.Total)
+	return i, err
+}
+
 const getTransferRates = `-- name: GetTransferRates :many
 SELECT DISTINCT ON (w.currency, w2.currency)
        w.currency AS from_currency, w2.currency AS to_currency,
