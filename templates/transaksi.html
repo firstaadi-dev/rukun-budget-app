@@ -69,7 +69,7 @@
 
   {{/* Pencarian dan tanggal tetap selalu tampak; penyaring lain dikumpulkan
        dalam satu menu agar tidak memenuhi layar ponsel. */}}
-  <form method="get" action="/transaksi" class="filter-row">
+  <form method="get" action="/transaksi" class="filter-row" data-search-debounce>
     <input type="hidden" name="jenis" value="{{.Filter}}">
     <input type="hidden" name="kategori" value="{{.Kategori}}">
     <input type="hidden" name="dompet" value="{{.DompetID}}">
@@ -87,7 +87,6 @@
       <input class="input" id="cari" name="cari" type="search" value="{{.Cari}}"
              placeholder="Catatan, kategori, pihak, atau dompet">
     </span>
-    <button type="submit" class="btn btn-secondary">Terapkan</button>
   </form>
 
   <details class="menu tx-filter-menu">
@@ -111,9 +110,16 @@
           <label for="kategori">Kategori</label>
           <select class="input" id="kategori" name="kategori">
             <option value="">Semua kategori</option>
-            {{range $.Categories}}
-              <option value="{{.Name}}" {{if eq $.Kategori .Name}}selected{{end}}>{{.Name}} · {{if eq .Kind "income"}}masuk{{else}}keluar{{end}}</option>
-            {{end}}
+            <optgroup label="Keluar">
+              {{range $.Categories}}{{if eq .Kind "expense"}}
+                <option value="{{.Name}}" {{if eq $.Kategori .Name}}selected{{end}}>{{.Name}}</option>
+              {{end}}{{end}}
+            </optgroup>
+            <optgroup label="Masuk">
+              {{range $.Categories}}{{if eq .Kind "income"}}
+                <option value="{{.Name}}" {{if eq $.Kategori .Name}}selected{{end}}>{{.Name}}</option>
+              {{end}}{{end}}
+            </optgroup>
           </select>
         </div>
         <div class="field">

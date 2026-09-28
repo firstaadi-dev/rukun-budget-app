@@ -375,6 +375,14 @@ $$('[data-auto-submit] select').forEach((sel) => {
   sel.addEventListener('change', () => sel.form.submit());
 });
 
+$$('[data-search-debounce] input[type="search"]').forEach((input) => {
+  let timer;
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => input.form.requestSubmit(), 500);
+  });
+});
+
 // ---------- panel periode: menutup sendiri ----------
 
 // <details> mengurus buka-tutupnya sendiri, jadi panel ini tetap bisa dipakai
