@@ -51,7 +51,7 @@
 
   {{with .Budgets}}
   <section>
-    <div class="sec-head"><h6>Anggaran bulan ini</h6><a href="/kategori" class="small">Atur jatah</a></div>
+    <div class="sec-head"><h6>Anggaran bulan ini</h6><a href="/anggaran" class="small">Atur jatah</a></div>
     <div class="stack-sm">
       {{range .}}
       <div class="card elev-sm stack-sm">
@@ -59,6 +59,17 @@
         <progress value="{{.Percent}}" max="100" aria-label="Anggaran {{.Name}} terpakai {{.Percent}} persen"></progress>
         <div class="small{{if .Over}} m-out{{else}} text-muted{{end}}">{{if .Over}}Lewat {{.OverAmount}}{{else}}Sisa {{.Remaining}}{{end}}</div>
       </div>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
+
+  {{if .Subscriptions}}
+  <section>
+    <div class="sec-head"><h6>Subscription mendatang</h6><a href="/subscription" class="small">Kelola</a></div>
+    <div class="stack-sm">
+      {{range .Subscriptions}}
+      <div class="card mini"><span class="mini-name">{{.Name}}</span><span class="text-muted small">{{.NextLabel}} · {{.WalletName}}</span><strong>{{.Amount}}</strong></div>
       {{end}}
     </div>
   </section>

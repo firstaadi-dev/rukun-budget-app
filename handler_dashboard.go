@@ -49,17 +49,30 @@ func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
+	subs, err := a.store.Subscriptions(ctx, family(r), true)
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	for i := range subs {
+		subs[i].Amount = Format(subs[i].AmountMinor, subs[i].Currency)
+		subs[i].NextLabel = tanggalPendek(subs[i].NextDate.Time)
+	}
+	if len(subs) > 4 {
+		subs = subs[:4]
+	}
 
 	a.render(w, r, "dashboard.html", map[string]any{
-		"Cards":     cards,
-		"Perhatian": perhatian(cards),
-		"Title":     "Dashboard",
-		"Nav":       "dashboard",
-		"Today":     tanggalPanjang(a.today()),
-		"Summary":   summarize(wallets, rates, a.base),
-		"Wallets":   viewWallets(wallets),
-		"Recent":    viewTxs(txs, a.today()),
-		"Breakdown": breakdown(spend, rates, a.base, p.Label),
-		"Budgets":   budgetRows(cats, spend, rates, a.base),
+		"Cards":         cards,
+		"Perhatian":     perhatian(cards),
+		"Title":         "Dashboard",
+		"Nav":           "dashboard",
+		"Today":         tanggalPanjang(a.today()),
+		"Summary":       summarize(wallets, rates, a.base),
+		"Wallets":       viewWallets(wallets),
+		"Recent":        viewTxs(txs, a.today()),
+		"Breakdown":     breakdown(spend, rates, a.base, p.Label),
+		"Budgets":       budgetRows(cats, spend, rates, a.base),
+		"Subscriptions": subs,
 	})
 }

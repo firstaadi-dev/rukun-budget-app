@@ -35,7 +35,7 @@ a { color: var(--color-accent-700); }
   display: grid;
   /* Tujuh kolom, dan itu batasnya. Di layar 360px tiap kolom tinggal 51px —
      cukup untuk ikon dan label sependek "Investasi", tidak untuk yang kedelapan. */
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(8, 1fr);
   background: var(--color-surface);
   border-top: 1px solid var(--color-divider);
   padding-bottom: env(safe-area-inset-bottom);

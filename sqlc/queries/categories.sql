@@ -2,10 +2,14 @@
 SELECT c.id, c.kind, c.name, COALESCE(p.jumlah, 0) AS usage, c.budget_minor
 FROM categories c
 LEFT JOIN (
-    SELECT t.kind, t.category, count(*) AS jumlah
-    FROM transactions t
-    WHERE t.family_id = $1
-    GROUP BY t.kind, t.category
+    SELECT uses.kind, uses.category, sum(uses.jumlah) AS jumlah
+    FROM (
+        SELECT t.kind, t.category, count(*) AS jumlah
+        FROM transactions t WHERE t.family_id = $1 GROUP BY t.kind, t.category
+        UNION ALL
+        SELECT 'expense'::text, s.category, count(*) AS jumlah
+        FROM subscriptions s WHERE s.family_id = $1 GROUP BY s.category
+    ) uses GROUP BY uses.kind, uses.category
 ) p ON p.kind = c.kind AND p.category = c.name
 WHERE c.family_id = $1 AND (sqlc.arg(kind)::text = '' OR c.kind = sqlc.arg(kind))
 ORDER BY c.kind, c.name;

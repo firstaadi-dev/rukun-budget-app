@@ -1,0 +1,20 @@
+{{define "content"}}
+<div class="stack-lg">
+  <div class="page-head"><h4>Anggaran</h4><span class="small text-muted">{{.Period}}</span></div>
+  <p class="hint">Atur batas pengeluaran per kategori. Pemakaian mengikuti periode keluarga dan mata uang dasar {{.Base}}.</p>
+  {{if .Categories}}
+  <div class="stack-sm">
+    {{range .Categories}}
+    <section class="card stack-sm">
+      <div class="sec-head"><strong>{{.Name}}</strong><span>{{index $.Used .Name | printf "%v"}}</span></div>
+      <form method="post" action="/kategori/{{.ID}}/anggaran" class="cat-budget">
+        <label for="anggaran-{{.ID}}" class="small">Batas · {{$.Base}}</label>
+        <input class="input" id="anggaran-{{.ID}}" name="anggaran" inputmode="decimal" value="{{.BudgetText}}" placeholder="0">
+        <button type="submit" class="btn btn-secondary">Simpan</button>
+      </form>
+    </section>
+    {{end}}
+  </div>
+  {{else}}<p class="empty">Belum ada kategori pengeluaran. <a href="/kategori/baru">Tambah kategori</a>.</p>{{end}}
+</div>
+{{end}}

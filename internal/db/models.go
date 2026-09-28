@@ -67,6 +67,19 @@ type Session struct {
 	ExpiresAt pgtype.Timestamptz
 }
 
+type Subscription struct {
+	ID             int64
+	FamilyID       int64
+	WalletID       int64
+	Name           string
+	Category       string
+	AmountMinor    int64
+	NextDate       pgtype.Date
+	BillingDay     int16
+	IntervalMonths int16
+	Active         bool
+}
+
 type Transaction struct {
 	ID             int64
 	Kind           string

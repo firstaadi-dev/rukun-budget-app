@@ -21,7 +21,7 @@ type Category struct {
 	BudgetText  string
 }
 
-// Categories mengembalikan kategori beserta jumlah pemakaiannya. kind kosong
+// Categories mengembalikan kategori beserta jumlah transaksi dan subscription pemakainya. kind kosong
 // berarti semua jenis.
 //
 // Jumlah pemakaian dihitung lewat satu agregat yang di-join, bukan subquery
@@ -113,6 +113,13 @@ func (s *Store) RenameCategory(ctx context.Context, familyID, id int64, name str
 	}); err != nil {
 		return err
 	}
+	if old.Kind == "expense" {
+		if err := q.RenameSubscriptionCategory(ctx, sqlcdb.RenameSubscriptionCategoryParams{
+			Category: name, FamilyID: familyID, Category_2: old.Name,
+		}); err != nil {
+			return err
+		}
+	}
 	return tx.Commit(ctx)
 }
 
@@ -130,8 +137,15 @@ func (s *Store) DeleteCategory(ctx context.Context, familyID, id int64) error {
 	if err != nil {
 		return err
 	}
+	if c.Kind == "expense" {
+		nSub, err := q.CountSubscriptionCategories(ctx, sqlcdb.CountSubscriptionCategoriesParams{FamilyID: familyID, Category: c.Name})
+		if err != nil {
+			return err
+		}
+		n += nSub
+	}
 	if n > 0 {
-		return fmt.Errorf("kategori %q masih dipakai %d transaksi, ubah kategori transaksinya dulu", c.Name, n)
+		return fmt.Errorf("kategori %q masih dipakai %d catatan, ubah atau hapus pemakainya dulu", c.Name, n)
 	}
 	return q.DeleteCategory(ctx, sqlcdb.DeleteCategoryParams{ID: id, FamilyID: familyID})
 }

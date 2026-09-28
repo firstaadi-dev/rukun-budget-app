@@ -29,6 +29,8 @@
         <a href="/dompet" class="{{if eq .Nav "dompet"}}on{{end}}">{{template "icon-wallet"}}Dompet</a>
         <a href="/transaksi" class="{{if eq .Nav "transaksi"}}on{{end}}">{{template "icon-list"}}Transaksi</a>
         <a href="/laporan" class="{{if eq .Nav "laporan"}}on{{end}}">{{template "icon-chart"}}Laporan</a>
+        <a href="/anggaran" class="{{if eq .Nav "anggaran"}}on{{end}}">{{template "icon-tag"}}Anggaran</a>
+        <a href="/subscription" class="{{if eq .Nav "subscription"}}on{{end}}">{{template "icon-list"}}Subscription</a>
         <a href="/hutang" class="{{if eq .Nav "hutang"}}on{{end}}">{{template "icon-hutang"}}Hutang</a>
         <a href="/investasi" class="{{if eq .Nav "investasi"}}on{{end}}">{{template "icon-invest"}}Investasi</a>
         <a href="/kategori" class="{{if eq .Nav "kategori"}}on{{end}}">{{template "icon-tag"}}Kategori</a>
@@ -58,6 +60,7 @@
       <a href="/transaksi" class="{{if eq .Nav "transaksi"}}on{{end}}">{{template "icon-list"}}<span>Transaksi</span></a>
       <a href="/hutang" class="{{if eq .Nav "hutang"}}on{{end}}">{{template "icon-hutang"}}<span>Hutang</span></a>
       <a href="/investasi" class="{{if eq .Nav "investasi"}}on{{end}}">{{template "icon-invest"}}<span>Investasi</span></a>
+      <a href="/anggaran" class="{{if eq .Nav "anggaran"}}on{{end}}">{{template "icon-tag"}}<span>Anggaran</span></a>
       <a href="/laporan" class="{{if eq .Nav "laporan"}}on{{end}}">{{template "icon-chart"}}<span>Laporan</span></a>
       {{/* Di ponsel sidebar tidak pernah tampil, jadi ini satu-satunya jalan
            menuju akun sendiri — dan satu-satunya jalan keluar dari aplikasi. */}}

@@ -26,7 +26,6 @@ func (a *App) renderCategories(w http.ResponseWriter, r *http.Request, errMsg st
 		if c.Kind == "income" {
 			income = append(income, c)
 		} else {
-			c.BudgetText = FormatPlain(c.BudgetMinor, a.base)
 			expense = append(expense, c)
 		}
 	}
@@ -35,29 +34,8 @@ func (a *App) renderCategories(w http.ResponseWriter, r *http.Request, errMsg st
 	}
 	a.render(w, r, "kategori.html", map[string]any{
 		"Title": "Kategori", "Nav": "kategori",
-		"Expense": expense, "Income": income, "Error": errMsg, "Base": a.base,
+		"Expense": expense, "Income": income, "Error": errMsg,
 	})
-}
-
-func (a *App) categoryBudget(w http.ResponseWriter, r *http.Request) {
-	value := strings.TrimSpace(r.FormValue("anggaran"))
-	var amount int64
-	if value != "" {
-		var err error
-		amount, err = ParseAmount(value, a.base)
-		if err != nil || amount < 0 {
-			a.renderCategories(w, r, "Anggaran harus nominal positif atau kosong untuk menghapus.", http.StatusUnprocessableEntity)
-			return
-		}
-	}
-	if err := a.store.SetCategoryBudget(r.Context(), family(r), pathID(r), amount); errors.Is(err, ErrNotFound) {
-		a.notFound(w)
-		return
-	} else if err != nil {
-		a.fail(w, r, err)
-		return
-	}
-	http.Redirect(w, r, "/kategori", http.StatusSeeOther)
 }
 
 func (a *App) categoryForm(w http.ResponseWriter, r *http.Request) {

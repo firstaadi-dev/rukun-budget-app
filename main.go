@@ -235,6 +235,7 @@ func (a *App) routes() http.Handler {
 
 	auth("GET /{$}", a.dashboard)
 	auth("GET /laporan", a.report)
+	auth("GET /anggaran", a.budgetList)
 
 	auth("GET /dompet", a.walletList)
 	auth("GET /dompet/baru", a.walletForm)
@@ -283,6 +284,13 @@ func (a *App) routes() http.Handler {
 	auth("POST /kategori/{id}/ubah", a.categoryUpdate)
 	auth("POST /kategori/{id}/hapus", a.categoryDelete)
 	auth("POST /kategori/{id}/anggaran", a.categoryBudget)
+	auth("GET /subscription", a.subscriptionList)
+	auth("GET /subscription/baru", a.subscriptionForm)
+	auth("GET /subscription/{id}/ubah", a.subscriptionForm)
+	auth("POST /subscription/baru", a.subscriptionCreate)
+	auth("POST /subscription/{id}/ubah", a.subscriptionUpdate)
+	auth("POST /subscription/{id}/hapus", a.subscriptionDelete)
+	auth("POST /subscription/{id}/bayar", a.subscriptionPay)
 
 	auth("GET /transaksi", a.txList)
 	auth("GET /transaksi/ekspor", a.txExport)

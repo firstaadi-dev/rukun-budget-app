@@ -1,0 +1,23 @@
+{{define "content"}}
+<div class="stack-lg">
+  <div class="page-head"><h4>Subscription</h4><a href="/subscription/baru" class="btn btn-primary">Tambah</a></div>
+  <p class="hint">Catatan tagihan berulang. Pilih “Catat pembayaran” saat membayar; Rukun membuat transaksi pengeluaran dan memajukan tanggal berikutnya.</p>
+  {{if .Items}}
+  <div class="stack-sm">
+    {{range .Items}}
+    <section class="card stack-sm">
+      <div class="sec-head"><strong>{{.Name}}</strong><span class="{{if .Active}}m-out{{else}}text-muted{{end}}">{{.Amount}}</span></div>
+      <div class="small text-muted">{{.Category}} · {{.WalletName}} · {{if .Active}}Berikutnya {{.NextLabel}}{{else}}Dijeda{{end}} · tiap {{.IntervalMonths}} bulan</div>
+      {{if .Active}}
+      <form method="post" action="/subscription/{{.ID}}/bayar" onsubmit="return confirm('Catat pembayaran {{.Name}} sebesar {{.Amount}}?')"><button class="btn btn-secondary btn-block">Catat pembayaran</button></form>
+      {{end}}
+      <div class="quick">
+        <a class="btn btn-ghost" href="/subscription/{{.ID}}/ubah">Ubah / {{if .Active}}Jeda{{else}}Aktifkan{{end}}</a>
+        <form method="post" action="/subscription/{{.ID}}/hapus" onsubmit="return confirm('Hapus subscription {{.Name}}?')"><button class="btn btn-ghost">Hapus</button></form>
+      </div>
+    </section>
+    {{end}}
+  </div>
+  {{else}}<p class="empty">Belum ada subscription. Tambahkan tagihan berulang pertama.</p>{{end}}
+</div>
+{{end}}
