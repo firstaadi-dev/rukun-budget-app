@@ -383,6 +383,28 @@ $$('[data-search-debounce] input[type="search"]').forEach((input) => {
   });
 });
 
+$$('[data-range-preset]').forEach((button) => {
+  button.addEventListener('click', () => {
+    const form = button.closest('form');
+    const from = new Date();
+    const to = new Date();
+    const mondayOffset = (from.getDay() + 6) % 7;
+    switch (button.dataset.rangePreset) {
+      case 'yesterday': from.setDate(from.getDate() - 1); to.setTime(from.getTime()); break;
+      case 'last7': from.setDate(from.getDate() - 6); break;
+      case 'thisWeek': from.setDate(from.getDate() - mondayOffset); to.setDate(from.getDate() + 6); break;
+      case 'lastWeek': from.setDate(from.getDate() - mondayOffset - 7); to.setDate(from.getDate() + 6); break;
+      case 'last30': from.setDate(from.getDate() - 29); break;
+      case 'thisMonth': from.setDate(1); break;
+      case 'lastMonth': from.setMonth(from.getMonth() - 1, 1); to.setDate(0); break;
+    }
+    const iso = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    form.elements.dari.value = iso(from);
+    form.elements.sampai.value = iso(to);
+    form.requestSubmit();
+  });
+});
+
 // ---------- panel periode: menutup sendiri ----------
 
 // <details> mengurus buka-tutupnya sendiri, jadi panel ini tetap bisa dipakai

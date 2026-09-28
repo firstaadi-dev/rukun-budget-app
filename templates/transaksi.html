@@ -29,27 +29,44 @@
       <summary class="periode-label" aria-label="Ubah periode">
         {{.Periode.Label}}{{template "icon-chev"}}
       </summary>
-      <div class="menu-pop card elev-md">
+      <div class="menu-pop card elev-md tx-date-picker">
         <form method="get" action="/transaksi">
           <input type="hidden" name="jenis" value="{{.Filter}}">
           <input type="hidden" name="kategori" value="{{.Kategori}}">
           <input type="hidden" name="dompet" value="{{.DompetID}}">
           <input type="hidden" name="cari" value="{{.Cari}}">
-          <div class="field">
-            <label for="dari">Dari</label>
-            <input class="input" id="dari" name="dari" type="date" value="{{.Periode.Dari}}">
+          <div class="tx-date-body">
+            <nav class="tx-date-presets" aria-label="Rentang cepat">
+              <button type="button" data-range-preset="today">Hari Ini</button>
+              <button type="button" data-range-preset="yesterday">Kemarin</button>
+              <button type="button" data-range-preset="last7">7 Hari Terakhir</button>
+              <button type="button" data-range-preset="thisWeek">Minggu Ini</button>
+              <button type="button" data-range-preset="lastWeek">Minggu Lalu</button>
+              <button type="button" data-range-preset="last30">30 Hari Terakhir</button>
+              <button type="button" data-range-preset="thisMonth">Bulan Ini</button>
+              <button type="button" data-range-preset="lastMonth">Bulan Lalu</button>
+            </nav>
+            <div class="tx-date-fields">
+              <div class="field">
+                <label for="dari">Dari tanggal</label>
+                <input class="input" id="dari" name="dari" type="date" value="{{.Periode.Dari}}">
+              </div>
+              <div class="field">
+                <label for="sampai">Hingga tanggal</label>
+                <input class="input" id="sampai" name="sampai" type="date" value="{{.Periode.Sampai}}">
+              </div>
+              <p class="text-muted small menu-pop-catatan">Pilih rentang tanggal sendiri. Kedua tanggal ikut terhitung.</p>
+            </div>
           </div>
-          <div class="field">
-            <label for="sampai">Sampai</label>
-            <input class="input" id="sampai" name="sampai" type="date" value="{{.Periode.Sampai}}">
-          </div>
-          <p class="text-muted small menu-pop-catatan">Salah satunya boleh
-            dikosongkan — ujung yang kosong berarti tanpa batas. Kedua tanggal
-            ikut terhitung.</p>
           <div class="menu-pop-kaki">
             <button type="submit" class="btn btn-primary">Terapkan</button>
             {{if .Periode.Rentang}}
               <a class="small" href="{{.URLBulanIni}}">Hapus rentang</a>
+            {{end}}
+            {{if .Periode.Semua}}
+              <a class="small" href="{{.URLBulanIni}}">Bulan ini</a>
+            {{else}}
+              <a class="small" href="{{.URLSemua}}">Seluruh waktu</a>
             {{end}}
           </div>
         </form>
@@ -58,18 +75,14 @@
 
     {{if .Periode.Bulan}}
       <a class="btn btn-ghost btn-icon" href="{{.URLNext}}" aria-label="Bulan berikutnya">&rsaquo;</a>
-    {{else}}
-      <a class="small" href="{{.URLBulanIni}}">Kembali ke bulan ini</a>
     {{end}}
     </span>
-    {{if not .Periode.Semua}}
-      <a class="small periode-semua" href="{{.URLSemua}}">Seluruh waktu</a>
-    {{end}}
   </div>
 
   {{/* Pencarian dan tanggal tetap selalu tampak; penyaring lain dikumpulkan
        dalam satu menu agar tidak memenuhi layar ponsel. */}}
-  <form method="get" action="/transaksi" class="filter-row" data-search-debounce>
+  <div class="tx-toolbar">
+   <form method="get" action="/transaksi" class="filter-row" data-search-debounce>
     <input type="hidden" name="jenis" value="{{.Filter}}">
     <input type="hidden" name="kategori" value="{{.Kategori}}">
     <input type="hidden" name="dompet" value="{{.DompetID}}">
@@ -79,17 +92,13 @@
     {{else}}
       <input type="hidden" name="periode" value="{{.Periode.Nilai}}">
     {{end}}
-    {{/* Label dan kolomnya dibungkus jadi satu supaya keduanya berpindah baris
-         bersama-sama. Dibiarkan lepas, di layar sempit "Kategori" tertinggal di
-         ujung baris sebelumnya dan berdiri di sebelah kotak pencarian. */}}
-    <span class="pasang pasang-lebar">
-      <label for="cari" class="text-muted small">Cari</label>
+    <span class="tx-search">
       <input class="input" id="cari" name="cari" type="search" value="{{.Cari}}"
              placeholder="Catatan, kategori, pihak, atau dompet">
     </span>
-  </form>
+   </form>
 
-  <details class="menu tx-filter-menu">
+   <details class="menu tx-filter-menu">
     <summary class="btn btn-secondary">Filter{{template "icon-chev"}}</summary>
     <div class="menu-pop card elev-md">
       <form method="get" action="/transaksi" class="stack">
@@ -134,7 +143,8 @@
         <button type="submit" class="btn btn-primary">Terapkan filter</button>
       </form>
     </div>
-  </details>
+   </details>
+  </div>
 
   {{if .Kategori}}
     <p class="note">Menampilkan kategori <strong>{{.Kategori}}</strong>.
