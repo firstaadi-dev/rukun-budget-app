@@ -401,6 +401,8 @@ type CategoryBreakdown struct {
 	Income      []CategoryRow
 	TotalOut    string
 	TotalIn     string
+	OutPercent  int
+	InPercent   int
 	Net         string
 	NetTone     string
 	Unconverted []string
@@ -444,12 +446,21 @@ func breakdown(spend []CategorySpend, rates map[string]Rate, base, periode strin
 
 	expenseRows, totalOut := categoryRows(out, base)
 	incomeRows, totalIn := categoryRows(in, base)
+	outPercent, inPercent := 0, 0
+	if terbesar := max(totalOut, totalIn); terbesar > 0 {
+		// Rasio ini hanya mengatur panjang bilah, bukan nilai uang yang ditampilkan.
+		// float64 menghindari overflow pada total besar dari keluarga dengan banyak transaksi.
+		outPercent = int(float64(totalOut) * 100 / float64(terbesar))
+		inPercent = int(float64(totalIn) * 100 / float64(terbesar))
+	}
 	return CategoryBreakdown{
 		Periode:     periode,
 		Expense:     expenseRows,
 		Income:      incomeRows,
 		TotalOut:    Format(totalOut, base),
 		TotalIn:     Format(totalIn, base),
+		OutPercent:  outPercent,
+		InPercent:   inPercent,
 		Net:         Format(totalIn-totalOut, base),
 		NetTone:     map[bool]string{true: "in", false: "out"}[totalIn >= totalOut],
 		Unconverted: missing,

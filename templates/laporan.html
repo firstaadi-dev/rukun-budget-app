@@ -6,29 +6,44 @@
     <strong>{{.Period.Label}}</strong>
     <a class="btn btn-ghost btn-icon" href="/laporan?periode={{.Period.Next}}" aria-label="Bulan berikutnya">&rsaquo;</a>
   </div>
-  <div class="summary">
-    <div class="card"><div class="card-kicker">Pemasukan</div><div class="mid-figure m-in">{{.Breakdown.TotalIn}}</div></div>
-    <div class="card"><div class="card-kicker">Pengeluaran</div><div class="mid-figure m-out">{{.Breakdown.TotalOut}}</div></div>
-    <div class="card"><div class="card-kicker">Selisih</div><div class="mid-figure m-{{.Breakdown.NetTone}}">{{.Breakdown.Net}}</div></div>
+  <div class="report-summary">
+    <section class="card report-flow">
+      <h6>Arus kas</h6>
+      <div class="report-flow-row">
+        <div class="report-flow-label"><span class="m-in">Pemasukan</span><strong>{{.Breakdown.TotalIn}}</strong></div>
+        <div class="report-track"><span class="t-in" style="width:{{.Breakdown.InPercent}}%"></span></div>
+      </div>
+      <div class="report-flow-row">
+        <div class="report-flow-label"><span class="m-out">Pengeluaran</span><strong>{{.Breakdown.TotalOut}}</strong></div>
+        <div class="report-track"><span class="t-out" style="width:{{.Breakdown.OutPercent}}%"></span></div>
+      </div>
+    </section>
+    <section class="card report-net">
+      <div class="card-kicker">Selisih</div>
+      <div class="mid-figure m-{{.Breakdown.NetTone}}">{{.Breakdown.Net}}</div>
+      <p class="text-muted small">{{.Period.Label}}</p>
+    </section>
   </div>
   {{with .Breakdown.Unconverted}}<p class="note">Mata uang tanpa kurs tidak ikut dijumlahkan: {{range $i, $c := .}}{{if $i}}, {{end}}{{$c}}{{end}}.</p>{{end}}
-  <section>
-    <div class="sec-head"><h6>Pengeluaran per kategori</h6><a href="/kategori" class="small">Kelola kategori</a></div>
-    {{range .Breakdown.Expense}}
-      <a class="card cat-bar" href="/transaksi?periode={{$.Period.Nilai}}&kategori={{urlquery .Name}}">
-        <span class="cat-bar-fill t-out" style="width:{{.Percent}}%"></span>
-        <span class="cat-bar-name">{{.Name}}</span><span class="cat-bar-amt">{{.Amount}}</span>
-      </a>
-    {{else}}<p class="empty">Belum ada pengeluaran pada bulan ini.</p>{{end}}
-  </section>
-  <section>
-    <div class="sec-head"><h6>Pemasukan per kategori</h6></div>
-    {{range .Breakdown.Income}}
-      <a class="card cat-bar" href="/transaksi?periode={{$.Period.Nilai}}&kategori={{urlquery .Name}}">
-        <span class="cat-bar-fill t-in" style="width:{{.Percent}}%"></span>
-        <span class="cat-bar-name">{{.Name}}</span><span class="cat-bar-amt">{{.Amount}}</span>
-      </a>
-    {{else}}<p class="empty">Belum ada pemasukan pada bulan ini.</p>{{end}}
-  </section>
+  <div class="cat-cols report-categories">
+    <section>
+      <div class="sec-head"><h6>Pengeluaran per kategori</h6><a href="/kategori" class="small">Kelola</a></div>
+      {{range .Breakdown.Expense}}
+        <a class="card cat-bar" href="/transaksi?periode={{$.Period.Nilai}}&kategori={{urlquery .Name}}">
+          <span class="cat-bar-fill t-out" style="width:{{.Percent}}%"></span>
+          <span class="cat-bar-name">{{.Name}}</span><span class="cat-bar-amt">{{.Amount}}</span>
+        </a>
+      {{else}}<p class="report-empty">Belum ada pengeluaran. <a href="/transaksi/baru?jenis=expense">Catat pengeluaran</a></p>{{end}}
+    </section>
+    <section>
+      <div class="sec-head"><h6>Pemasukan per kategori</h6></div>
+      {{range .Breakdown.Income}}
+        <a class="card cat-bar" href="/transaksi?periode={{$.Period.Nilai}}&kategori={{urlquery .Name}}">
+          <span class="cat-bar-fill t-in" style="width:{{.Percent}}%"></span>
+          <span class="cat-bar-name">{{.Name}}</span><span class="cat-bar-amt">{{.Amount}}</span>
+        </a>
+      {{else}}<p class="report-empty">Belum ada pemasukan. <a href="/transaksi/baru?jenis=income">Catat pemasukan</a></p>{{end}}
+    </section>
+  </div>
 </div>
 {{end}}

@@ -244,6 +244,23 @@ a { color: var(--color-accent-700); }
   .mid-figure { font-size: 26px; }
 }
 
+.report-summary { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.report-flow h6 { margin: 0; }
+.report-flow-row + .report-flow-row { margin-top: var(--space-3); }
+.report-flow-label { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.report-flow-label strong { font-weight: 500; }
+.report-track { height: 8px; margin-top: 6px; overflow: hidden; border-radius: 999px; background: var(--color-neutral-200); }
+.report-track span { display: block; height: 100%; min-width: 0; border-radius: inherit; }
+.report-track .t-in { background: var(--money-in); }
+.report-track .t-out { background: var(--money-out); }
+.report-net { justify-content: center; }
+.report-net p { margin: 0; }
+.report-empty { margin: 8px 0; padding: 10px 0; color: var(--color-neutral-600); font-size: 13px; }
+.report-categories section .cat-bar + .cat-bar { margin-top: 6px; }
+@media (min-width: 700px) {
+  .report-summary { grid-template-columns: minmax(0, 1fr) minmax(190px, .55fr); }
+}
+
 .quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .quick a {
   display: flex;
@@ -395,11 +412,22 @@ a { color: var(--color-accent-700); }
 .row-sub { font-size: 11px; }
 .row-amt { font-size: 13.5px; flex-shrink: 0; }
 
-.cat-item { flex-direction: row; align-items: center; gap: 12px; }
-.cat-item form { display: flex; }
-.cat-item { flex-wrap: wrap; }
-.cat-item form[action$="/anggaran"] { flex-basis: 100%; flex-wrap: wrap; align-items: center; gap: 8px; }
-.cat-item form[action$="/anggaran"] .input { width: min(180px, 100%); }
+.cat-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.cat-item-expense { grid-template-columns: minmax(0, 1fr) auto; }
+.cat-item-deletable { grid-template-columns: minmax(0, 1fr) auto auto; }
+.cat-item-deletable > form[action$="/hapus"] { grid-column: 3; grid-row: 1; }
+.cat-item > .row-main { min-width: 0; }
+.cat-item form { display: flex; align-items: center; }
+.cat-budget { gap: 8px; }
+.cat-budget label { white-space: nowrap; }
+.cat-budget .input { width: 105px; min-width: 0; }
+.cat-budget .btn { min-height: 36px; padding: 6px 10px; }
+@media (max-width: 599px) {
+  .cat-item { grid-template-columns: minmax(0, 1fr) auto; }
+  .cat-budget { grid-column: 1 / -1; justify-content: flex-end; }
+  .cat-budget label { margin-right: auto; }
+  .cat-item-deletable > form[action$="/hapus"] { grid-column: 2; grid-row: 1; }
+}
 progress { width: 100%; accent-color: var(--color-accent-700); }
 
 .anggota-item { flex-direction: row; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -408,6 +436,15 @@ progress { width: 100%; accent-color: var(--color-accent-700); }
    namanya masih menempel di transaksi yang pernah dicatatnya. */
 .anggota-mati .row-title { text-decoration: line-through; }
 .anggota-mati { opacity: 0.7; }
+
+.account-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+.account-grid > * { min-width: 0; }
+.account-period-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.account-period-form label { grid-column: 1 / -1; }
+.account-profile form { margin-top: auto; }
+@media (min-width: 700px) {
+  .account-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); }
+}
 
 .wallet-item { flex-direction: row; align-items: center; gap: 12px; }
 .wallet-amt { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 14px; }

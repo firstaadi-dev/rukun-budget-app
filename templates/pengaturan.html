@@ -7,19 +7,20 @@
   {{if .Sukses}}<p class="banner" role="status">{{.Sukses}}</p>{{end}}
   {{if .Error}}<p class="banner" role="alert">{{.Error}}</p>{{end}}
 
-  <section class="card elev-sm stack-sm">
-    <h6>Awal Periode Bulanan</h6>
-    <p class="hint">Atur sesuai tanggal gajian agar pemasukan gaji masuk di awal periode.</p>
-    <form method="post" action="/pengaturan/periode" class="stack-sm">
+  <div class="account-grid">
+   <section class="card elev-sm stack-sm">
+    <h6>Periode Bulanan</h6>
+    <p class="hint">Sesuaikan dengan tanggal gajian agar pemasukan masuk di awal periode.</p>
+    <form method="post" action="/pengaturan/periode" class="account-period-form">
       <label for="hari_mulai">Tanggal awal (1–28)</label>
       <input class="input" id="hari_mulai" name="hari_mulai" type="number" min="1" max="28" required value="{{.PeriodStartDay}}">
       <button type="submit" class="btn btn-primary">Simpan</button>
     </form>
-  </section>
+   </section>
 
   {{/* Sekaligus satu-satunya tombol Keluar yang bisa dijangkau dari ponsel:
        sidebar yang memuatnya baru muncul mulai lebar 900px. */}}
-  <section class="card elev-sm">
+   <section class="card elev-sm account-profile">
     <div class="card-kicker">Masuk sebagai</div>
     <div class="mid-figure">{{.User.Name}}</div>
     <div class="card-body small text-muted">
@@ -28,10 +29,12 @@
     <form method="post" action="/keluar">
       <button type="submit" class="btn btn-secondary btn-block">Keluar</button>
     </form>
-  </section>
+   </section>
+  </div>
 
-  {{if .User.Kepala}}
-  <section class="card elev-sm stack-sm">
+  <div class="account-grid">
+   {{if .User.Kepala}}
+   <section class="card elev-sm stack-sm">
     <h6>Undang anggota keluarga</h6>
     <p class="hint">Bagikan kode ini secara pribadi. Pemilik akun yang belum punya keluarga bisa memasukkannya di halaman Mulai.</p>
     <p class="small{{if .InviteExpired}} m-out{{else}} text-muted{{end}}">{{if .InviteExpired}}Kode sudah kedaluwarsa. Buat kode baru untuk mengundang anggota.{{else}}Berlaku sampai {{.InviteExpires}}.{{end}}</p>
@@ -43,11 +46,12 @@
       <input class="input" id="kode-sandi" name="sandi" type="password" required autocomplete="current-password">
       <button type="submit" class="btn btn-secondary">Buat kode baru</button>
     </form>
-  </section>
-  {{end}}
+   </section>
+   {{end}}
 
-  <section>
-    <div class="sec-head"><h6>Ganti Kata Sandi</h6></div>
+   <section class="card elev-sm stack-sm">
+    <h6>Keamanan</h6>
+    <p class="hint">Ganti kata sandi akun.</p>
     <form method="post" action="/pengaturan/sandi" class="stack-sm">
       <div class="field">
         <label for="sandi_lama">Kata Sandi Sekarang</label>
@@ -69,9 +73,10 @@
       <p class="hint">Perangkat lain yang masih login akan diminta masuk ulang. Perangkat
         yang sedang dipakai ini tetap masuk.</p>
     </form>
-  </section>
+   </section>
+  </div>
 
-  <section>
+  <section class="card elev-sm stack-sm">
     <div class="sec-head">
       <h6>Anggota Keluarga</h6>
       <span class="text-muted small">{{len .Members}} orang</span>
