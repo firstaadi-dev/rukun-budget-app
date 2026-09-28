@@ -432,7 +432,8 @@ $$('[data-range-calendar]').forEach((calendar) => {
         if (end && value === iso(end)) day.classList.add('selected');
         if (start && end && value > iso(start) && value < iso(end)) day.classList.add('in-range');
         day.setAttribute('aria-label', date.toLocaleDateString('id-ID', { dateStyle: 'full' }));
-        day.addEventListener('click', () => {
+        day.addEventListener('click', (event) => {
+          event.stopPropagation();
           if (!fromInput.value || toInput.value) {
             fromInput.value = value;
             toInput.value = '';
@@ -443,6 +444,7 @@ $$('[data-range-calendar]').forEach((calendar) => {
             toInput.value = value;
           }
           render();
+          if (fromInput.value && toInput.value) form.requestSubmit();
         });
         grid.append(day);
       }
