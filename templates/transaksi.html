@@ -13,6 +13,7 @@
   {{/* Periode berdiri paling atas karena ia yang paling menentukan isi daftar:
        sisanya menyaring di dalam rentang yang dipilih di sini. */}}
   <div class="periode">
+    <span class="periode-controls">
     {{/* Panah hanya ada pada bulan. Pada rentang khusus, panah harus melangkah
          sejauh rentangnya sendiri, dan "bulan berikutnya" dari 3–17 Juli tidak
          punya jawaban yang bisa ditebak orang yang menekannya. */}}
@@ -60,22 +61,18 @@
     {{else}}
       <a class="small" href="{{.URLBulanIni}}">Kembali ke bulan ini</a>
     {{end}}
+    </span>
     {{if not .Periode.Semua}}
       <a class="small periode-semua" href="{{.URLSemua}}">Seluruh waktu</a>
     {{end}}
   </div>
 
-  <nav class="seg">
-    {{range .Filters}}
-      <a class="seg-opt{{if .On}} on{{end}}" href="{{.URL}}">{{.Label}}</a>
-    {{end}}
-  </nav>
-
-  {{/* Satu form untuk pencarian dan kategori sekaligus. Select-nya menavigasi
-       sendiri lewat data-auto-submit, tapi tombolnya tidak lagi disembunyikan
-       di balik noscript: kolom teks butuh cara mengirim yang terlihat. */}}
-  <form method="get" action="/transaksi" class="filter-row" data-auto-submit>
+  {{/* Pencarian dan tanggal tetap selalu tampak; penyaring lain dikumpulkan
+       dalam satu menu agar tidak memenuhi layar ponsel. */}}
+  <form method="get" action="/transaksi" class="filter-row">
     <input type="hidden" name="jenis" value="{{.Filter}}">
+    <input type="hidden" name="kategori" value="{{.Kategori}}">
+    <input type="hidden" name="dompet" value="{{.DompetID}}">
     {{if .Periode.Rentang}}
       <input type="hidden" name="dari" value="{{.Periode.Dari}}">
       <input type="hidden" name="sampai" value="{{.Periode.Sampai}}">
@@ -90,28 +87,48 @@
       <input class="input" id="cari" name="cari" type="search" value="{{.Cari}}"
              placeholder="Catatan, kategori, pihak, atau dompet">
     </span>
-    <span class="pasang">
-      <label for="kategori" class="text-muted small">Kategori</label>
-      <select class="input" id="kategori" name="kategori">
-        <option value="">Semua kategori</option>
-        {{range $.Categories}}
-          <option value="{{.Name}}" {{if eq $.Kategori .Name}}selected{{end}}>
-            {{.Name}} · {{if eq .Kind "income"}}masuk{{else}}keluar{{end}}
-          </option>
-        {{end}}
-      </select>
-    </span>
-    <span class="pasang">
-      <label for="dompet" class="text-muted small">Dompet</label>
-      <select class="input" id="dompet" name="dompet">
-        <option value="">Semua dompet</option>
-        {{range $.Wallets}}
-          <option value="{{.ID}}" {{if eq $.DompetID .ID}}selected{{end}}>{{.Name}}</option>
-        {{end}}
-      </select>
-    </span>
     <button type="submit" class="btn btn-secondary">Terapkan</button>
   </form>
+
+  <details class="menu tx-filter-menu">
+    <summary class="btn btn-secondary">Filter{{template "icon-chev"}}</summary>
+    <div class="menu-pop card elev-md">
+      <form method="get" action="/transaksi" class="stack">
+        <input type="hidden" name="cari" value="{{.Cari}}">
+        {{if .Periode.Rentang}}
+          <input type="hidden" name="dari" value="{{.Periode.Dari}}">
+          <input type="hidden" name="sampai" value="{{.Periode.Sampai}}">
+        {{else}}
+          <input type="hidden" name="periode" value="{{.Periode.Nilai}}">
+        {{end}}
+        <div class="field">
+          <label for="jenis">Jenis</label>
+          <select class="input" id="jenis" name="jenis">
+            {{range .Filters}}<option value="{{.Value}}" {{if .On}}selected{{end}}>{{.Label}}</option>{{end}}
+          </select>
+        </div>
+        <div class="field">
+          <label for="kategori">Kategori</label>
+          <select class="input" id="kategori" name="kategori">
+            <option value="">Semua kategori</option>
+            {{range $.Categories}}
+              <option value="{{.Name}}" {{if eq $.Kategori .Name}}selected{{end}}>{{.Name}} · {{if eq .Kind "income"}}masuk{{else}}keluar{{end}}</option>
+            {{end}}
+          </select>
+        </div>
+        <div class="field">
+          <label for="dompet">Dompet</label>
+          <select class="input" id="dompet" name="dompet">
+            <option value="">Semua dompet</option>
+            {{range $.Wallets}}
+              <option value="{{.ID}}" {{if eq $.DompetID .ID}}selected{{end}}>{{.Name}}</option>
+            {{end}}
+          </select>
+        </div>
+        <button type="submit" class="btn btn-primary">Terapkan filter</button>
+      </form>
+    </div>
+  </details>
 
   {{if .Kategori}}
     <p class="note">Menampilkan kategori <strong>{{.Kategori}}</strong>.

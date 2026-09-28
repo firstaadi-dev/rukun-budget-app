@@ -484,11 +484,14 @@ a.seg-opt.on { background: var(--color-accent-100); color: var(--color-accent-70
   gap: var(--space-2);
   flex-wrap: wrap;
 }
+.periode-controls { display: flex; align-items: center; gap: var(--space-2); white-space: nowrap; }
 .periode-label {
   font-family: var(--font-heading);
-  font-size: 18px;
+  font-size: clamp(14px, 4vw, 18px);
+  white-space: nowrap;
 }
 .periode-semua { margin-left: auto; }
+.tx-filter-menu .menu-pop { width: min(320px, calc(100vw - 40px)); }
 
 /* Menu gantung yang label-nya sekaligus tombolnya, dipakai pemilih periode dan
    pemilih mode pencatatan. Digantung di <details> supaya buka-tutupnya jalan
