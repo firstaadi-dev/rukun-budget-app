@@ -46,16 +46,15 @@
               <button type="button" data-range-preset="thisMonth">Bulan Ini</button>
               <button type="button" data-range-preset="lastMonth">Bulan Lalu</button>
             </nav>
-            <div class="tx-date-fields">
-              <div class="field">
-                <label for="dari">Dari tanggal</label>
-                <input class="input" id="dari" name="dari" type="date" value="{{.Periode.Dari}}">
+            <div class="tx-calendar" data-range-calendar data-from="{{.Periode.Dari}}" data-to="{{.Periode.Sampai}}" data-month="{{.Periode.From.Format "2006-01-02"}}">
+              <input id="dari" name="dari" type="hidden" value="{{.Periode.Dari}}">
+              <input id="sampai" name="sampai" type="hidden" value="{{.Periode.Sampai}}">
+              <div class="tx-calendar-head">
+                <button type="button" class="btn btn-ghost btn-icon" data-calendar-prev aria-label="Bulan sebelumnya">&lsaquo;</button>
+                <div data-calendar-months class="tx-calendar-months"></div>
+                <button type="button" class="btn btn-ghost btn-icon" data-calendar-next aria-label="Bulan berikutnya">&rsaquo;</button>
               </div>
-              <div class="field">
-                <label for="sampai">Hingga tanggal</label>
-                <input class="input" id="sampai" name="sampai" type="date" value="{{.Periode.Sampai}}">
-              </div>
-              <p class="text-muted small menu-pop-catatan">Pilih rentang tanggal sendiri. Kedua tanggal ikut terhitung.</p>
+              <p class="text-muted small" data-calendar-selection>Pilih tanggal mulai</p>
             </div>
           </div>
           <div class="menu-pop-kaki">

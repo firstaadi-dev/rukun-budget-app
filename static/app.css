@@ -524,8 +524,8 @@ a.seg-opt.on { background: var(--color-accent-100); color: var(--color-accent-70
 /* Menu yang jangkarnya menempel di tepi kanan: dibuka ke kiri, kalau tidak
    panelnya menjulur keluar layar. */
 .menu-pop-kanan { left: auto; right: 0; }
-.tx-date-picker { width: min(680px, calc(100vw - 40px)); }
-.tx-date-body { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: var(--space-3); }
+.tx-date-picker { width: min(760px, calc(100vw - 40px)); max-height: calc(100dvh - 120px); overflow-y: auto; }
+.tx-date-body { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: var(--space-3); }
 .tx-date-presets { display: flex; flex-direction: column; gap: 2px; }
 .tx-date-presets button {
   min-height: 36px;
@@ -538,14 +538,32 @@ a.seg-opt.on { background: var(--color-accent-100); color: var(--color-accent-70
   cursor: pointer;
 }
 .tx-date-presets button:hover { background: var(--color-accent-100); color: var(--color-accent-700); }
-.tx-date-fields { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
-.tx-date-fields .field { margin: 0; }
-.tx-date-fields .input { width: 100%; }
-.tx-date-fields .menu-pop-catatan { margin: 0; }
+.tx-calendar { min-width: 0; }
+.tx-calendar-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 4px; }
+.tx-calendar-months { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); min-width: 0; }
+.tx-calendar-month h5 { margin: 4px 0 12px; text-align: center; text-transform: capitalize; }
+.tx-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); text-align: center; }
+.tx-calendar-weekday { padding: 6px 0; color: var(--color-text-muted); font-size: 12px; }
+.tx-calendar-day {
+  aspect-ratio: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+}
+.tx-calendar-day.outside { color: var(--color-text-muted); opacity: .45; }
+.tx-calendar-day.in-range { border-radius: 0; background: var(--color-accent-100); }
+.tx-calendar-day.selected { border-radius: 50%; background: var(--color-accent-700); color: white; }
+.tx-calendar [data-calendar-selection] { margin: var(--space-2) 0 0; text-align: center; }
 @media (max-width: 479px) {
   .tx-date-body { grid-template-columns: minmax(0, 1fr); }
   .tx-date-presets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tx-date-presets button { font-size: 12px; }
+  .tx-calendar-months { grid-template-columns: minmax(0, 1fr); }
+  .tx-calendar-month:not(:first-child) { display: none; }
 }
 .menu-list { display: flex; flex-direction: column; }
 .menu-list a {

@@ -383,6 +383,87 @@ $$('[data-search-debounce] input[type="search"]').forEach((input) => {
   });
 });
 
+$$('[data-range-calendar]').forEach((calendar) => {
+  const form = calendar.closest('form');
+  const fromInput = form.elements.dari;
+  const toInput = form.elements.sampai;
+  const months = $('[data-calendar-months]', calendar);
+  const selection = $('[data-calendar-selection]', calendar);
+  const parse = (value) => value ? new Date(`${value}T00:00:00`) : null;
+  const iso = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const initial = parse(calendar.dataset.from) || (calendar.dataset.month.startsWith('0001-') ? null : parse(calendar.dataset.month)) || new Date();
+  let cursor = new Date(initial.getFullYear(), initial.getMonth(), 1);
+
+  function render() {
+    months.replaceChildren();
+    const start = parse(fromInput.value);
+    const end = parse(toInput.value);
+    if (!start) selection.textContent = 'Pilih tanggal mulai';
+    else if (!end) selection.textContent = `Mulai ${start.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })} · pilih tanggal akhir`;
+    else selection.textContent = `${start.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })} – ${end.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}`;
+
+    for (let offset = 0; offset < 2; offset++) {
+      const monthDate = new Date(cursor.getFullYear(), cursor.getMonth() + offset, 1);
+      const pane = document.createElement('section');
+      pane.className = 'tx-calendar-month';
+      const title = document.createElement('h5');
+      title.textContent = monthDate.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+      pane.append(title);
+      const grid = document.createElement('div');
+      grid.className = 'tx-calendar-grid';
+      ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'].forEach((day) => {
+        const label = document.createElement('span');
+        label.className = 'tx-calendar-weekday';
+        label.textContent = day;
+        grid.append(label);
+      });
+      const first = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+      const offsetMonday = (first.getDay() + 6) % 7;
+      const gridStart = new Date(first.getFullYear(), first.getMonth(), 1 - offsetMonday);
+      for (let i = 0; i < 42; i++) {
+        const date = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
+        const value = iso(date);
+        const day = document.createElement('button');
+        day.type = 'button';
+        day.className = 'tx-calendar-day';
+        day.textContent = String(date.getDate());
+        if (date.getMonth() !== monthDate.getMonth()) day.classList.add('outside');
+        if (start && value === iso(start)) day.classList.add('selected');
+        if (end && value === iso(end)) day.classList.add('selected');
+        if (start && end && value > iso(start) && value < iso(end)) day.classList.add('in-range');
+        day.setAttribute('aria-label', date.toLocaleDateString('id-ID', { dateStyle: 'full' }));
+        day.addEventListener('click', () => {
+          if (!fromInput.value || toInput.value) {
+            fromInput.value = value;
+            toInput.value = '';
+          } else if (value < fromInput.value) {
+            toInput.value = fromInput.value;
+            fromInput.value = value;
+          } else {
+            toInput.value = value;
+          }
+          render();
+        });
+        grid.append(day);
+      }
+      pane.append(grid);
+      months.append(pane);
+    }
+  }
+
+  $('[data-calendar-prev]', calendar).addEventListener('click', () => {
+    cursor.setMonth(cursor.getMonth() - 1);
+    render();
+  });
+  $('[data-calendar-next]', calendar).addEventListener('click', () => {
+    cursor.setMonth(cursor.getMonth() + 1);
+    render();
+  });
+  calendar.closest('details').addEventListener('toggle', () => { if (calendar.closest('details').open) render(); });
+  calendar._render = render;
+  render();
+});
+
 $$('[data-range-preset]').forEach((button) => {
   button.addEventListener('click', () => {
     const form = button.closest('form');
@@ -401,6 +482,7 @@ $$('[data-range-preset]').forEach((button) => {
     const iso = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     form.elements.dari.value = iso(from);
     form.elements.sampai.value = iso(to);
+    $('[data-range-calendar]', form)?._render();
     form.requestSubmit();
   });
 });
