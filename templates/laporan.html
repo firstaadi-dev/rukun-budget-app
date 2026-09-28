@@ -31,12 +31,12 @@
       {{if .Breakdown.Expense}}
         <div class="report-chart">
           <svg class="report-pie" viewBox="0 0 42 42" role="img" aria-label="Komposisi pengeluaran per kategori">
-            {{range .Breakdown.Expense}}<circle class="pie-{{.Palette}}" cx="21" cy="21" r="10" pathLength="100" fill="none" stroke-width="20" stroke-dasharray="{{.Share}} 100" stroke-dashoffset="-{{.Offset}}" transform="rotate(-90 21 21)"/>{{end}}
+            {{range .Breakdown.Expense}}<a href="/transaksi?periode={{$.Period.Nilai}}&kategori={{urlquery .Name}}" aria-label="Lihat transaksi {{.Name}}"><title>{{.Name}} · {{.ShareLabel}}</title><circle class="pie-{{.Palette}}" cx="21" cy="21" r="10" pathLength="100" fill="none" stroke-width="20" stroke-dasharray="{{.Share}} 100" stroke-dashoffset="-{{.Offset}}" transform="rotate(-90 21 21)"/></a>{{end}}
           </svg>
           <div class="report-legend">
             {{range .Breakdown.Expense}}
               <a class="report-legend-row" href="/transaksi?periode={{$.Period.Nilai}}&kategori={{urlquery .Name}}">
-                <span class="pie-swatch pie-{{.Palette}}"></span><span class="report-legend-name">{{.Name}}</span><strong>{{.Amount}}</strong>
+                <span class="pie-swatch pie-{{.Palette}}"></span><span class="report-legend-name">{{.Name}}</span><span class="report-legend-share">{{.ShareLabel}}</span><strong>{{.Amount}}</strong>
               </a>
             {{end}}
           </div>
@@ -48,12 +48,12 @@
       {{if .Breakdown.Income}}
         <div class="report-chart">
           <svg class="report-pie" viewBox="0 0 42 42" role="img" aria-label="Komposisi pemasukan per kategori">
-            {{range .Breakdown.Income}}<circle class="pie-{{.Palette}}" cx="21" cy="21" r="10" pathLength="100" fill="none" stroke-width="20" stroke-dasharray="{{.Share}} 100" stroke-dashoffset="-{{.Offset}}" transform="rotate(-90 21 21)"/>{{end}}
+            {{range .Breakdown.Income}}<a href="/transaksi?periode={{$.Period.Nilai}}&kategori={{urlquery .Name}}" aria-label="Lihat transaksi {{.Name}}"><title>{{.Name}} · {{.ShareLabel}}</title><circle class="pie-{{.Palette}}" cx="21" cy="21" r="10" pathLength="100" fill="none" stroke-width="20" stroke-dasharray="{{.Share}} 100" stroke-dashoffset="-{{.Offset}}" transform="rotate(-90 21 21)"/></a>{{end}}
           </svg>
           <div class="report-legend">
             {{range .Breakdown.Income}}
               <a class="report-legend-row" href="/transaksi?periode={{$.Period.Nilai}}&kategori={{urlquery .Name}}">
-                <span class="pie-swatch pie-{{.Palette}}"></span><span class="report-legend-name">{{.Name}}</span><strong>{{.Amount}}</strong>
+                <span class="pie-swatch pie-{{.Palette}}"></span><span class="report-legend-name">{{.Name}}</span><span class="report-legend-share">{{.ShareLabel}}</span><strong>{{.Amount}}</strong>
               </a>
             {{end}}
           </div>

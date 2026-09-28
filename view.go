@@ -390,12 +390,13 @@ type Summary struct {
 // ---------- ringkasan per kategori ----------
 
 type CategoryRow struct {
-	Name    string
-	Amount  string
-	Percent int // porsi terhadap kategori terbesar, untuk panjang bilah
-	Share   int // porsi terhadap total, untuk irisan diagram
-	Offset  int
-	Palette int
+	Name       string
+	Amount     string
+	Percent    int // porsi terhadap kategori terbesar, untuk panjang bilah
+	Share      int // porsi terhadap total, untuk irisan diagram
+	ShareLabel string
+	Offset     int
+	Palette    int
 }
 
 type CategoryBreakdown struct {
@@ -537,6 +538,11 @@ func categoryRows(sums map[string]int64, base string) ([]CategoryRow, int64) {
 			}
 		}
 		rows[i].Share, rows[i].Offset, rows[i].Palette = share, offset, i%colors
+		if total > 0 {
+			rows[i].ShareLabel = fmt.Sprintf("%.1f%%", float64(sums[rows[i].Name])*100/float64(total))
+		} else {
+			rows[i].ShareLabel = "0%"
+		}
 		offset += share
 	}
 	return rows, total

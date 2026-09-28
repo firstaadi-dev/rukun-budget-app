@@ -389,7 +389,7 @@ $$('[data-range-calendar]').forEach((calendar) => {
   const toInput = form.elements.sampai;
   const months = $('[data-calendar-months]', calendar);
   const selection = $('[data-calendar-selection]', calendar);
-  const parse = (value) => value ? new Date(`${value}T00:00:00`) : null;
+  const parse = (value) => value ? new Date(`${value}T00:00:00`) : null;fitur
   const iso = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   const initial = parse(calendar.dataset.from) || (calendar.dataset.month.startsWith('0001-') ? null : parse(calendar.dataset.month)) || new Date();
   let cursor = new Date(initial.getFullYear(), initial.getMonth(), 1);
