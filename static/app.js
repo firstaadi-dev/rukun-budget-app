@@ -68,6 +68,39 @@ function setTheme(theme, save = false) {
 themeChoices.forEach((button) => button.addEventListener('click', () => setTheme(button.dataset.themeChoice, true)));
 try { setTheme(localStorage.getItem('rukun-theme') || 'klasik'); } catch { setTheme('klasik'); }
 
+// Diagram laporan tetap punya daftar kategori berupa tautan sebagai fallback;
+// ECharts menambah tooltip dan navigasi langsung dari irisan diagram.
+if (window.echarts) {
+  const chartColors = ['#a06f24', '#5b9277', '#b85e55', '#6d83ad', '#98729d', '#718c52', '#cc8847', '#4f8b91'];
+  $$('[data-report-chart]').forEach((el) => {
+    const rows = $$('[data-chart-category]', el.parentElement);
+    const chart = window.echarts.init(el);
+    chart.setOption({
+      aria: { enabled: true },
+      tooltip: { trigger: 'item', renderMode: 'richText', formatter: ({ name, percent }) => `${name}: ${percent}%` },
+      series: [{
+        type: 'pie',
+        radius: ['42%', '76%'],
+        selectedMode: 'single',
+        data: rows.map((row) => ({
+          name: row.dataset.chartCategory,
+          value: Number(row.dataset.chartShare),
+          itemStyle: { color: chartColors[Number(row.dataset.chartColor) % chartColors.length] },
+        })),
+        label: { show: false },
+        emphasis: { scale: true, scaleSize: 6 },
+      }],
+    });
+    chart.on('click', ({ name }) => {
+      const target = new URL('/transaksi', window.location.href);
+      target.searchParams.set('periode', el.dataset.period);
+      target.searchParams.set('kategori', name);
+      window.location.assign(target);
+    });
+    new ResizeObserver(() => chart.resize()).observe(el);
+  });
+}
+
 // ---------- kolom nominal: hanya angka, dengan pemisah ribuan ----------
 
 // inputmode="decimal" cuma memberi saran keyboard di ponsel; di desktop huruf

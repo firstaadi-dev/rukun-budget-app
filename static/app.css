@@ -257,8 +257,7 @@ a { color: var(--color-accent-700); }
 .report-net p { margin: 0; }
 .report-empty { margin: 8px 0; padding: 10px 0; color: var(--color-neutral-600); font-size: 13px; }
 .report-chart { display: grid; grid-template-columns: 112px minmax(0, 1fr); align-items: center; gap: 12px; }
-.report-pie { display: block; width: 112px; max-width: 100%; }
-.report-pie a { cursor: pointer; }
+.report-pie { display: block; width: 112px; height: 112px; max-width: 100%; cursor: pointer; }
 .report-legend { min-width: 0; }
 .report-legend-row { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto auto; align-items: center; gap: 7px; padding: 5px 0; color: var(--color-text); text-decoration: none; font-size: 12px; }
 .report-legend-row + .report-legend-row { border-top: 1px solid var(--color-divider); }
