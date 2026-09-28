@@ -28,20 +28,36 @@
   <div class="cat-cols report-categories">
     <section>
       <div class="sec-head"><h6>Pengeluaran per kategori</h6><a href="/kategori" class="small">Kelola</a></div>
-      {{range .Breakdown.Expense}}
-        <a class="card cat-bar" href="/transaksi?periode={{$.Period.Nilai}}&kategori={{urlquery .Name}}">
-          <span class="cat-bar-fill t-out" style="width:{{.Percent}}%"></span>
-          <span class="cat-bar-name">{{.Name}}</span><span class="cat-bar-amt">{{.Amount}}</span>
-        </a>
+      {{if .Breakdown.Expense}}
+        <div class="report-chart">
+          <svg class="report-pie" viewBox="0 0 42 42" role="img" aria-label="Komposisi pengeluaran per kategori">
+            {{range .Breakdown.Expense}}<circle class="pie-{{.Palette}}" cx="21" cy="21" r="10" pathLength="100" fill="none" stroke-width="20" stroke-dasharray="{{.Share}} 100" stroke-dashoffset="-{{.Offset}}" transform="rotate(-90 21 21)"/>{{end}}
+          </svg>
+          <div class="report-legend">
+            {{range .Breakdown.Expense}}
+              <a class="report-legend-row" href="/transaksi?periode={{$.Period.Nilai}}&kategori={{urlquery .Name}}">
+                <span class="pie-swatch pie-{{.Palette}}"></span><span class="report-legend-name">{{.Name}}</span><strong>{{.Amount}}</strong>
+              </a>
+            {{end}}
+          </div>
+        </div>
       {{else}}<p class="report-empty">Belum ada pengeluaran. <a href="/transaksi/baru?jenis=expense">Catat pengeluaran</a></p>{{end}}
     </section>
     <section>
       <div class="sec-head"><h6>Pemasukan per kategori</h6></div>
-      {{range .Breakdown.Income}}
-        <a class="card cat-bar" href="/transaksi?periode={{$.Period.Nilai}}&kategori={{urlquery .Name}}">
-          <span class="cat-bar-fill t-in" style="width:{{.Percent}}%"></span>
-          <span class="cat-bar-name">{{.Name}}</span><span class="cat-bar-amt">{{.Amount}}</span>
-        </a>
+      {{if .Breakdown.Income}}
+        <div class="report-chart">
+          <svg class="report-pie" viewBox="0 0 42 42" role="img" aria-label="Komposisi pemasukan per kategori">
+            {{range .Breakdown.Income}}<circle class="pie-{{.Palette}}" cx="21" cy="21" r="10" pathLength="100" fill="none" stroke-width="20" stroke-dasharray="{{.Share}} 100" stroke-dashoffset="-{{.Offset}}" transform="rotate(-90 21 21)"/>{{end}}
+          </svg>
+          <div class="report-legend">
+            {{range .Breakdown.Income}}
+              <a class="report-legend-row" href="/transaksi?periode={{$.Period.Nilai}}&kategori={{urlquery .Name}}">
+                <span class="pie-swatch pie-{{.Palette}}"></span><span class="report-legend-name">{{.Name}}</span><strong>{{.Amount}}</strong>
+              </a>
+            {{end}}
+          </div>
+        </div>
       {{else}}<p class="report-empty">Belum ada pemasukan. <a href="/transaksi/baru?jenis=income">Catat pemasukan</a></p>{{end}}
     </section>
   </div>

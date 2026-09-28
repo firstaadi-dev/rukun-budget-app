@@ -393,6 +393,9 @@ type CategoryRow struct {
 	Name    string
 	Amount  string
 	Percent int // porsi terhadap kategori terbesar, untuk panjang bilah
+	Share   int // porsi terhadap total, untuk irisan diagram
+	Offset  int
+	Palette int
 }
 
 type CategoryBreakdown struct {
@@ -521,6 +524,20 @@ func categoryRows(sums map[string]int64, base string) ([]CategoryRow, int64) {
 		for i := range rows {
 			rows[i].Percent = int(sums[rows[i].Name] * 100 / max)
 		}
+	}
+	colors := 8
+	offset := 0
+	for i := range rows {
+		share := 0
+		if total > 0 {
+			if i == len(rows)-1 {
+				share = 100 - offset
+			} else {
+				share = int(float64(sums[rows[i].Name]) * 100 / float64(total))
+			}
+		}
+		rows[i].Share, rows[i].Offset, rows[i].Palette = share, offset, i%colors
+		offset += share
 	}
 	return rows, total
 }
