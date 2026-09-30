@@ -27,6 +27,8 @@ type Family struct {
 	BetaStartedAt       pgtype.Timestamptz
 	BetaCohort          string
 	PeriodStartDay      int16
+	LedgerRevision      int64
+	SavingTarget        int16
 }
 
 type Investment struct {
@@ -45,11 +47,13 @@ type Investment struct {
 }
 
 type Party struct {
-	ID        int64
-	FamilyID  int64
-	Name      string
-	Note      string
-	CreatedAt pgtype.Timestamptz
+	ID              int64
+	FamilyID        int64
+	Name            string
+	Note            string
+	CreatedAt       pgtype.Timestamptz
+	DueOn           pgtype.Date
+	PaymentWalletID pgtype.Int8
 }
 
 type Quote struct {
@@ -59,6 +63,13 @@ type Quote struct {
 	QuotedAt  pgtype.Timestamptz
 	Name      string
 	FetchedAt pgtype.Timestamptz
+}
+
+type SavingsGoal struct {
+	FamilyID    int64
+	Name        string
+	TargetMinor int64
+	TargetOn    pgtype.Date
 }
 
 type Session struct {
@@ -104,6 +115,15 @@ type Transaction struct {
 	SeriesKind     pgtype.Text
 	CostBasisMinor pgtype.Int8
 	IsAdjustment   bool
+	OccurredTime   string
+	RecorderID     pgtype.Int8
+	Receipt        []byte
+	ReceiptMime    string
+}
+
+type TransactionReaction struct {
+	TransactionID int64
+	UserID        int64
 }
 
 type User struct {
@@ -117,6 +137,8 @@ type User struct {
 	Email           pgtype.Text
 	FirebaseUid     pgtype.Text
 	EmailVerifiedAt pgtype.Timestamptz
+	Avatar          []byte
+	AvatarMime      string
 }
 
 type Wallet struct {
@@ -131,4 +153,8 @@ type Wallet struct {
 	SettlementDay       pgtype.Int2
 	PaymentDay          pgtype.Int2
 	CreditLimitMinor    pgtype.Int8
+	OwnerLabel          string
+	LastFour            string
+	Cardholder          string
+	IsPrimary           bool
 }

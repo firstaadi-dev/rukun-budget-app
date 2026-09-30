@@ -80,7 +80,7 @@ func TestPagesRender(t *testing.T) {
 				{Kind: "expense", Category: "Sekolah", Currency: "USD", Minor: 20000},
 				{Kind: "income", Category: "Gaji", Currency: "IDR", Minor: 1_500_000_000},
 			}, rates, "IDR", "Agustus 2026"),
-		}, "Per Kategori"},
+		}, "Dompet Bersama"},
 
 		// Dashboard yang sedang membawa peringatan tagihan. Dipisah jadi kasus
 		// sendiri karena bagian itu hanya muncul saat ada yang perlu dikerjakan,
@@ -104,7 +104,7 @@ func TestPagesRender(t *testing.T) {
 					BalanceMinor: -100_000_000, CicilanMendatangMinor: 500_000_000, LimitMinor: 1_000_000_000},
 				OutstandingMinor: -100_000_000,
 			}, today)}),
-		}, "Rp5.000.000 cicilan belum jatuh tempo"},
+		}, "Cicilan belum jatuh tempo: Rp5.000.000"},
 
 		{"dompet_form.html", map[string]any{
 			"Title": "Dompet Baru", "Nav": "dompet", "Back": "/dompet", "Action": "/dompet/baru",
@@ -326,8 +326,35 @@ func TestPagesRender(t *testing.T) {
 				{User: User{ID: 3, Name: "Anak Sulung", Disabled: true}, CreatedAt: today},
 			},
 			"Sukses": pesanSukses["nonaktif"],
-		}, "Cabut akses"},
+		}, "Cabut Akses"},
 
+		{"anggaran.html", map[string]any{
+			"Nav": "anggaran", "Period": "Agustus 2026", "Base": "IDR",
+			"TotalLimit": "Rp1.000.000", "TotalUsed": "Rp1.120.000", "Available": "Rp0",
+			"Categories": []budgetItem{
+				{Category: Category{ID: 1, Name: "Transportasi", BudgetText: "1.000.000"}, Used: "Rp1.120.000", OverAmount: "Rp120.000", Percent: 112, HasLimit: true, Over: true},
+				{Category: Category{ID: 2, Name: "Hiburan"}, Used: "Rp50.000"},
+			},
+		}, "112%"},
+		{"subscription.html", map[string]any{
+			"Nav": "subscription", "Items": []Subscription{
+				{ID: 1, Name: "Netflix", WalletName: "BCA", Category: "Hiburan", Amount: "Rp186.000", NextLabel: "2 Oktober 2026", IntervalMonths: 1, Active: true},
+				{ID: 2, Name: "Cloud", Amount: "Rp135.000", IntervalMonths: 12},
+			},
+		}, "Dijeda"},
+		{"subscription_form.html", map[string]any{
+			"Nav": "subscription", "Back": "/subscription", "Form": map[string]string{"interval": "1", "tanggal": "2026-08-07"},
+			"Wallets": wallets, "Categories": []string{"Hiburan"}, "Intervals": subscriptionIntervals,
+		}, "Tanggal berikutnya"},
+		{"laporan.html", map[string]any{
+			"Nav": "laporan", "Period": bacaPeriode("", "", "", today), "SavingRate": "53.6%",
+			"Breakdown": breakdown([]CategorySpend{
+				{Kind: "expense", Category: "Belanja", Currency: "IDR", Minor: 45_000_000},
+				{Kind: "income", Category: "Gaji", Currency: "IDR", Minor: 1_500_000_000},
+			}, rates, "IDR", "Agustus 2026"),
+			"Budgets": []BudgetRow{{Name: "Belanja", Limit: "Rp1.000.000", Used: "Rp450.000", Percent: 45}},
+		}, "Tren Arus Kas Mingguan"},
+		{"lainnya.html", map[string]any{"Nav": "lainnya"}, "Dompet &amp; Rekening"},
 		{"masuk.html", map[string]any{"NoChrome": true,
 			"Form": map[string]string{"Email": "ayah@example.com"}}, "Email"},
 		{"daftar.html", map[string]any{"NoChrome": true,

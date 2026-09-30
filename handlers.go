@@ -24,6 +24,10 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, page string, data m
 	data["Family"] = u.FamilyName
 	data["Path"] = r.URL.Path
 	data["V"] = a.ver
+	if err := a.designData(r, page, data); err != nil {
+		a.fail(w, r, err)
+		return
+	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := t.ExecuteTemplate(w, "layout.html", data); err != nil {

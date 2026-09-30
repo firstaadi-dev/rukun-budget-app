@@ -25,7 +25,7 @@ func (a *App) budgetList(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
-	p := bacaPeriodeKustom("", "", "", a.today(), f.PeriodStartDay)
+	p := bacaPeriodeKustom(r.URL.Query().Get("periode"), "", "", a.today(), f.PeriodStartDay)
 	spend, err := a.store.CategorySpending(r.Context(), id, p.From, p.To)
 	if err != nil {
 		a.fail(w, r, err)
@@ -53,7 +53,7 @@ func (a *App) budgetList(w http.ResponseWriter, r *http.Request) {
 		items[i] = budgetItem{Category: cats[i], Used: Format(spent, a.base), HasLimit: cats[i].BudgetMinor > 0,
 			Remaining:  Format(max(0, cats[i].BudgetMinor-spent), a.base),
 			OverAmount: Format(max(0, spent-cats[i].BudgetMinor), a.base),
-			Percent:    int(min(100, float64(spent)/float64(max(1, cats[i].BudgetMinor))*100)), Over: spent > cats[i].BudgetMinor}
+			Percent:    int(float64(spent) / float64(max(1, cats[i].BudgetMinor)) * 100), Over: spent > cats[i].BudgetMinor}
 		totalUsed += spent
 		totalLimit += cats[i].BudgetMinor
 		if cats[i].BudgetMinor == 0 {

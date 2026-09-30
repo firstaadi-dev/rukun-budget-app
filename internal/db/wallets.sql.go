@@ -30,12 +30,12 @@ func (q *Queries) CountWalletTransactions(ctx context.Context, arg CountWalletTr
 
 const createWallet = `-- name: CreateWallet :one
 INSERT INTO wallets (family_id, name, type, provider, currency, initial_balance_minor,
-                     settlement_day, payment_day, credit_limit_minor)
+                     settlement_day, payment_day, credit_limit_minor, owner_label, last_four, cardholder, is_primary)
 VALUES ($1, $2, $3, NULLIF($4::text, ''),
         $5, $6,
         NULLIF($7::smallint, 0),
         NULLIF($8::smallint, 0),
-        NULLIF($9::bigint, 0))
+        NULLIF($9::bigint, 0), $10, $11, $12, $13)
 RETURNING id
 `
 
@@ -49,6 +49,10 @@ type CreateWalletParams struct {
 	SettlementDay       int16
 	PaymentDay          int16
 	CreditLimitMinor    int64
+	OwnerLabel          string
+	LastFour            string
+	Cardholder          string
+	IsPrimary           bool
 }
 
 func (q *Queries) CreateWallet(ctx context.Context, arg CreateWalletParams) (int64, error) {
@@ -62,6 +66,10 @@ func (q *Queries) CreateWallet(ctx context.Context, arg CreateWalletParams) (int
 		arg.SettlementDay,
 		arg.PaymentDay,
 		arg.CreditLimitMinor,
+		arg.OwnerLabel,
+		arg.LastFour,
+		arg.Cardholder,
+		arg.IsPrimary,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -86,7 +94,7 @@ func (q *Queries) DeleteWallet(ctx context.Context, arg DeleteWalletParams) (int
 }
 
 const getWallets = `-- name: GetWallets :many
-SELECT w.id, w.name, w.type, COALESCE(w.provider, '') AS provider, w.currency,
+SELECT w.id, w.name, w.type, w.owner_label, w.last_four, w.cardholder, w.is_primary, COALESCE(w.provider, '') AS provider, w.currency,
        w.initial_balance_minor, COALESCE(w.settlement_day, 0) AS settlement_day,
        COALESCE(w.payment_day, 0) AS payment_day,
        COALESCE(w.credit_limit_minor, 0) AS credit_limit_minor,
@@ -119,6 +127,10 @@ type GetWalletsRow struct {
 	ID                    int64
 	Name                  string
 	Type                  string
+	OwnerLabel            string
+	LastFour              string
+	Cardholder            string
+	IsPrimary             bool
 	Provider              string
 	Currency              string
 	InitialBalanceMinor   int64
@@ -142,6 +154,10 @@ func (q *Queries) GetWallets(ctx context.Context, arg GetWalletsParams) ([]GetWa
 			&i.ID,
 			&i.Name,
 			&i.Type,
+			&i.OwnerLabel,
+			&i.LastFour,
+			&i.Cardholder,
+			&i.IsPrimary,
 			&i.Provider,
 			&i.Currency,
 			&i.InitialBalanceMinor,
@@ -167,8 +183,9 @@ UPDATE wallets SET name = $1, type = $2,
        initial_balance_minor = $5,
        settlement_day = NULLIF($6::smallint, 0),
        payment_day = NULLIF($7::smallint, 0),
-       credit_limit_minor = NULLIF($8::bigint, 0)
-WHERE id = $9 AND family_id = $10
+       credit_limit_minor = NULLIF($8::bigint, 0),
+       owner_label = $9, last_four = $10, cardholder = $11, is_primary = $12
+WHERE id = $13 AND family_id = $14
 `
 
 type UpdateWalletParams struct {
@@ -180,6 +197,10 @@ type UpdateWalletParams struct {
 	SettlementDay       int16
 	PaymentDay          int16
 	CreditLimitMinor    int64
+	OwnerLabel          string
+	LastFour            string
+	Cardholder          string
+	IsPrimary           bool
 	ID                  int64
 	FamilyID            int64
 }
@@ -194,6 +215,10 @@ func (q *Queries) UpdateWallet(ctx context.Context, arg UpdateWalletParams) (int
 		arg.SettlementDay,
 		arg.PaymentDay,
 		arg.CreditLimitMinor,
+		arg.OwnerLabel,
+		arg.LastFour,
+		arg.Cardholder,
+		arg.IsPrimary,
 		arg.ID,
 		arg.FamilyID,
 	)

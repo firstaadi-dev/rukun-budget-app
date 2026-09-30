@@ -234,6 +234,18 @@ func (a *App) routes() http.Handler {
 	auth := func(pattern string, h http.HandlerFunc) { mux.Handle(pattern, a.requireFamily(h)) }
 
 	auth("GET /{$}", a.dashboard)
+	auth("GET /lainnya", func(w http.ResponseWriter, r *http.Request) {
+		a.render(w, r, "lainnya.html", map[string]any{"Title": "Lainnya", "Nav": "lainnya"})
+	})
+	auth("GET /sinkronisasi", a.syncStatus)
+	auth("POST /pengaturan/target-tabungan", a.savingTarget)
+	auth("GET /notifikasi", a.notifications)
+	auth("GET /avatar/{id}", a.avatar)
+	auth("POST /pengaturan/avatar", a.updateAvatar)
+	auth("POST /investasi/target", a.saveGoal)
+	auth("POST /subscription/{id}/status", a.toggleSubscription)
+	auth("GET /transaksi/{id}/struk", a.receipt)
+	auth("POST /transaksi/{id}/reaksi", a.react)
 	auth("GET /laporan", a.report)
 	auth("GET /anggaran", a.budgetList)
 
@@ -303,7 +315,7 @@ func (a *App) routes() http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
-			r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+			r.Body = http.MaxBytesReader(w, r.Body, 4<<20)
 		}
 		if r.Method != http.MethodGet && r.Method != http.MethodHead &&
 			!(strings.HasPrefix(r.URL.Path, "/admin/") && strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ")) && !sameOrigin(r) {
@@ -311,6 +323,9 @@ func (a *App) routes() http.Handler {
 			return
 		}
 		mux.ServeHTTP(w, r)
+		if r.MultipartForm != nil {
+			r.MultipartForm.RemoveAll()
+		}
 	})
 }
 
@@ -389,6 +404,7 @@ func staticHandler() http.Handler {
 }
 
 var tmplFuncs = template.FuncMap{
+	"initials": initials, "di": designIcon, "categoryIcon": categoryIcon, "serviceIcon": serviceIcon, "dateOnly": dateOnly, "daysUntil": daysUntil, "pct": percentLabel,
 	"symbol": Symbol,
 	"lower":  strings.ToLower,
 	"neg":    func(n int) int { return -n },

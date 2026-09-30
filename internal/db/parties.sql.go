@@ -95,10 +95,11 @@ func (q *Queries) GetCardBalances(ctx context.Context, arg GetCardBalancesParams
 }
 
 const getParties = `-- name: GetParties :many
-SELECT p.id, p.name, p.note, COALESCE(b.cur, '') AS cur,
+SELECT p.id, p.name, p.note, p.due_on, COALESCE(p.payment_wallet_id,0)::bigint AS payment_wallet_id, COALESCE(pw.name,'') AS payment_wallet_name, COALESCE(b.cur, '') AS cur,
        COALESCE(b.hutang, 0)::bigint AS hutang,
        COALESCE(b.piutang, 0)::bigint AS piutang
 FROM parties p
+LEFT JOIN wallets pw ON pw.id = p.payment_wallet_id AND pw.family_id = p.family_id
 LEFT JOIN (
     SELECT t.party_id, COALESCE(w.currency, t.currency) AS cur,
            SUM(CASE t.kind WHEN 'debt_in' THEN t.amount_minor
@@ -115,12 +116,15 @@ ORDER BY p.name, b.cur
 `
 
 type GetPartiesRow struct {
-	ID      int64
-	Name    string
-	Note    string
-	Cur     string
-	Hutang  int64
-	Piutang int64
+	ID                int64
+	Name              string
+	Note              string
+	DueOn             pgtype.Date
+	PaymentWalletID   int64
+	PaymentWalletName string
+	Cur               string
+	Hutang            int64
+	Piutang           int64
 }
 
 func (q *Queries) GetParties(ctx context.Context, familyID int64) ([]GetPartiesRow, error) {
@@ -136,6 +140,9 @@ func (q *Queries) GetParties(ctx context.Context, familyID int64) ([]GetPartiesR
 			&i.ID,
 			&i.Name,
 			&i.Note,
+			&i.DueOn,
+			&i.PaymentWalletID,
+			&i.PaymentWalletName,
 			&i.Cur,
 			&i.Hutang,
 			&i.Piutang,

@@ -1,0 +1,15 @@
+{{define "content"}}
+<div class="stack-lg">
+  <div class="page-head"><div><h4>Ruang keluarga</h4><p class="small text-muted">Semua urusan keuangan, satu tempat.</p></div></div>
+  <div class="more-grid">
+    <a class="card more-item" href="/dompet"><span class="row-ic t-neutral">{{template "icon-wallet"}}</span><strong>Dompet &amp; Rekening</strong><span class="small text-muted">Saldo, kartu kredit, dan e-wallet</span></a>
+    <a class="card more-item" href="/laporan"><span class="row-ic t-in">{{template "icon-chart"}}</span><strong>Laporan Keuangan</strong><span class="small text-muted">Arus kas dan ringkasan kategori</span></a>
+    <a class="card more-item" href="/subscription"><span class="row-ic t-warning">{{template "icon-list"}}</span><strong>Langganan</strong><span class="small text-muted">Kelola catatan tagihan rutin</span></a>
+    <a class="card more-item" href="/hutang"><span class="row-ic t-out">{{template "icon-hutang"}}</span><strong>Hutang &amp; Piutang</strong><span class="small text-muted">Catat pinjaman dan pelunasan</span></a>
+    <a class="card more-item" href="/investasi"><span class="row-ic t-neutral">{{template "icon-invest"}}</span><strong>Investasi Keluarga</strong><span class="small text-muted">Emas, saham, ETF, dan reksadana</span></a>
+    <a class="card more-item" href="/kategori"><span class="row-ic t-warning">{{template "icon-tag"}}</span><strong>Kategori</strong><span class="small text-muted">Rapikan pos uang masuk dan keluar</span></a>
+  </div>
+  <a class="card more-account" href="/pengaturan"><span class="row-ic t-in">{{template "icon-user"}}</span><span class="row-main"><strong>Akun &amp; Keluarga</strong><span class="small text-muted">{{.User.Name}} · anggota, undangan, dan keamanan</span></span>{{template "icon-chev"}}</a>
+  <p class="note">Catat bersama, jalani hari dengan lebih tenang.</p>
+</div>
+{{end}}

@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+
+<html class="light" lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Rukun — Dompet &amp; Rekening Keluarga</title>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Fonts: Plus Jakarta Sans & Inter -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS v3 -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "error-container": "#ffdad6",
+            "error": "#ba1a1a",
+            "primary-fixed-dim": "#84d4d3",
+            "primary": "#005454",
+            "on-surface": "#1a1c1b",
+            "on-primary-fixed": "#002020",
+            "inverse-primary": "#84d4d3",
+            "inverse-surface": "#2f312f",
+            "on-tertiary": "#ffffff",
+            "tertiary-container": "#b43438",
+            "inverse-on-surface": "#f1f1ee",
+            "surface-container-highest": "#e2e3e0",
+            "tertiary-fixed-dim": "#ffb3b0",
+            "on-surface-variant": "#3e4948",
+            "on-primary": "#ffffff",
+            "primary-fixed": "#a0f0f0",
+            "tertiary": "#931a24",
+            "outline": "#6e7979",
+            "surface-container-low": "#f4f4f1",
+            "surface-variant": "#e2e3e0",
+            "on-secondary-container": "#00714d",
+            "secondary-fixed": "#6ffbbe",
+            "on-background": "#1a1c1b",
+            "on-primary-fixed-variant": "#004f50",
+            "surface-container-high": "#e8e8e5",
+            "on-secondary-fixed-variant": "#005236",
+            "surface-dim": "#dadad7",
+            "primary-container": "#0d6e6e",
+            "on-error-container": "#93000a",
+            "surface-bright": "#f9f9f6",
+            "surface-container-lowest": "#ffffff",
+            "on-secondary": "#ffffff",
+            "on-secondary-fixed": "#002113",
+            "surface-container": "#eeeeeb",
+            "secondary": "#006c49",
+            "outline-variant": "#bec9c8",
+            "tertiary-fixed": "#ffdad8",
+            "on-primary-container": "#9dedec",
+            "background": "#f9f9f6",
+            "on-tertiary-container": "#ffd6d4",
+            "surface": "#f9f9f6",
+            "surface-tint": "#016a6a",
+            "on-tertiary-fixed": "#410006",
+            "secondary-fixed-dim": "#4edea3",
+            "secondary-container": "#6cf8bb",
+            "on-tertiary-fixed-variant": "#8c1520",
+            "on-error": "#ffffff"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "space-sm": "0.5rem",
+            "margin-tablet": "2rem",
+            "margin": "1rem",
+            "gutter": "1rem",
+            "margin-desktop": "3rem",
+            "gutter-lg": "1.5rem",
+            "gutter-sm": "0.75rem",
+            "space-xs": "0.25rem",
+            "space-md": "1rem",
+            "space-lg": "1.5rem",
+            "space-xl": "2rem"
+          },
+          "fontFamily": {
+            "body-lg": ["Plus Jakarta Sans"],
+            "display-lg": ["Plus Jakarta Sans"],
+            "label-sm": ["Plus Jakarta Sans"],
+            "body-md": ["Plus Jakarta Sans"],
+            "headline-sm": ["Plus Jakarta Sans"],
+            "headline-md": ["Plus Jakarta Sans"],
+            "currency-md": ["Inter"],
+            "label-md": ["Plus Jakarta Sans"],
+            "currency-display": ["Inter"],
+            "body-sm": ["Plus Jakarta Sans"],
+            "headline-lg": ["Plus Jakarta Sans"],
+            "currency-sm": ["Inter"]
+          },
+          "fontSize": {
+            "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+            "display-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+            "label-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "600" }],
+            "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+            "headline-sm": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+            "headline-md": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+            "currency-md": ["16px", { "lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+            "label-md": ["13px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+            "currency-display": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+            "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+            "headline-lg": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.015em", "fontWeight": "700" }],
+            "currency-sm": ["13px", { "lineHeight": "18px", "fontWeight": "600" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    body {
+      background-color: #f9f9f6;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="text-on-surface bg-background antialiased flex justify-center selection:bg-secondary-container selection:text-on-secondary-container">
+<!-- Mobile Viewport Canvas: 390px (PWA optimized) -->
+<main class="w-full max-w-[430px] min-h-screen bg-background relative flex flex-col pb-28">
+<!-- Top App Bar (Shared Anchored Hierarchy) -->
+<header class="sticky top-0 z-40 bg-surface/95 backdrop-blur-md px-margin py-space-sm flex justify-between items-center shadow-sm">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary-container/10 p-0.5 border border-primary/20 flex items-center justify-center overflow-hidden">
+<img class="w-full h-full object-cover rounded-full" data-alt="A warm candid portrait of an Indonesian young married couple Ayu and Bima smiling gently together at home, softly lit by morning window sunlight with organic muted natural tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBhkGmWUG8fvual1d2jFxP91SxBTOu2uememV7uQKUkidI0oCyaqfv2RJO4LMNfVRXlc8fv80oZgoOcN4uPaeFp4ArPwJUlMaLP6mSIGJ5Z7qGy1H5CcXgku4fK9a52zeZNhfBlUxiSYAArSDJD1eC9ZNjZj7Ov05yitwSR0J2Vq81uV-DwCfijlBeLK-23EjchZmdbPrNWegSd7eLNEWz6MOPJAdnes_K953IaWs1B19l0PHizi5QW"/>
+</div>
+<div>
+<span class="text-label-sm font-label-sm text-outline uppercase tracking-wider block">Keluarga Ayu &amp; Bima</span>
+<h1 class="text-headline-sm font-headline-sm text-primary font-bold tracking-tight">Dompet &amp; Rekening</h1>
+</div>
+</div>
+<button class="w-10 h-10 rounded-full flex items-center justify-center hover:bg-surface-container transition-colors active:scale-95 text-on-surface-variant relative">
+<span class="material-symbols-outlined text-headline-sm">notifications</span>
+<span class="w-2 h-2 rounded-full bg-tertiary absolute top-2.5 right-2.5 ring-2 ring-surface"></span>
+</button>
+</header>
+<!-- Content Canvas -->
+<div class="px-margin flex flex-col gap-5 pt-3">
+<!-- Net Worth Summary Bento Hero Card -->
+<section class="rounded-3xl p-5 bg-gradient-to-br from-primary-container via-[#0a5a5a] to-[#073c3c] text-on-primary shadow-[0_8px_24px_-4px_rgba(13,110,110,0.28)] relative overflow-hidden">
+<!-- Ambient Decor -->
+<div class="absolute -right-8 -top-8 w-36 h-36 rounded-full bg-secondary/15 blur-2xl pointer-events-none"></div>
+<div class="absolute -left-6 -bottom-6 w-32 h-32 rounded-full bg-primary-fixed/10 blur-xl pointer-events-none"></div>
+<div class="flex justify-between items-start mb-2 relative z-10">
+<div>
+<div class="flex items-center gap-1.5 text-on-primary-container">
+<span class="material-symbols-outlined text-[16px]">account_balance_wallet</span>
+<span class="text-label-md font-label-md font-medium">Total Aset Bersih</span>
+</div>
+<div class="mt-1 flex items-baseline gap-2">
+<span class="text-currency-display font-currency-display text-white tracking-tight">Rp48.650.000</span>
+<span class="text-label-sm font-label-sm px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary-fixed font-bold border border-secondary-fixed/30">+4.2%</span>
+</div>
+</div>
+<button class="bg-surface-container-lowest text-primary text-label-md font-label-md px-3.5 py-2 rounded-full shadow-sm flex items-center gap-1.5 hover:bg-surface-bright active:scale-95 transition-transform font-bold">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+<span>+ Tambah Dompet</span>
+</button>
+</div>
+<!-- Collaborative Ownership Bar -->
+<div class="mt-4 pt-3.5 border-t border-white/10 flex items-center justify-between text-label-sm font-label-sm text-on-primary-container relative z-10">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary-fixed"></span>
+<span>Aset Bersama: <strong class="text-white font-semibold">Rp33.800.000</strong></span>
+</div>
+<div class="flex items-center gap-1.5 text-[11px] bg-black/20 px-2.5 py-1 rounded-full">
+<span class="material-symbols-outlined text-[14px] text-secondary-fixed">sync</span>
+<span>Terakhir sync 10m lalu</span>
+</div>
+</div>
+</section>
+<!-- Category Filter Chips -->
+<section class="flex items-center gap-2 overflow-x-auto hide-scrollbar py-0.5">
+<button class="shrink-0 px-4 py-2 rounded-full bg-[#E8F5F1] text-primary border border-primary/30 text-label-md font-label-md font-bold shadow-sm transition-all">
+          Semua (5)
+        </button>
+<button class="shrink-0 px-4 py-2 rounded-full bg-surface-container-lowest text-on-surface-variant border border-outline-variant/40 text-label-md font-label-md hover:border-primary/40 active:scale-95 transition-all">
+          Bank &amp; Tunai
+        </button>
+<button class="shrink-0 px-4 py-2 rounded-full bg-surface-container-lowest text-on-surface-variant border border-outline-variant/40 text-label-md font-label-md hover:border-primary/40 active:scale-95 transition-all">
+          E-Wallet
+        </button>
+<button class="shrink-0 px-4 py-2 rounded-full bg-surface-container-lowest text-on-surface-variant border border-outline-variant/40 text-label-md font-label-md hover:border-primary/40 active:scale-95 transition-all">
+          Kartu Kredit
+        </button>
+</section>
+<!-- Section: Dompet Utama & Harian -->
+<section class="flex flex-col gap-3">
+<div class="flex items-center justify-between px-0.5">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-4 rounded-full bg-primary"></span>
+<h2 class="text-headline-sm font-headline-sm text-on-surface font-bold">Dompet Utama &amp; Harian</h2>
+</div>
+<span class="text-label-sm font-label-sm text-outline">4 Akun Aktif</span>
+</div>
+<div class="flex flex-col gap-3">
+<!-- Card 1: BCA Rumah Tangga (Bank Utama) -->
+<article class="bg-surface-container-lowest rounded-2xl p-4 border border-[rgba(13,110,110,0.08)] shadow-[0_4px_20px_-2px_rgba(13,110,110,0.05)] hover:shadow-md transition-shadow">
+<div class="flex items-start justify-between gap-3">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-2xl bg-[#E8F1FF] flex items-center justify-center text-[#1E40AF] shrink-0 border border-[#BFDBFE]">
+<span class="material-symbols-outlined text-[26px]">account_balance</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h3 class="text-body-lg font-body-lg font-bold text-on-surface leading-snug">BCA Rumah Tangga</h3>
+<span class="px-2 py-0.5 rounded-full text-label-sm font-label-sm bg-primary/10 text-primary font-bold">Utama</span>
+</div>
+<p class="text-body-sm font-body-sm text-outline">Bank Rekening Bersama • **** 8291</p>
+</div>
+</div>
+<button class="text-outline hover:text-on-surface p-1 rounded-full">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<div class="mt-4 pt-3 border-t border-surface-container-high flex items-end justify-between">
+<div>
+<span class="text-label-sm font-label-sm text-outline block mb-0.5">Saldo Tersedia</span>
+<span class="text-currency-display font-currency-display text-primary font-bold tracking-tight">Rp32.500.000</span>
+</div>
+<button class="px-3 py-1.5 rounded-xl bg-surface-container text-on-surface text-label-md font-label-md font-semibold hover:bg-surface-container-high transition-colors active:scale-95 flex items-center gap-1 border border-outline-variant/20">
+<span class="material-symbols-outlined text-[16px] text-primary">tune</span>
+<span>Sesuaikan Saldo</span>
+</button>
+</div>
+</article>
+<!-- Card 2: Tunai Harian (Kas Fisik) -->
+<article class="bg-surface-container-lowest rounded-2xl p-4 border border-[rgba(13,110,110,0.08)] shadow-[0_4px_20px_-2px_rgba(13,110,110,0.05)]">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-2xl bg-[#FEF3C7] flex items-center justify-center text-[#B45309] shrink-0 border border-[#FDE68A]">
+<span class="material-symbols-outlined text-[26px]">payments</span>
+</div>
+<div>
+<h3 class="text-body-lg font-body-lg font-bold text-on-surface">Tunai Harian</h3>
+<p class="text-body-sm font-body-sm text-outline">Amplop Kas Fisik Laci Depan</p>
+</div>
+</div>
+<div class="text-right">
+<span class="text-label-sm font-label-sm text-outline block">Saldo Fisik</span>
+<span class="text-currency-md font-currency-md text-on-surface font-bold">Rp1.300.000</span>
+</div>
+</div>
+</article>
+<!-- Card 3: GoPay Ayu (E-Wallet) -->
+<article class="bg-surface-container-lowest rounded-2xl p-4 border border-[rgba(13,110,110,0.08)] shadow-[0_4px_20px_-2px_rgba(13,110,110,0.05)]">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-2xl bg-[#E6F7F0] flex items-center justify-center text-[#047857] shrink-0 border border-[#A7F3D0]">
+<span class="material-symbols-outlined text-[26px]">smartphone</span>
+</div>
+<div>
+<div class="flex items-center gap-2">
+<h3 class="text-body-lg font-body-lg font-bold text-on-surface">GoPay Ayu</h3>
+<span class="px-2 py-0.5 rounded-full text-[10px] font-label-sm bg-[#E6F7F0] text-secondary font-bold border border-secondary/20">Milik Ayu</span>
+</div>
+<p class="text-body-sm font-body-sm text-outline">E-Wallet Belanja Pasar &amp; Sayur</p>
+</div>
+</div>
+<div class="text-right">
+<span class="text-label-sm font-label-sm text-outline block">Saldo Dompet</span>
+<span class="text-currency-md font-currency-md text-on-surface font-bold">Rp850.000</span>
+</div>
+</div>
+</article>
+<!-- Card 4: Broker Saham USD (Brokerage) -->
+<article class="bg-surface-container-lowest rounded-2xl p-4 border border-[rgba(13,110,110,0.08)] shadow-[0_4px_20px_-2px_rgba(13,110,110,0.05)]">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-3">
+<div class="w-12 h-12 rounded-2xl bg-[#F3E8FF] flex items-center justify-center text-[#7E22CE] shrink-0 border border-[#E9D5FF]">
+<span class="material-symbols-outlined text-[26px]">trending_up</span>
+</div>
+<div>
+<div class="flex items-center gap-1.5">
+<h3 class="text-body-lg font-body-lg font-bold text-on-surface">Broker Saham USD</h3>
+<span class="material-symbols-outlined text-[14px] text-secondary font-bold">verified</span>
+</div>
+<p class="text-body-sm font-body-sm text-outline">Investasi Global S&amp;P500</p>
+</div>
+</div>
+<div class="text-right">
+<span class="text-currency-md font-currency-md text-on-surface font-bold block">US$1.250,50</span>
+<span class="text-label-sm font-label-sm text-outline">~Rp19.500.000</span>
+</div>
+</div>
+<div class="mt-3 pt-2.5 border-t border-surface-container-high flex items-center gap-1.5 text-label-sm font-label-sm text-outline">
+<span class="material-symbols-outlined text-[14px] text-primary">currency_exchange</span>
+<span>Nilai tukar terhubung real-time (Rp15.593 / USD)</span>
+</div>
+</article>
+</div>
+</section>
+<!-- Section: Kartu Kredit & PayLater (Perhatian Khusus) -->
+<section class="flex flex-col gap-3 mt-1">
+<div class="flex items-center justify-between px-0.5">
+<div class="flex items-center gap-2">
+<span class="w-1.5 h-4 rounded-full bg-tertiary"></span>
+<h2 class="text-headline-sm font-headline-sm text-on-surface font-bold">Kartu Kredit &amp; Kewajiban</h2>
+</div>
+<span class="text-label-sm font-label-sm px-2 py-0.5 rounded-full bg-error-container text-tertiary font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px]">warning</span>
+<span>H-3 Jatuh Tempo</span>
+</span>
+</div>
+<!-- Featured Platinum Credit Card UI -->
+<article class="bg-surface-container-lowest rounded-3xl p-5 border border-outline-variant/30 shadow-[0_8px_28px_-6px_rgba(147,26,36,0.12)] relative overflow-hidden">
+<!-- Modern Card Visual Specimen -->
+<div class="w-full rounded-2xl p-4 bg-gradient-to-tr from-[#1E293B] via-[#0F172A] to-[#334155] text-white shadow-md relative mb-4">
+<div class="flex justify-between items-start">
+<div>
+<span class="text-[10px] tracking-widest uppercase font-semibold text-slate-400 block">Family Shared Credit Card</span>
+<h4 class="text-headline-sm font-headline-sm font-bold tracking-wider mt-0.5">BCA Platinum</h4>
+</div>
+<div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-sm">
+<span class="material-symbols-outlined text-white text-[18px]">contactless</span>
+</div>
+</div>
+<div class="my-3 flex items-center gap-2">
+<span class="w-8 h-5 rounded bg-amber-400/80 inline-block"></span>
+<span class="text-label-md font-label-md tracking-widest text-slate-300">•••• •••• •••• 4910</span>
+</div>
+<div class="flex justify-between items-end text-label-sm font-label-sm text-slate-300">
+<div>
+<span class="text-[10px] text-slate-400 block">Pemegang Kartu</span>
+<span class="font-bold text-white tracking-wide">BIMA ADITYA</span>
+</div>
+<div>
+<span class="text-[10px] text-slate-400 block">Tgl Cetak</span>
+<span class="font-semibold text-white">Tgl 18 / bln</span>
+</div>
+</div>
+</div>
+<!-- Billing & Urgency Detail Panel -->
+<div class="bg-error-container/30 border border-error-container rounded-2xl p-3.5 mb-4">
+<div class="flex justify-between items-start">
+<div>
+<span class="text-label-sm font-label-sm text-tertiary font-semibold block">Tagihan Harus Dibayar Segera</span>
+<div class="text-currency-display font-currency-display text-tertiary font-bold tracking-tight">Rp3.200.000</div>
+</div>
+<div class="text-right">
+<span class="text-label-sm font-label-sm px-2 py-0.5 rounded-full bg-tertiary text-on-tertiary font-bold inline-block">
+                  Jatuh tempo 3 Okt 2026
+                </span>
+<span class="text-[11px] text-tertiary block mt-0.5 font-medium">3 hari tersisa</span>
+</div>
+</div>
+</div>
+<!-- Limit Utilization Bar -->
+<div class="space-y-1.5 mb-4">
+<div class="flex justify-between text-body-sm font-body-sm">
+<span class="text-outline">Terpakai: <strong class="text-on-surface font-semibold">Rp5.500.000</strong></span>
+<span class="text-outline">Limit: <strong class="text-on-surface font-semibold">Rp20.000.000</strong></span>
+</div>
+<!-- Progress Track -->
+<div class="w-full h-3 bg-surface-container rounded-full overflow-hidden p-0.5">
+<div class="h-full bg-gradient-to-r from-primary to-secondary rounded-full" style="width: 27.5%"></div>
+</div>
+<div class="flex justify-between items-center text-label-sm font-label-sm text-outline">
+<span class="text-primary font-bold">27.5% Terpakai (Kategori Sehat)</span>
+<span>Sisa Limit: Rp14.500.000</span>
+</div>
+</div>
+<!-- Sub-ledger itemized breakdown -->
+<div class="p-3 rounded-xl bg-surface-container-low border border-outline-variant/20 mb-4 flex items-center justify-between">
+<div class="flex items-center gap-2.5">
+<span class="material-symbols-outlined text-outline text-[20px]">receipt</span>
+<div>
+<span class="text-body-sm font-body-sm font-bold text-on-surface block">Belum Ditagih (Unbilled)</span>
+<span class="text-label-sm font-label-sm text-outline">Termasuk Cicilan Kulkas 0% (Bulan 4/12)</span>
+</div>
+</div>
+<span class="text-currency-sm font-currency-sm font-bold text-on-surface">Rp2.300.000</span>
+</div>
+<!-- Main CTA: Bayar Tagihan -->
+<button class="w-full py-3.5 px-4 rounded-2xl bg-primary text-on-primary font-headline-sm font-bold flex items-center justify-center gap-2 shadow-md hover:bg-primary/95 active:scale-[0.98] transition-transform">
+<span class="material-symbols-outlined text-[20px]">send</span>
+<span>Bayar Tagihan Sekarang</span>
+</button>
+<p class="text-center text-[11px] text-outline mt-2 flex items-center justify-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-secondary">swap_horiz</span>
+            Otomatis debit dari rekening <strong class="text-on-surface">BCA Rumah Tangga</strong>
+</p>
+</article>
+</section>
+<!-- Household Note on Transparency -->
+<section class="rounded-2xl p-4 bg-[#F2F8F6] border border-secondary/20 flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-secondary-container/40 flex items-center justify-center text-secondary shrink-0">
+<span class="material-symbols-outlined text-[20px]">favorite</span>
+</div>
+<p class="text-body-sm font-body-sm text-on-surface-variant">
+          Semua saldo dan tagihan otomatis terlihat oleh Ayu &amp; Bima untuk menjaga komitmen keuangan rumah tangga yang transparan.
+        </p>
+</section>
+</div>
+<!-- Bottom Navigation Bar (Docked Semantic Shell from Shared JSON) -->
+<!-- Destination: 'Catat' / 'Dompet' context. BottomNavBar matches 5 items: Beranda, Transaksi, Catat, Anggaran, Lainnya -->
+<nav class="fixed bottom-0 left-0 right-0 z-50 flex justify-around items-center h-20 max-w-[430px] mx-auto pb-safe bg-surface-container-lowest rounded-t-3xl shadow-[0_-4px_20px_-2px_rgba(13,110,110,0.08)]">
+<!-- Tab 1: Beranda -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors active:scale-95 transition-transform duration-150 w-14" href="#">
+<span class="material-symbols-outlined text-[22px]">home</span>
+<span class="text-label-sm font-label-sm mt-0.5">Beranda</span>
+</a>
+<!-- Tab 2: Transaksi -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors active:scale-95 transition-transform duration-150 w-14" href="#">
+<span class="material-symbols-outlined text-[22px]">receipt_long</span>
+<span class="text-label-sm font-label-sm mt-0.5">Transaksi</span>
+</a>
+<!-- Tab 3: Catat (Center Action Protruding Pill) -->
+<div class="relative -top-5 flex flex-col items-center">
+<button class="w-14 h-14 rounded-full bg-primary-container text-white flex items-center justify-center shadow-[0_8px_24px_-2px_rgba(13,110,110,0.35)] active:scale-95 transition-transform duration-150">
+<span class="material-symbols-outlined text-[28px]" data-weight="fill" style="font-variation-settings: 'FILL' 1;">add</span>
+</button>
+<span class="text-label-sm font-label-sm text-primary font-bold mt-1">Catat</span>
+</div>
+<!-- Tab 4: Anggaran -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-colors active:scale-95 transition-transform duration-150 w-14" href="#">
+<span class="material-symbols-outlined text-[22px]">pie_chart</span>
+<span class="text-label-sm font-label-sm mt-0.5">Anggaran</span>
+</a>
+<!-- Tab 5: Lainnya / Dompet Setting -->
+<a class="flex flex-col items-center justify-center text-primary font-semibold hover:text-primary transition-colors active:scale-95 transition-transform duration-150 w-14" href="#">
+<span class="material-symbols-outlined text-[22px]" data-weight="fill" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+<span class="text-label-sm font-label-sm mt-0.5 font-bold">Dompet</span>
+</a>
+</nav>
+</main>
+<script>
+    // Lightweight tactile feedback for button interactions
+    document.querySelectorAll('button, a').forEach(elem => {
+      elem.addEventListener('click', function() {
+        if (navigator.vibrate) {
+          navigator.vibrate(12);
+        }
+      });
+    });
+  </script>
+</body></html>

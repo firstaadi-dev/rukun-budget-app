@@ -25,7 +25,7 @@ func (a *App) subscriptionList(w http.ResponseWriter, r *http.Request) {
 		items[i].Amount = Format(items[i].AmountMinor, items[i].Currency)
 		items[i].NextLabel = tanggalPendek(items[i].NextDate.Time)
 	}
-	a.render(w, r, "subscription.html", map[string]any{"Title": "Subscription", "Nav": "subscription", "Items": items, "Today": a.today()})
+	a.render(w, r, "subscription.html", map[string]any{"Title": "Langganan & Tagihan Rutin", "Nav": "subscription", "Items": items, "Today": a.today()})
 }
 
 func (a *App) subscriptionForm(w http.ResponseWriter, r *http.Request) {
@@ -69,7 +69,7 @@ func (a *App) subscriptionFormPage(w http.ResponseWriter, r *http.Request, id in
 	if msg != "" {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 	}
-	a.render(w, r, "subscription_form.html", map[string]any{"Title": "Subscription", "Nav": "subscription", "Back": "/subscription", "ID": id, "Form": f, "Active": active, "Wallets": wallets, "Categories": cats, "Intervals": subscriptionIntervals, "Error": msg})
+	a.render(w, r, "subscription_form.html", map[string]any{"Title": "Langganan", "Nav": "subscription", "Back": "/subscription", "ID": id, "Form": f, "Active": active, "Wallets": wallets, "Categories": cats, "Intervals": subscriptionIntervals, "Error": msg})
 }
 
 func (a *App) subscriptionCreate(w http.ResponseWriter, r *http.Request) { a.saveSubscription(w, r, 0) }
@@ -82,7 +82,7 @@ func (a *App) saveSubscription(w http.ResponseWriter, r *http.Request, id int64)
 	v := Subscription{ID: id, Name: f["nama"], Category: f["kategori"], Active: r.FormValue("aktif") == "1" || id == 0}
 	bad := func(s string) { a.subscriptionFormPage(w, r, id, f, v.Active, s) }
 	if len(v.Name) < 2 || len(v.Name) > 60 {
-		bad("Nama subscription harus 2–60 karakter.")
+		bad("Nama langganan harus 2–60 karakter.")
 		return
 	}
 	var err error

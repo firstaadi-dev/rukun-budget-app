@@ -1,105 +1,14 @@
 {{define "content"}}
-{{if not .ID}}
-  <div class="form-head">
-    {{template "tx-kind-switch" .}}
-    {{template "tx-mode-menu" .}}
-  </div>
-{{end}}
-<form method="post" action="{{.Action}}" class="stack" data-amount-form>
-  {{/* Modenya ikut terkirim, bukan hanya menempel di URL: setelah isian
-       ditolak, halaman yang tergambar ulang harus tetap mode yang sama. */}}
-  <input type="hidden" name="mode" value="{{.Form.mode}}">
-
-  <div class="field">
-    <label for="dompet">Dompet</label>
-    <select class="input" id="dompet" name="dompet" data-wallet-select>
-      {{range $.Wallets}}
-        <option value="{{.ID}}" data-currency="{{.Currency}}" data-symbol="{{symbol .Currency}}"
-                {{if eq $.Form.dompet (printf "%d" .ID)}}selected{{end}}>{{.Name}} — {{.Balance}}</option>
-      {{end}}
-    </select>
-  </div>
-
-  <div class="field">
-    <label>Kategori</label>
-    <div class="chips">
-      {{range $.Categories}}
-        <label class="chip">
-          <input type="radio" name="kategori" value="{{.}}" required
-                 {{if eq $.Form.kategori .}}checked{{end}}>
-          <span class="tag">{{.}}</span>
-        </label>
-      {{end}}
-    </div>
-  </div>
-
-  <div class="field">
-    <label for="nominal">Nominal <span class="text-muted">· mata uang dompet: <span data-currency-code></span></span></label>
-    <div class="input-affix">
-      <span class="affix" data-currency-symbol></span>
-      <input class="input" id="nominal" name="nominal" inputmode="decimal" pattern="-?[0-9.,]*"
-             title="Hanya angka, titik, dan koma" required
-             value="{{.Form.nominal}}" placeholder="0">
-    </div>
-  </div>
-
-  {{/* Hanya ada saat modenya dipilih dari menu di kanan atas. Tanpa itu form
-       ini persis seperti sebelumnya. */}}
-  {{if .Form.mode}}
-  <div class="field">
-    <label for="cicilan">Berapa Bulan</label>
-    <div class="input-affix">
-      <input class="input" id="cicilan" name="cicilan" type="number" inputmode="numeric"
-             min="2" max="{{.CicilanMaks}}" step="1" required
-             value="{{.Form.cicilan}}" placeholder="12">
-      <span class="affix">bulan</span>
-    </div>
-    <p class="hint">{{.ModeHint}} Seluruhnya langsung tercatat sebagai transaksi
-      bulanan biasa mulai tanggal di bawah, dan tiap bulannya tetap bisa diubah
-      atau dihapus sendiri-sendiri.</p>
-  </div>
-  {{end}}
-
-  <div class="field">
-    <label for="tanggal">Tanggal</label>
-    <input class="input" id="tanggal" name="tanggal" type="date" required value="{{.Form.tanggal}}">
-  </div>
-
-  <div class="field">
-    <label for="catatan">Catatan</label>
-    <textarea class="input" id="catatan" name="catatan" rows="2"
-              placeholder="{{if eq .Kind "income"}}Gaji bulanan Agustus{{else}}Belanja mingguan di pasar{{end}}">{{.Form.catatan}}</textarea>
-  </div>
-
-  {{/* Edit massal, hanya untuk transaksi yang bagian dari rangkaian. Terbatas
-       ke kategori dan catatan: nominal dan tanggal tiap bulan memang berdiri
-       sendiri, dan menyamakannya justru merusak rangkaiannya. */}}
-  {{with .Series}}
-    <label class="pilih-semua">
-      <input type="checkbox" name="seluruh" value="1">
-      <span>Terapkan kategori dan catatan ke seluruh rangkaian
-        <span class="text-muted">· {{.SeriesLabel}}, {{.SeriesN}} transaksi</span></span>
-    </label>
-  {{end}}
-
-  <button type="submit" class="btn btn-primary btn-block">Simpan {{.KindLabel}}</button>
-</form>
-
-{{if .ID}}
-  {{/* Peringatannya harus menyebut yang benar-benar akan terhapus: "hapus
-       transaksi ini" di depan centang yang menghapus dua belas adalah
-       persetujuan atas hal yang tidak terjadi. */}}
-  <form method="post" action="/transaksi/{{.ID}}/hapus" class="danger-row"
-        onsubmit="return confirm(this.seluruh && this.seluruh.checked
-                  ? 'Hapus seluruh {{with .Series}}{{.SeriesN}}{{end}} transaksi dalam rangkaian ini?'
-                  : 'Hapus transaksi ini?')">
-    {{with .Series}}
-      <label class="pilih-semua">
-        <input type="checkbox" name="seluruh" value="1">
-        <span>Hapus seluruh rangkaian <span class="text-muted">· {{.SeriesN}} transaksi</span></span>
-      </label>
-    {{end}}
-    <button type="submit" class="btn btn-ghost btn-block">Hapus Transaksi</button>
-  </form>
-{{end}}
+{{template "tx-kind-switch" .}}
+<form method="post" enctype="multipart/form-data" action="{{.Action}}" class="stack ledger-form expense-form" data-amount-form {{if .InSheet}}target="_top"{{end}}>
+ <section class="card amount-entry"><label for="nominal">Jumlah {{.KindLabel}}</label><div class="input-affix"><span class="affix" data-currency-symbol></span><input class="input" id="nominal" name="nominal" inputmode="decimal" pattern="[0-9.,]*" required value="{{.Form.nominal}}" placeholder="0"></div><span class="amount-budget-state" data-budget-state>{{di "check"}} Pilih kategori untuk melihat anggaran</span><div class="amount-shortcuts"><button type="button" data-add-amount="10000">+Rp10rb</button><button type="button" data-add-amount="50000">+Rp50rb</button><button type="button" data-add-amount="100000">+Rp100rb</button></div></section>
+ <div class="field"><div class="sec-head"><label for="dompet">Pilih Sumber Dana / Dompet</label><a href="/dompet">Ubah</a></div><div class="wallet-picker card">{{di "wallet"}}<div><strong data-wallet-name></strong><span class="small text-muted">Saldo: <span data-wallet-balance></span></span></div><select class="input" id="dompet" name="dompet" data-wallet-select aria-label="Pilih dompet">{{range .Wallets}}<option value="{{.ID}}" data-name="{{.Name}}" data-balance="{{.Balance}}" data-minor="{{.BalanceMinor}}" data-credit="{{.IsCredit}}" data-currency="{{.Currency}}" data-symbol="{{symbol .Currency}}" {{if eq $.Form.dompet (printf "%d" .ID)}}selected{{end}}>{{.Name}} — {{.Balance}}</option>{{end}}</select>{{template "icon-chev"}}</div></div>
+ <div class="field"><div class="sec-head"><label>Kategori {{.KindLabel}}</label><span class="small text-muted">{{len .Categories}} Kategori</span></div><div class="chips category-tiles">{{range .Categories}}<label class="chip"><input type="radio" name="kategori" value="{{.}}" required {{if eq $.Form.kategori .}}checked{{end}}><span class="tag"><span class="category-icon">{{di (categoryIcon .)}}</span><span>{{.}}</span></span></label>{{end}}<a class="category-more" href="/kategori/baru?jenis={{.Kind}}">{{di "plus"}}<span>Lainnya</span></a></div></div>
+ {{template "date-time" .}}{{template "recorder-picker" .}}
+ <div class="field"><label for="catatan">Catatan / Keterangan</label><textarea class="input" name="catatan" id="catatan" rows="2" placeholder="Catatan kecil untuk keluarga…">{{.Form.catatan}}</textarea></div>
+ {{if not .ID}}<section class="card installment-card"><div class="sec-head"><strong>{{di "receipt"}} Mode Cicilan &amp; Pengeluaran Berkala</strong><label class="switch"><input type="checkbox" data-installment-toggle {{if .Form.mode}}checked{{end}} aria-label="Aktifkan cicilan"><span></span></label></div><div class="stack-sm installment-fields" {{if not .Form.mode}}hidden{{end}}><label>Mode pencatatan<select class="input" name="mode" data-installment-mode {{if not .Form.mode}}disabled{{end}}><option value="cicil" {{if eq .Form.mode "cicil"}}selected{{end}}>Cicilan — dibagi rata</option><option value="ulang" {{if eq .Form.mode "ulang"}}selected{{end}}>Berulang — nominal penuh</option></select></label><label>Durasi Pembagian Beban<div class="installment-duration">{{di "calendar"}}<input class="input" name="cicilan" type="number" min="2" max="{{.CicilanMaks}}" value="{{if .Form.cicilan}}{{.Form.cicilan}}{{else}}3{{end}}" {{if not .Form.mode}}disabled{{end}}><span>Bulan</span><strong data-installment-preview></strong></div></label><p class="soft-note">{{di "info"}}<span data-installment-help>Pencatatan akan dibagi rata per bulan ke kategori terkait tanpa membebani arus kas bulan ini sekaligus.</span></p></div></section>{{end}}
+ <label class="receipt-upload">{{di "camera"}}<strong>Lampirkan Struk Belanja (Opsional)</strong><small class="text-muted" data-receipt-name>JPG, PNG, WebP atau PDF · maksimal 2 MB</small><input name="struk" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" data-receipt-input></label>
+ {{with .Series}}<label class="checkline"><input type="checkbox" name="seluruh" value="1">Terapkan kategori dan catatan ke seluruh {{.SeriesN}} transaksi dalam rangkaian</label>{{end}}
+ <div class="sticky-actions save-footer"><div class="footer-summary"><span>{{.KindLabel}} <strong data-live-amount>—</strong></span><span class="m-in"><span class="status-dot"></span><span data-connection-label>Siap dibagikan</span></span></div><button class="btn btn-primary btn-block" type="submit">{{di "check"}} Simpan Transaksi</button></div>
+</form><span data-budget-json="{{.BudgetJSON}}" hidden></span>
 {{end}}

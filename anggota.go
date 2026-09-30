@@ -50,6 +50,7 @@ func (a *App) renderSettings(w http.ResponseWriter, r *http.Request, errMsg stri
 	}
 	a.render(w, r, "pengaturan.html", map[string]any{
 		"Title": "Akun", "Nav": "akun",
+		"PeriodDays":     periodDays(),
 		"Members":        members,
 		"InviteCode":     f.SignupCode,
 		"InviteURL":      inviteURL(r, f.SignupCode),

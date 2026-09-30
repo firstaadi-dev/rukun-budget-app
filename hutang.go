@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"github.com/jackc/pgx/v5/pgtype"
 	"net/http"
 	"strconv"
 	"strings"
@@ -113,13 +114,14 @@ func (a *App) renderDebtForm(w http.ResponseWriter, r *http.Request, f map[strin
 func (a *App) readDebt(r *http.Request, kinds map[string]bool) (Tx, map[string]string, error) {
 	ctx := r.Context()
 	f := map[string]string{
-		"jenis":     r.FormValue("jenis"),
-		"pihak":     strings.TrimSpace(r.FormValue("pihak")),
-		"dompet":    r.FormValue("dompet"),
-		"mata_uang": r.FormValue("mata_uang"),
-		"nominal":   r.FormValue("nominal"),
-		"tanggal":   r.FormValue("tanggal"),
-		"catatan":   strings.TrimSpace(r.FormValue("catatan")),
+		"jenis":       r.FormValue("jenis"),
+		"pihak":       strings.TrimSpace(r.FormValue("pihak")),
+		"dompet":      r.FormValue("dompet"),
+		"mata_uang":   r.FormValue("mata_uang"),
+		"nominal":     r.FormValue("nominal"),
+		"tanggal":     r.FormValue("tanggal"),
+		"catatan":     strings.TrimSpace(r.FormValue("catatan")),
+		"jatuh_tempo": r.FormValue("jatuh_tempo"), "rencana_dompet": r.FormValue("rencana_dompet"),
 	}
 	t := Tx{Kind: f["jenis"], Note: f["catatan"]}
 
@@ -164,6 +166,25 @@ func (a *App) readDebt(r *http.Request, kinds map[string]bool) (Tx, map[string]s
 		return t, f, errors.New("Nominal harus lebih dari nol.")
 	}
 	t.AmountMinor = amount
+	if f["jatuh_tempo"] != "" {
+		due, e := time.ParseInLocation(formatTanggal, f["jatuh_tempo"], a.loc)
+		if e != nil {
+			return t, f, errors.New("Tanggal jatuh tempo tidak valid.")
+		}
+		t.PartyDueOn = pgtype.Date{Time: due, Valid: true}
+		t.SetPartyPlan = true
+	}
+	if f["rencana_dompet"] != "" {
+		planned, e := strconv.ParseInt(f["rencana_dompet"], 10, 64)
+		if e != nil {
+			return t, f, errors.New("Rencana dompet tidak valid.")
+		}
+		if _, e = a.store.Wallet(ctx, family(r), planned); e != nil {
+			return t, f, errors.New("Rencana dompet tidak valid.")
+		}
+		t.PartyPaymentWalletID = planned
+		t.SetPartyPlan = true
+	}
 	return t, f, nil
 }
 

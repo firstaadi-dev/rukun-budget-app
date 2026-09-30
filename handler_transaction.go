@@ -290,7 +290,8 @@ func (a *App) txForm(w http.ResponseWriter, r *http.Request) {
 	}
 
 	f := map[string]string{
-		"tanggal":  t.Date.Format("2006-01-02"),
+		"tanggal": t.Date.Format("2006-01-02"),
+		"jam":     t.OccurredTime, "pencatat": strconv.FormatInt(t.RecorderID, 10),
 		"catatan":  t.Note,
 		"kategori": t.Category,
 		// Mode hanya berarti saat mencatat baru: yang sudah tersimpan adalah
@@ -301,6 +302,8 @@ func (a *App) txForm(w http.ResponseWriter, r *http.Request) {
 		f["mode"] = ""
 	} else {
 		f["kembali"] = localReturnURL(r, r.Referer())
+		f["jam"] = time.Now().In(a.loc).Format("15:04")
+		f["pencatat"] = strconv.FormatInt(userFrom(ctx).ID, 10)
 	}
 	// Tombol "Bayar Tagihan" di kartu kredit membuka form transfer ini dengan
 	// dompet tujuan dan nominal sudah terisi. Pembayaran kartu memang transfer:
@@ -498,6 +501,7 @@ func (a *App) readTx(r *http.Request, kind string) (Tx, map[string]string, error
 		"mode":             bacaMode(r.FormValue("mode")),
 		"tanggal":          r.FormValue("tanggal"),
 		"catatan":          strings.TrimSpace(r.FormValue("catatan")),
+		"jam":              r.FormValue("jam"), "pencatat": r.FormValue("pencatat"),
 	}
 	t := Tx{Kind: kind, Note: f["catatan"], Category: f["kategori"]}
 
@@ -506,6 +510,20 @@ func (a *App) readTx(r *http.Request, kind string) (Tx, map[string]string, error
 		return t, f, errors.New("Tanggal tidak valid.")
 	}
 	t.Date = tanggal
+	t.OccurredTime = f["jam"]
+	if t.OccurredTime != "" {
+		if _, err := time.Parse("15:04", t.OccurredTime); err != nil {
+			return t, f, errors.New("Jam tidak valid.")
+		}
+	}
+	t.RecorderID, err = a.readRecorder(r)
+	if err != nil {
+		return t, f, err
+	}
+	t.Receipt, t.ReceiptMIME, err = readImage(r, "struk", 2<<20, true)
+	if err != nil {
+		return t, f, err
+	}
 
 	walletID, _ := strconv.ParseInt(f["dompet"], 10, 64)
 	from, err := a.store.Wallet(ctx, family(r), walletID)

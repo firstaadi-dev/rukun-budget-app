@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	sqlcdb "github.com/firsta/rukun/internal/db"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -11,9 +12,12 @@ import (
 // ---------- Transaction ----------
 
 type Tx struct {
-	ID   int64
-	Kind string // expense | income | transfer | debt_in | debt_pay | loan_out | loan_in
-	Date time.Time
+	SetPartyPlan         bool
+	PartyDueOn           pgtype.Date
+	PartyPaymentWalletID int64
+	ID                   int64
+	Kind                 string // expense | income | transfer | debt_in | debt_pay | loan_out | loan_in
+	Date                 time.Time
 	// WalletID nol berarti transaksi ini tidak menyentuh dompet mana pun.
 	// Hanya mungkin untuk hutang piutang: meminjam sesuatu yang tidak pernah
 	// masuk rekening tetap menambah kewajiban.
@@ -39,13 +43,19 @@ type Tx struct {
 	IsAdjustment   bool
 	// Rangkaian cicilan atau transaksi berulang. SeriesID nol berarti transaksi
 	// ini berdiri sendiri; kalau terisi, ketiganya terisi bersama.
-	SeriesID   int64
-	SeriesSeq  int    // urutan ke berapa, mulai 1
-	SeriesN    int    // berapa seluruhnya saat rangkaian ini dibuat
-	SeriesKind string // cicil | ulang
-	Note       string
-	CreatedBy  string
-	CreatedAt  time.Time
+	SeriesID     int64
+	SeriesSeq    int    // urutan ke berapa, mulai 1
+	SeriesN      int    // berapa seluruhnya saat rangkaian ini dibuat
+	SeriesKind   string // cicil | ulang
+	Note         string
+	CreatedBy    string
+	CreatedAt    time.Time
+	OccurredTime string
+	RecorderID   int64
+	EnteredBy    string
+	HasReceipt   bool
+	Receipt      []byte
+	ReceiptMIME  string
 }
 
 // Jenis hutang piutang. debt_* menyangkut kewajiban kita, loan_* menyangkut
@@ -124,7 +134,7 @@ func (s *Store) getTxs(ctx context.Context, params sqlcdb.GetTransactionsParams)
 			InvestmentName: investmentName, QtyE8: row.QtyE8, CostBasisMinor: row.CostBasisMinor,
 			SeriesID: row.SeriesID, SeriesSeq: int(row.SeriesSeq), SeriesN: int(row.SeriesN),
 			SeriesKind: row.SeriesKind, Note: row.Note, CreatedBy: row.CreatedBy,
-			CreatedAt: row.CreatedAt.Time, IsAdjustment: row.IsAdjustment}
+			OccurredTime: row.OccurredTime, RecorderID: row.RecorderID, EnteredBy: row.EnteredBy, HasReceipt: row.HasReceipt, CreatedAt: row.CreatedAt.Time, IsAdjustment: row.IsAdjustment}
 	}
 	return out, nil
 }
@@ -189,7 +199,7 @@ func insertTx(ctx context.Context, q sqlcdb.DBTX, familyID int64, t Tx, userID i
 	if t.Kind == "invest_sell" {
 		costBasis = pgtype.Int8{Int64: t.CostBasisMinor, Valid: true}
 	}
-	return sqlcdb.New(q).InsertTransaction(ctx, sqlcdb.InsertTransactionParams{
+	id, err := sqlcdb.New(q).InsertTransaction(ctx, sqlcdb.InsertTransactionParams{
 		FamilyID: familyID, Kind: t.Kind, OccurredOn: pgtype.Date{Time: t.Date, Valid: true},
 		WalletID: t.WalletID, Currency: t.currencyKolom(), AmountMinor: t.AmountMinor,
 		Category: t.Category, ToWalletID: t.ToWalletID, AmountInMinor: t.AmountInMino,
@@ -198,11 +208,19 @@ func insertTx(ctx context.Context, q sqlcdb.DBTX, familyID int64, t Tx, userID i
 		SeriesID: t.SeriesID, SeriesSeq: int16(t.SeriesSeq), SeriesN: int16(t.SeriesN),
 		SeriesKind: t.SeriesKind, Note: t.Note,
 		CreatedBy: pgtype.Int8{Int64: userID, Valid: true}, IsAdjustment: t.IsAdjustment,
+		OccurredTime: t.OccurredTime, RecorderID: t.RecorderID, Receipt: t.Receipt, ReceiptMime: t.ReceiptMIME,
 	})
+	if err != nil {
+		return 0, err
+	}
+	if t.SetPartyPlan {
+		_, err = q.Exec(ctx, `UPDATE parties SET due_on=$1,payment_wallet_id=NULLIF($2,0) WHERE id=$3 AND family_id=$4`, t.PartyDueOn, t.PartyPaymentWalletID, t.PartyID, familyID)
+	}
+	return id, err
 }
 
 func (s *Store) CreateTx(ctx context.Context, familyID int64, t Tx, userID int64) (int64, error) {
-	return insertTx(ctx, s.db, familyID, t, userID)
+	return s.CreateTxs(ctx, familyID, []Tx{t}, userID)
 }
 
 // CreateTxs menyimpan beberapa transaksi sekaligus dan mengembalikan id yang
@@ -214,8 +232,8 @@ func (s *Store) CreateTx(ctx context.Context, familyID int64, t Tx, userID int64
 // belakangan berarti sesaat ada baris bernomor urut tanpa rangkaian — keadaan
 // yang harus diizinkan constraint, lalu tidak pernah bisa dijaganya lagi.
 func (s *Store) CreateTxs(ctx context.Context, familyID int64, txs []Tx, userID int64) (int64, error) {
-	if len(txs) == 1 {
-		return insertTx(ctx, s.db, familyID, txs[0], userID)
+	if len(txs) == 0 {
+		return 0, errors.New("Tidak ada transaksi untuk disimpan")
 	}
 	dbtx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -280,6 +298,7 @@ func (s *Store) UpdateTx(ctx context.Context, familyID int64, t Tx) error {
 		Currency: t.currencyKolom(), AmountMinor: t.AmountMinor, Category: t.Category,
 		ToWalletID: t.ToWalletID, AmountInMinor: t.AmountInMino, AdminFeeMinor: t.AdminFee,
 		PartyID: t.PartyID, Note: t.Note, ID: t.ID, Kind: t.Kind, FamilyID: familyID,
+		OccurredTime: t.OccurredTime, RecorderID: t.RecorderID, Receipt: t.Receipt, ReceiptMime: t.ReceiptMIME,
 	})
 	if err == nil && rows == 0 {
 		return ErrNotFound

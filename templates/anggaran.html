@@ -1,45 +1,8 @@
 {{define "content"}}
-<div class="stack-lg budget-page">
-  <div class="page-head">
-    <div><h4>Anggaran</h4><p class="small text-muted">Pengeluaran · {{.Period}}</p></div>
-    <a href="/kategori" class="btn btn-secondary">Kelola kategori</a>
-  </div>
-
-  <section class="budget-summary" aria-label="Ringkasan anggaran">
-    <div class="card budget-total"><span class="card-kicker">Batas anggaran</span><strong>{{.TotalLimit}}</strong><span class="small text-muted">{{.Base}} · periode ini</span></div>
-    <div class="card"><span class="card-kicker">Terpakai</span><strong>{{.TotalUsed}}</strong><span class="small text-muted">semua kategori</span></div>
-    <div class="card"><span class="card-kicker">Sisa anggaran</span><strong>{{.Available}}</strong><span class="small text-muted">dari batas yang diatur</span></div>
-  </section>
-
-  {{if .Unbudgeted}}<p class="note">{{.Unbudgeted}} kategori belum memiliki batas anggaran. Atur batasnya di baris kategori agar pemakaian bisa dipantau.</p>{{end}}
-
-  {{if .Categories}}
-  <section class="stack-sm">
-    <div class="sec-head"><h6>Anggaran per kategori</h6><span class="small text-muted">{{len .Categories}} kategori</span></div>
-    {{range .Categories}}
-    <article class="card budget-item">
-      <div class="budget-item-head">
-        <strong>{{.Name}}</strong>
-        <div class="budget-value"><strong class="{{if .Over}}m-out{{end}}">{{.Used}}</strong>
-          <span class="small text-muted">{{if .HasLimit}}dari {{.BudgetText}}{{else}}belum dianggarkan{{end}}</span>
-        </div>
-      </div>
-      {{if .HasLimit}}
-        <progress value="{{.Percent}}" max="100" aria-label="{{.Name}} terpakai {{.Percent}} persen"></progress>
-        <div class="budget-item-foot small {{if .Over}}m-out{{else}}text-muted{{end}}">{{if .Over}}Melewati batas {{.OverAmount}}{{else}}Sisa {{.Remaining}}{{end}}</div>
-      {{else}}<div class="budget-item-foot small text-muted">Atur batas bulanan untuk kategori ini.</div>{{end}}
-      <details class="budget-edit">
-        <summary class="linkish">{{if .HasLimit}}Ubah batas{{else}}Atur batas{{end}}</summary>
-        <form method="post" action="/kategori/{{.ID}}/anggaran" class="cat-budget">
-          <label for="anggaran-{{.ID}}" class="small">Batas per periode · {{$.Base}}</label>
-          <input class="input" id="anggaran-{{.ID}}" name="anggaran" inputmode="decimal" value="{{.BudgetText}}" placeholder="0" aria-label="Batas {{.Name}} dalam {{$.Base}}">
-          <button type="submit" class="btn btn-secondary">Simpan</button>
-        </form>
-        <p class="tiny text-muted">Kosongkan atau isi 0 untuk melepas batas.</p>
-      </details>
-    </article>
-    {{end}}
-  </section>
-  {{else}}<p class="empty">Belum ada kategori pengeluaran. <a href="/kategori/baru">Tambah kategori</a>.</p>{{end}}
-</div>
-{{end}}
+<div class="stack-lg budget-page"><div class="page-head"><div><h4>Anggaran Keluarga</h4><form method="get"><label class="period-pill">{{di "calendar"}}<input name="periode" type="month" aria-label="Periode anggaran" value="{{.CurrentPeriod.Nilai}}" onchange="this.form.submit()"></label></form></div><a class="btn btn-primary" href="/kategori/baru?jenis=expense">{{di "plus"}} Pos Baru</a></div>
+ {{with .BudgetOverview}}<section class="card balance-hero budget-hero"><div class="hero-label"><span class="card-kicker">Total Anggaran Bulanan</span><span class="hero-badge">{{.Percent}}% Terpakai</span></div><div class="big-figure">{{.Limit}}</div><progress value="{{.Percent}}" max="100"></progress><div class="budget-pair small"><span>Terpakai: {{.Used}}</span><span>Sisa: <strong>{{.Remaining}}</strong></span></div><p class="hero-message">{{di "leaf"}}<span>{{$.Family}} hebat! {{.Days}} hari lagi hingga akhir periode. {{if .Over}}Yuk, rapikan kembali pos yang melewati batas.{{else}}Pengeluaran masih bisa dijaga tetap rapi.{{end}}</span></p></section>{{end}}
+ <nav class="filter-pills" data-filter-group="budgets" aria-label="Status anggaran"><button class="active" data-filter="all">Semua ({{len .Categories}} Pos)</button><button data-filter="attention">Perlu Perhatian</button><button data-filter="safe">Aman</button></nav>
+ <section class="stack-sm"><div class="sec-head"><h5>Rincian Pos Anggaran</h5><span class="small text-muted">Berdasarkan Aktivitas</span></div>{{range .Categories}}<article class="card budget-item{{if and .HasLimit .Over}} budget-over{{end}}" data-filter-item="budgets" data-filter-value="{{if and .HasLimit (ge .Percent 80)}}attention{{else}}safe{{end}}"><div class="budget-item-head"><span class="row-ic {{if .Over}}t-out{{else if ge .Percent 80}}t-warning{{else}}t-in{{end}}">{{di (categoryIcon .Name)}}</span><div class="row-main"><div class="title-with-badge"><strong>{{.Name}}</strong><span class="tag {{if .Over}}t-out{{else if ge .Percent 80}}t-warning{{else}}tag-accent-2{{end}}">{{if not .HasLimit}}Fleksibel{{else if .Over}}{{.Percent}}%{{else if ge .Percent 80}}{{.Percent}}%{{else}}Aman{{end}}</span></div><span class="small text-muted">Terpakai {{.Used}}{{if .HasLimit}} dari {{symbol $.Base}}{{.BudgetText}}{{else}} (Belum ada pagu){{end}}</span></div><button class="header-button" type="button" data-open-dialog="budget-{{.ID}}" aria-label="Atur {{.Name}}">{{di "dots"}}</button></div>{{if .HasLimit}}<progress class="{{if .Over}}over{{else if ge .Percent 80}}warning{{end}}" value="{{.Percent}}" max="100"></progress><div class="budget-pair"><strong class="{{if .Over}}m-out{{else if ge .Percent 80}}money-warning{{else}}m-in{{end}}">{{if .Over}}Lewat batas {{.OverAmount}}{{else if ge .Percent 80}}Hampir habis!{{else}}{{.Percent}}%{{end}}</strong><span>Sisa <strong>{{.Remaining}}</strong></span></div>{{if .Over}}<p class="soft-note">{{di "heart"}}<span>Melebihi batas {{.OverAmount}}. Tak apa, yuk sesuaikan pos lain agar pengeluaran tetap seimbang.</span></p>{{end}}{{else}}<div class="budget-pair small"><span class="text-muted">Ingin membatasi pos ini?</span><button class="btn btn-ghost" type="button" data-open-dialog="budget-{{.ID}}">{{di "settings"}} Tetapkan Batas</button></div>{{end}}
+ <dialog id="budget-{{.ID}}" class="bottom-sheet"><div class="sheet-handle"></div><div class="sec-head"><h5>{{.Name}}</h5><button type="button" class="header-button" data-close-dialog>×</button></div><form method="post" action="/kategori/{{.ID}}/anggaran" class="stack-sm"><label>Batas anggaran · {{$.Base}}<input class="input" name="anggaran" inputmode="decimal" value="{{.BudgetText}}" placeholder="0"></label><p class="hint">Isi 0 untuk melepas batas.</p><button class="btn btn-primary">Simpan Batas</button></form><a class="btn btn-secondary" href="/transaksi?periode={{$.CurrentPeriod.Nilai}}&kategori={{urlquery .Name}}">Lihat Riwayat</a></dialog></article>{{else}}<p class="empty">Belum ada pos anggaran. <a href="/kategori/baru?jenis=expense">Tambah pos pertama</a>.</p>{{end}}</section>
+ <div class="soft-note collaboration-note"><span class="avatar-group">{{range $i,$m := .FamilyMembers}}{{if lt $i 2}}{{template "member-avatar" $m}}{{end}}{{end}}</span><span><strong>Kemitraan Keuangan Rukun</strong><small>{{range $i,$m := .Metrics.Partners}}{{if $i}} · {{end}}{{.Name}} mencatat {{.Count}} transaksi{{else}}Saling terbuka, lebih tenang mengatur keuangan.{{end}}</small></span></div>
+</div>{{end}}

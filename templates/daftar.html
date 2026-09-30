@@ -1,6 +1,6 @@
 {{define "content"}}
 <div class="auth-card card elev-md">
-  <div class="brand auth-brand">Rukun</div>
+  <div class="auth-mark">{{template "icon-home"}}</div><div class="brand auth-brand">Rukun</div>
   <p class="text-muted small">Buat akun dulu, lalu pilih keluarga</p>
 
   {{if .Error}}<p class="alert" role="alert">{{.Error}}</p>{{end}}

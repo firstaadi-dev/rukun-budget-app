@@ -1,45 +1,7 @@
 {{define "content"}}
-<div class="stack">
-  <div class="page-head">
-    <h4>Dompet</h4>
-    <a href="/dompet/baru" class="btn btn-primary">Tambah Dompet{{template "icon-plus"}}</a>
-  </div>
-
-  {{if .Wallets}}
-    <div class="stack-sm">
-      {{range .Wallets}}
-        {{/* Semua dompet memakai pola buka-tutup yang sama. Kartu kredit punya
-             ringkasan tambahan; dompet lain cukup menampilkan tindakan. */}}
-        <details class="card elev-sm wallet-drop{{if .Card}}{{template "kk-nada" .Card}}{{end}}">
-          <summary class="wallet-item">
-            <span class="row-ic m-accent">{{template "wallet-icon" .Type}}</span>
-            <span class="row-main">
-              <span class="row-title">{{.Name}}</span>
-              <span class="row-sub text-muted">{{.Subtitle}}</span>
-            </span>
-            <span class="wallet-amt">
-              <span class="{{if .Negative}}m-out{{end}}">{{.Balance}}</span>
-              <span class="tag tag-neutral tiny">{{.Currency}}</span>
-            </span>
-            <span class="chev">{{template "icon-chev"}}</span>
-          </summary>
-
-          <div class="wallet-isi">
-            {{if .Card}}{{template "kartu-isi" .Card}}{{end}}
-            <div class="kk-kaki">
-              <a class="btn btn-secondary" href="/dompet/{{.ID}}/sesuaikan">Sesuaikan saldo</a>
-              <a class="btn btn-secondary" href="/dompet/{{.ID}}/ubah">Ubah dompet</a>
-              <form method="post" action="/dompet/{{.ID}}/hapus"
-                    onsubmit="return confirm('Hapus dompet {{.Name}}? Tindakan ini tidak bisa dibatalkan.')">
-                <button type="submit" class="btn btn-danger">Hapus</button>
-              </form>
-            </div>
-          </div>
-        </details>
-      {{end}}
-    </div>
-  {{else}}
-    <p class="empty">Belum ada dompet. Tambahkan tunai, rekening bank, kartu kredit, atau e-wallet.</p>
-  {{end}}
-</div>
-{{end}}
+<div class="stack-lg stitch-wallets"><section class="card balance-hero wallet-total"><div class="hero-label">{{di "wallet"}} Total Aset Bersih</div><div class="wallet-total-line"><strong class="big-figure">{{.WalletSummary.TotalOwned}}</strong><a class="btn" href="/dompet/baru">{{di "plus"}} Tambah Dompet</a></div><div class="hero-stats"><div><span class="status-dot"></span><span>Saldo Dompet:<strong>{{.WalletSummary.TotalDebit}}</strong></span></div><div>{{di "check"}}<span>Catatan bersama<strong>Diperbarui saat dibuka</strong></span></div></div></section>
+ <nav class="filter-pills" data-filter-group="wallets" aria-label="Jenis dompet"><button class="active" data-filter="all">Semua ({{len .Wallets}})</button><button data-filter="daily">Bank &amp; Tunai</button><button data-filter="ewallet">E-Wallet</button><button data-filter="credit">Kartu Kredit</button><button data-filter="broker">Broker</button></nav>
+ <section class="stack-sm"><div class="sec-head"><h5>▎Dompet Utama &amp; Harian</h5><span class="small text-muted">{{len .DebitWallets}} Akun Aktif</span></div>{{range .Wallets}}{{if not .IsCredit}}<article class="card account-wallet{{if .IsPrimary}} primary-wallet{{end}}" data-filter-item="wallets" data-filter-value="{{if or (eq .Type "bank") (eq .Type "cash")}}daily{{else}}{{.Type}}{{end}}"><div class="wallet-top"><span class="row-ic wallet-icon-{{.Type}}">{{di .Type}}</span><div class="row-main"><div class="title-with-badge"><strong>{{.Name}}</strong>{{if .IsPrimary}}<span class="tag tag-accent">Utama</span>{{else}}{{with .OwnerLabel}}<span class="tag tag-accent-2">Milik {{.}}</span>{{end}}{{end}}</div><span class="small text-muted">{{.Subtitle}}{{with .LastFour}} · •••• {{.}}{{end}}</span></div><details class="menu"><summary class="header-button" aria-label="Kelola {{.Name}}">{{di "dots"}}</summary><div class="menu-pop card"><a href="/dompet/{{.ID}}/ubah">Edit Dompet</a><a href="/dompet/{{.ID}}/sesuaikan">Sesuaikan Saldo</a><a href="/transaksi?dompet={{.ID}}">Riwayat Transaksi</a><form method="post" action="/dompet/{{.ID}}/hapus" onsubmit="return confirm('Hapus dompet ini? Dompet yang memiliki transaksi tidak dapat dihapus.')"><button class="linkish m-out">Hapus Dompet</button></form></div></details></div><div class="wallet-balance-line"><div><span class="small text-muted">Saldo {{if eq .Type "cash"}}Fisik{{else}}Tersedia{{end}}</span><strong>{{.Balance}}</strong>{{if $.WalletEquivalents}}{{with index $.WalletEquivalents .ID}}<small class="text-muted">≈ {{.}}</small>{{end}}{{end}}</div>{{if .IsPrimary}}<a class="btn btn-secondary" href="/dompet/{{.ID}}/sesuaikan">Sesuaikan Saldo</a>{{end}}</div></article>{{end}}{{else}}<p class="empty"><a href="/dompet/baru">Tambah dompet pertama</a>.</p>{{end}}</section>
+ <section class="stack-sm"><div class="sec-head"><h5>▎Kartu Kredit &amp; Kewajiban</h5></div>{{range .Wallets}}{{if .IsCredit}}<article class="card credit-account" id="kredit-{{.ID}}" data-filter-item="wallets" data-filter-value="credit"><a class="physical-card" href="/dompet/{{.ID}}/ubah"><span class="card-kicker">Family Shared Credit Card</span><strong>{{.Name}}</strong><span class="card-number"><i class="card-chip"></i> •••• •••• •••• {{if .LastFour}}{{.LastFour}}{{else}}••••{{end}}</span><span class="budget-pair"><span><small>Pemegang Kartu</small><b>{{if .Cardholder}}{{.Cardholder}}{{else}}Belum diisi{{end}}</b></span><span><small>Tgl Cetak</small><b>{{if .SettlementDay}}Tgl {{.SettlementDay}} / bln{{else}}Belum diisi{{end}}</b></span></span></a>{{with .Card}}{{if .HasCycle}}<div class="credit-bill"><span>Tagihan Harus Dibayar Segera<strong>{{.Payable}}</strong></span><span class="right"><span class="tag {{if .Lunas}}tag-accent-2{{else}}t-out{{end}}">{{if .Lunas}}Lunas{{else}}Jatuh tempo {{.Due}}{{end}}</span>{{if not .Lunas}}<small>{{if .Telat}}Terlambat {{neg .HariLagi}} hari{{else}}{{.HariLagi}} hari tersisa{{end}}</small>{{end}}</span></div>{{end}}<div class="budget-pair small"><span>Terpakai: {{.Outstanding}}</span>{{if .HasLimit}}<span>Limit: {{.Limit}}</span>{{end}}</div>{{if .HasLimit}}<progress value="{{.TerpakaiPersen}}" max="100"></progress><div class="budget-pair small"><strong>{{.TerpakaiPersen}}% Terpakai</strong><span class="text-muted">Sisa Limit: {{.SisaLimit}}</span></div>{{end}}{{with .BelumDitagih}}<div class="soft-note"><span>{{di "receipt"}} Belum Ditagih (Unbilled)</span><strong>{{.}}</strong></div>{{end}}{{with .CicilanMendatang}}<p class="small text-muted">Cicilan belum jatuh tempo: {{.}}</p>{{end}}{{if .HasCycle}}{{if not .Lunas}}<a class="btn btn-primary btn-block" href="/transaksi/baru?jenis=transfer&ke={{.ID}}&nominal={{.PayablePlain}}">{{di "transfer"}} Bayar Tagihan Sekarang</a><p class="tiny text-muted center">Pembayaran dicatat sebagai transfer antar dompet.</p>{{end}}{{else}}<a class="btn btn-secondary" href="/dompet/{{.ID}}/ubah">Isi Siklus Tagihan</a>{{end}}{{end}}</article>{{end}}{{end}}</section>
+ <p class="soft-note">{{di "heart"}}<span>Semua saldo dan tagihan terlihat oleh anggota keluarga untuk menjaga komitmen keuangan yang transparan.</span></p>{{with .WalletSummary.Unconverted}}<p class="note">Saldo {{range .}}{{.}} {{end}} belum dijumlahkan karena kurs belum tersedia.</p>{{end}}
+</div>{{end}}

@@ -13,9 +13,12 @@ import (
 // ---------- Pihak, hutang, dan piutang ----------
 
 type Party struct {
-	ID   int64
-	Name string
-	Note string
+	ID                int64
+	Name              string
+	Note              string
+	DueOn             pgtype.Date
+	PaymentWalletID   int64
+	PaymentWalletName string
 	// Saldo per mata uang. Hutang berarti kita yang berkewajiban, piutang
 	// berarti pihak itu yang berkewajiban kepada kita.
 	Saldo []PartyBalance
@@ -40,7 +43,7 @@ func (s *Store) Parties(ctx context.Context, familyID int64) ([]Party, error) {
 	var out []Party
 	for _, row := range rows {
 		if n := len(out); n == 0 || out[n-1].ID != row.ID {
-			out = append(out, Party{ID: row.ID, Name: row.Name, Note: row.Note})
+			out = append(out, Party{ID: row.ID, Name: row.Name, Note: row.Note, DueOn: row.DueOn, PaymentWalletID: row.PaymentWalletID, PaymentWalletName: row.PaymentWalletName})
 		}
 		if row.Cur != "" && (row.Hutang != 0 || row.Piutang != 0) {
 			p := &out[len(out)-1]

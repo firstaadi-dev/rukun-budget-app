@@ -1,5 +1,5 @@
 {{define "content"}}
-<form method="post" action="{{.Action}}" class="stack" id="wallet-form">
+<form method="post" action="{{.Action}}" class="stack ledger-form" id="wallet-form">
 
   <div class="field">
     <label>Jenis Dompet</label>
@@ -79,6 +79,7 @@
     <p class="hint">Untuk kartu kredit, isi tagihan berjalan sebagai angka negatif.</p>
   </div>
 
+  <section class="card stack-sm"><h6>Identitas dompet</h6><label>Pemilik <input class="input" name="pemilik" maxlength="60" value="{{.Form.pemilik}}" placeholder="Bersama / nama anggota"></label><label>Empat digit nomor terakhir <input class="input" name="nomor_akhir" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" value="{{.Form.nomor_akhir}}" placeholder="Opsional"></label><label>Nama pemegang kartu <input class="input" name="pemegang" maxlength="80" value="{{.Form.pemegang}}" placeholder="Opsional"></label><label class="checkline"><input type="checkbox" name="utama" value="true" {{if eq .Form.utama "true"}}checked{{end}}> Jadikan dompet utama</label></section>
   <button type="submit" class="btn btn-primary btn-block">Simpan Dompet</button>
 </form>
 

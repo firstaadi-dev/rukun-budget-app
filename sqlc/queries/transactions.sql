@@ -13,13 +13,14 @@ SELECT t.id, t.kind, t.occurred_on,
        COALESCE(t.qty_e8, 0) AS qty_e8, COALESCE(t.cost_basis_minor, 0) AS cost_basis_minor,
        COALESCE(t.series_id, 0) AS series_id, COALESCE(t.series_seq, 0) AS series_seq,
        COALESCE(t.series_n, 0) AS series_n, COALESCE(t.series_kind, '') AS series_kind,
-       t.note, COALESCE(u.name, '') AS created_by, t.created_at, t.is_adjustment
+       t.note, COALESCE(rec.name, u.name, '') AS created_by, COALESCE(t.recorder_id,t.created_by,0)::bigint AS recorder_id, COALESCE(u.name, '') AS entered_by, t.occurred_time, (t.receipt IS NOT NULL)::boolean AS has_receipt, t.created_at, t.is_adjustment
 FROM transactions t
 LEFT JOIN wallets w ON w.id = t.wallet_id
 LEFT JOIN wallets w2 ON w2.id = t.to_wallet_id
 LEFT JOIN parties p ON p.id = t.party_id
 LEFT JOIN investments iv ON iv.id = t.investment_id
 LEFT JOIN users u ON u.id = t.created_by
+LEFT JOIN users rec ON rec.id = t.recorder_id AND rec.family_id = t.family_id
 WHERE t.family_id = sqlc.arg(family_id)
   AND (sqlc.arg(transaction_id)::bigint = 0 OR t.id = sqlc.arg(transaction_id))
   AND (sqlc.arg(party_id)::bigint = 0 OR t.party_id = sqlc.arg(party_id))
@@ -45,7 +46,7 @@ INSERT INTO transactions
   (family_id, kind, occurred_on, wallet_id, currency, amount_minor, category,
    to_wallet_id, amount_in_minor, admin_fee_minor, party_id,
    investment_id, qty_e8, cost_basis_minor, series_id, series_seq, series_n, series_kind,
-   note, created_by, is_adjustment)
+   note, created_by, is_adjustment, occurred_time, recorder_id, receipt, receipt_mime)
 VALUES (sqlc.arg(family_id), sqlc.arg(kind), sqlc.arg(occurred_on)::date,
         NULLIF(sqlc.arg(wallet_id)::bigint, 0), NULLIF(sqlc.arg(currency)::text, '')::char(3),
         sqlc.arg(amount_minor), NULLIF(sqlc.arg(category)::text, ''),
@@ -55,7 +56,7 @@ VALUES (sqlc.arg(family_id), sqlc.arg(kind), sqlc.arg(occurred_on)::date,
         sqlc.narg(cost_basis_minor)::bigint,
         NULLIF(sqlc.arg(series_id)::bigint, 0), NULLIF(sqlc.arg(series_seq)::smallint, 0),
         NULLIF(sqlc.arg(series_n)::smallint, 0), NULLIF(sqlc.arg(series_kind)::text, ''),
-        sqlc.arg(note), sqlc.arg(created_by), sqlc.arg(is_adjustment))
+        sqlc.arg(note), sqlc.arg(created_by), sqlc.arg(is_adjustment), sqlc.arg(occurred_time), NULLIF(sqlc.arg(recorder_id)::bigint,0), sqlc.narg(receipt)::bytea, sqlc.arg(receipt_mime))
 RETURNING id;
 
 -- name: UpdateTransaction :execrows
@@ -66,7 +67,9 @@ UPDATE transactions SET occurred_on = sqlc.arg(occurred_on)::date,
        to_wallet_id = NULLIF(sqlc.arg(to_wallet_id)::bigint, 0),
        amount_in_minor = NULLIF(sqlc.arg(amount_in_minor)::bigint, 0),
        admin_fee_minor = sqlc.arg(admin_fee_minor),
-       party_id = NULLIF(sqlc.arg(party_id)::bigint, 0), note = sqlc.arg(note)
+       party_id = NULLIF(sqlc.arg(party_id)::bigint, 0), note = sqlc.arg(note),
+       occurred_time = sqlc.arg(occurred_time), recorder_id = NULLIF(sqlc.arg(recorder_id)::bigint,0),
+       receipt = COALESCE(sqlc.narg(receipt)::bytea,receipt), receipt_mime = CASE WHEN sqlc.narg(receipt)::bytea IS NULL THEN receipt_mime ELSE sqlc.arg(receipt_mime) END
 WHERE id = sqlc.arg(id) AND kind = sqlc.arg(kind) AND family_id = sqlc.arg(family_id);
 
 -- name: NextTransactionSeriesID :one

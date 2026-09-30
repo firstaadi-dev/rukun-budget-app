@@ -6,7 +6,7 @@
   {{end}}
 </nav>
 
-<form method="post" action="/hutang/baru" class="stack" id="hutang-form">
+<form method="post" action="/hutang/baru" class="stack ledger-form" id="hutang-form">
   <input type="hidden" name="jenis" value="{{.Form.jenis}}">
 
   <p class="banner">
@@ -73,6 +73,7 @@
               placeholder="Pinjam untuk biaya rumah sakit">{{.Form.catatan}}</textarea>
   </div>
 
+  <div class="field"><label>Jatuh tempo (opsional)<input class="input" name="jatuh_tempo" type="date" value="{{.Form.jatuh_tempo}}"></label></div><div class="field"><label>Rencana dompet pembayaran<select class="input" name="rencana_dompet"><option value="">Belum ditentukan</option>{{range .Wallets}}<option value="{{.ID}}" {{if eq $.Form.rencana_dompet (printf "%d" .ID)}}selected{{end}}>{{.Name}}</option>{{end}}</select></label></div>
   <button type="submit" class="btn btn-primary btn-block">
     Simpan {{if eq .Form.jenis "debt_in"}}Hutang{{else}}Piutang{{end}}
   </button>

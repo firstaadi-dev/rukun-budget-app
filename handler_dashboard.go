@@ -65,7 +65,7 @@ func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
 	a.render(w, r, "dashboard.html", map[string]any{
 		"Cards":         cards,
 		"Perhatian":     perhatian(cards),
-		"Title":         "Dashboard",
+		"Title":         "Beranda",
 		"Nav":           "dashboard",
 		"Today":         tanggalPanjang(a.today()),
 		"Summary":       summarize(wallets, rates, a.base),

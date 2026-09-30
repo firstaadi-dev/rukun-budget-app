@@ -94,6 +94,7 @@ func (a *App) walletForm(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		f = map[string]string{
+			"pemilik": wl.OwnerLabel, "nomor_akhir": wl.LastFour, "pemegang": wl.Cardholder, "utama": strconv.FormatBool(wl.IsPrimary),
 			"jenis": wl.Type, "penyedia": wl.Provider, "nama": wl.Name,
 			"mata_uang": wl.Currency, "saldo_awal": FormatPlain(wl.InitialMinor, wl.Currency),
 		}
@@ -130,6 +131,7 @@ func (a *App) renderWalletForm(w http.ResponseWriter, r *http.Request, id int64,
 // readWallet memvalidasi input form dompet.
 func readWallet(r *http.Request) (Wallet, map[string]string, error) {
 	f := map[string]string{
+		"pemilik": strings.TrimSpace(r.FormValue("pemilik")), "nomor_akhir": strings.TrimSpace(r.FormValue("nomor_akhir")), "pemegang": strings.TrimSpace(r.FormValue("pemegang")), "utama": r.FormValue("utama"),
 		"jenis":         r.FormValue("jenis"),
 		"penyedia":      strings.TrimSpace(r.FormValue("penyedia")),
 		"nama":          strings.TrimSpace(r.FormValue("nama")),
@@ -139,8 +141,11 @@ func readWallet(r *http.Request) (Wallet, map[string]string, error) {
 		"tanggal_bayar": strings.TrimSpace(r.FormValue("tanggal_bayar")),
 		"limit":         strings.TrimSpace(r.FormValue("limit")),
 	}
-	wl := Wallet{Type: f["jenis"], Provider: f["penyedia"], Name: f["nama"], Currency: f["mata_uang"]}
+	wl := Wallet{OwnerLabel: f["pemilik"], LastFour: f["nomor_akhir"], Cardholder: f["pemegang"], IsPrimary: f["utama"] == "true", Type: f["jenis"], Provider: f["penyedia"], Name: f["nama"], Currency: f["mata_uang"]}
 
+	if len(wl.OwnerLabel) > 60 || len(wl.Cardholder) > 80 || (wl.LastFour != "" && (len(wl.LastFour) != 4 || !hanyaDigit(wl.LastFour))) {
+		return wl, f, errors.New("Isi pemilik maksimal 60 karakter, pemegang maksimal 80 karakter, dan empat digit nomor terakhir.")
+	}
 	if _, ok := walletProviders[wl.Type]; !ok {
 		return wl, f, errors.New("Jenis dompet tidak dikenal.")
 	}

@@ -60,13 +60,14 @@ SELECT t.id, t.kind, t.occurred_on,
        COALESCE(t.qty_e8, 0) AS qty_e8, COALESCE(t.cost_basis_minor, 0) AS cost_basis_minor,
        COALESCE(t.series_id, 0) AS series_id, COALESCE(t.series_seq, 0) AS series_seq,
        COALESCE(t.series_n, 0) AS series_n, COALESCE(t.series_kind, '') AS series_kind,
-       t.note, COALESCE(u.name, '') AS created_by, t.created_at, t.is_adjustment
+       t.note, COALESCE(rec.name, u.name, '') AS created_by, COALESCE(t.recorder_id,t.created_by,0)::bigint AS recorder_id, COALESCE(u.name, '') AS entered_by, t.occurred_time, (t.receipt IS NOT NULL)::boolean AS has_receipt, t.created_at, t.is_adjustment
 FROM transactions t
 LEFT JOIN wallets w ON w.id = t.wallet_id
 LEFT JOIN wallets w2 ON w2.id = t.to_wallet_id
 LEFT JOIN parties p ON p.id = t.party_id
 LEFT JOIN investments iv ON iv.id = t.investment_id
 LEFT JOIN users u ON u.id = t.created_by
+LEFT JOIN users rec ON rec.id = t.recorder_id AND rec.family_id = t.family_id
 WHERE t.family_id = $1
   AND ($2::bigint = 0 OR t.id = $2)
   AND ($3::bigint = 0 OR t.party_id = $3)
@@ -131,6 +132,10 @@ type GetTransactionsRow struct {
 	SeriesKind        string
 	Note              string
 	CreatedBy         string
+	RecorderID        int64
+	EnteredBy         string
+	OccurredTime      string
+	HasReceipt        bool
 	CreatedAt         pgtype.Timestamptz
 	IsAdjustment      bool
 }
@@ -185,6 +190,10 @@ func (q *Queries) GetTransactions(ctx context.Context, arg GetTransactionsParams
 			&i.SeriesKind,
 			&i.Note,
 			&i.CreatedBy,
+			&i.RecorderID,
+			&i.EnteredBy,
+			&i.OccurredTime,
+			&i.HasReceipt,
 			&i.CreatedAt,
 			&i.IsAdjustment,
 		); err != nil {
@@ -203,7 +212,7 @@ INSERT INTO transactions
   (family_id, kind, occurred_on, wallet_id, currency, amount_minor, category,
    to_wallet_id, amount_in_minor, admin_fee_minor, party_id,
    investment_id, qty_e8, cost_basis_minor, series_id, series_seq, series_n, series_kind,
-   note, created_by, is_adjustment)
+   note, created_by, is_adjustment, occurred_time, recorder_id, receipt, receipt_mime)
 VALUES ($1, $2, $3::date,
         NULLIF($4::bigint, 0), NULLIF($5::text, '')::char(3),
         $6, NULLIF($7::text, ''),
@@ -213,7 +222,7 @@ VALUES ($1, $2, $3::date,
         $14::bigint,
         NULLIF($15::bigint, 0), NULLIF($16::smallint, 0),
         NULLIF($17::smallint, 0), NULLIF($18::text, ''),
-        $19, $20, $21)
+        $19, $20, $21, $22, NULLIF($23::bigint,0), $24::bytea, $25)
 RETURNING id
 `
 
@@ -239,6 +248,10 @@ type InsertTransactionParams struct {
 	Note           string
 	CreatedBy      pgtype.Int8
 	IsAdjustment   bool
+	OccurredTime   string
+	RecorderID     int64
+	Receipt        []byte
+	ReceiptMime    string
 }
 
 func (q *Queries) InsertTransaction(ctx context.Context, arg InsertTransactionParams) (int64, error) {
@@ -264,6 +277,10 @@ func (q *Queries) InsertTransaction(ctx context.Context, arg InsertTransactionPa
 		arg.Note,
 		arg.CreatedBy,
 		arg.IsAdjustment,
+		arg.OccurredTime,
+		arg.RecorderID,
+		arg.Receipt,
+		arg.ReceiptMime,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -289,8 +306,10 @@ UPDATE transactions SET occurred_on = $1::date,
        to_wallet_id = NULLIF($6::bigint, 0),
        amount_in_minor = NULLIF($7::bigint, 0),
        admin_fee_minor = $8,
-       party_id = NULLIF($9::bigint, 0), note = $10
-WHERE id = $11 AND kind = $12 AND family_id = $13
+       party_id = NULLIF($9::bigint, 0), note = $10,
+       occurred_time = $11, recorder_id = NULLIF($12::bigint,0),
+       receipt = COALESCE($13::bytea,receipt), receipt_mime = CASE WHEN $13::bytea IS NULL THEN receipt_mime ELSE $14 END
+WHERE id = $15 AND kind = $16 AND family_id = $17
 `
 
 type UpdateTransactionParams struct {
@@ -304,6 +323,10 @@ type UpdateTransactionParams struct {
 	AdminFeeMinor int64
 	PartyID       int64
 	Note          string
+	OccurredTime  string
+	RecorderID    int64
+	Receipt       []byte
+	ReceiptMime   string
 	ID            int64
 	Kind          string
 	FamilyID      int64
@@ -321,6 +344,10 @@ func (q *Queries) UpdateTransaction(ctx context.Context, arg UpdateTransactionPa
 		arg.AdminFeeMinor,
 		arg.PartyID,
 		arg.Note,
+		arg.OccurredTime,
+		arg.RecorderID,
+		arg.Receipt,
+		arg.ReceiptMime,
 		arg.ID,
 		arg.Kind,
 		arg.FamilyID,

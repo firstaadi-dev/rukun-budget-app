@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="ceria">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#f3f2f2">
-<script>try{if(localStorage.getItem('rukun-theme')==='ceria')document.documentElement.dataset.theme='ceria'}catch{}</script>
+<meta name="theme-color" content="#f9f9f6">
+<script>try{if(localStorage.getItem('rukun-theme')==='klasik')document.documentElement.dataset.theme='klasik'}catch{}</script>
 <title>{{if .Title}}{{.Title}} · {{end}}Rukun</title>
 <link rel="manifest" href="/static/manifest.webmanifest">
 <link rel="icon" href="/static/icon.svg?v={{.V}}" type="image/svg+xml">
@@ -12,25 +12,27 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Rukun">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Lora:wght@400;500&display=swap">
-<link rel="stylesheet" href="/static/classical.css?v={{.V}}">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="/static/rukun.css?v={{.V}}">
 <link rel="stylesheet" href="/static/app.css?v={{.V}}">
+<link rel="stylesheet" href="/static/stitch.css?v={{.V}}">
 </head>
-<body>
+<body data-base="{{.Base}}" data-family="{{.User.FamilyID}}" data-revision="{{.Revision}}" class="page-{{.Nav}}{{if and (eq .Nav "transaksi") .Back (not .Tx)}} transaction-entry{{end}}{{if .Back}} has-back{{end}}{{if .NoDock}} no-dock{{end}}{{if .InSheet}} in-sheet{{end}}">
+<a class="skip-link" href="#main-content">Lewati ke konten</a>
 
 {{if .NoChrome}}
-  <main class="auth-shell">{{template "content" .}}</main>
+  <main class="auth-shell" id="main-content">{{template "content" .}}</main>
 {{else}}
   <div class="shell">
     <aside class="sidebar">
-      <div class="brand">Rukun</div>
+      <a class="brand" href="/">{{template "icon-home"}}<span>Rukun<small>Keuangan keluarga</small></span></a>
       <nav>
-        <a href="/" class="{{if eq .Nav "dashboard"}}on{{end}}">{{template "icon-home"}}Dashboard</a>
+        <a href="/" class="{{if eq .Nav "dashboard"}}on{{end}}">{{template "icon-home"}}Beranda</a>
         <a href="/dompet" class="{{if eq .Nav "dompet"}}on{{end}}">{{template "icon-wallet"}}Dompet</a>
         <a href="/transaksi" class="{{if eq .Nav "transaksi"}}on{{end}}">{{template "icon-list"}}Transaksi</a>
         <a href="/laporan" class="{{if eq .Nav "laporan"}}on{{end}}">{{template "icon-chart"}}Laporan</a>
         <a href="/anggaran" class="{{if eq .Nav "anggaran"}}on{{end}}">{{template "icon-tag"}}Anggaran</a>
-        <a href="/subscription" class="{{if eq .Nav "subscription"}}on{{end}}">{{template "icon-list"}}Subscription</a>
+        <a href="/subscription" class="{{if eq .Nav "subscription"}}on{{end}}">{{template "icon-list"}}Langganan</a>
         <a href="/hutang" class="{{if eq .Nav "hutang"}}on{{end}}">{{template "icon-hutang"}}Hutang</a>
         <a href="/investasi" class="{{if eq .Nav "investasi"}}on{{end}}">{{template "icon-invest"}}Investasi</a>
         <a href="/kategori" class="{{if eq .Nav "kategori"}}on{{end}}">{{template "icon-tag"}}Kategori</a>
@@ -42,35 +44,35 @@
       </form>
     </aside>
 
-    <main class="main">
-      {{if .Back}}
-        <header class="topbar">
-          <a href="{{.Back}}" class="back" aria-label="Kembali">{{template "icon-back"}}</a>
-          <h5>{{.Title}}</h5>
-        </header>
-      {{end}}
+    <main class="main" id="main-content">
+      <header class="stitch-header">
+        {{if .Back}}<a href="{{.Back}}" class="header-button" aria-label="Kembali">{{if and (eq .Nav "transaksi") (not .Tx)}}×{{else}}{{template "icon-back"}}{{end}}</a>{{else if .HeaderBack}}<a href="{{.HeaderBack}}" class="header-button" aria-label="Kembali">{{template "icon-back"}}</a>{{else}}<a class="avatar-group" href="/pengaturan" aria-label="Keluarga">{{if .FamilyMembers}}{{range $i,$m := .FamilyMembers}}{{if lt $i 2}}{{template "member-avatar" $m}}{{end}}{{end}}{{else}}<span class="avatar">{{initials .Family}}</span>{{end}}</a>{{end}}
+        <div class="header-titles"><strong>{{if eq .Nav "dashboard"}}{{.Family}}{{else if eq .Nav "transaksi"}}{{if .Back}}{{.Title}}{{else}}Transaksi Keluarga{{end}}{{else if eq .Nav "dompet"}}Dompet &amp; Rekening{{else if eq .Nav "anggaran"}}{{.Family}}{{else if eq .Nav "akun"}}Akun &amp; Pengaturan{{else}}{{.Title}}{{end}}</strong><span>{{if eq .Nav "dashboard"}}{{with .Now}}{{dateOnly .}}{{end}}{{else if and (eq .Nav "transaksi") (not .Back)}}<span class="status-dot"></span> <span data-connection-label>Online</span>{{else}}{{.Family}}{{end}}</span></div>
+        {{if and (eq .Nav "transaksi") .Back}}{{if .Tx}}<button type="button" class="header-button" data-share aria-label="Bagikan transaksi">{{di "share"}}</button><details class="menu"><summary class="header-button" aria-label="Menu transaksi">{{di "dots"}}</summary><div class="menu-pop card"><a href="/transaksi/{{.Tx.ID}}/ubah">Edit transaksi</a></div></details>{{else}}<span class="entry-connection" aria-label="Status koneksi"><span class="status-dot"></span></span>{{end}}{{else if eq .Nav "laporan"}}<a href="/transaksi/ekspor?periode={{.Period.Nilai}}" class="btn btn-secondary">{{di "download"}} Unduh CSV</a>{{else if .NoDock}}<a class="header-button" href="/transaksi?jenis={{if eq .Nav "hutang"}}hutang{{else}}invest_buy{{end}}" aria-label="Riwayat">{{di "history"}}</a>{{else if not .Back}}{{if eq .Nav "transaksi"}}<a class="header-button" href="/transaksi/ekspor?{{.ExportQuery}}" aria-label="Unduh CSV">{{di "download"}}</a>{{end}}<button type="button" class="header-button notification-trigger" data-open-dialog="notifications-dialog" aria-label="Tagihan dan pengingat">{{di "bell"}}</button>{{end}}
+      </header>
 
       {{if .Error}}<p class="alert" role="alert">{{.Error}}</p>{{end}}
       {{template "content" .}}
     </main>
 
-    <nav class="tabbar">
-      <a href="/" class="{{if eq .Nav "dashboard"}}on{{end}}">{{template "icon-home"}}<span>Dashboard</span></a>
-      <a href="/dompet" class="{{if eq .Nav "dompet"}}on{{end}}">{{template "icon-wallet"}}<span>Dompet</span></a>
-      <a href="/transaksi" class="{{if eq .Nav "transaksi"}}on{{end}}">{{template "icon-list"}}<span>Transaksi</span></a>
-      <a href="/hutang" class="{{if eq .Nav "hutang"}}on{{end}}">{{template "icon-hutang"}}<span>Hutang</span></a>
-      <a href="/investasi" class="{{if eq .Nav "investasi"}}on{{end}}">{{template "icon-invest"}}<span>Investasi</span></a>
-      <a href="/anggaran" class="{{if eq .Nav "anggaran"}}on{{end}}">{{template "icon-tag"}}<span>Anggaran</span></a>
-      <a href="/laporan" class="{{if eq .Nav "laporan"}}on{{end}}">{{template "icon-chart"}}<span>Laporan</span></a>
-      {{/* Di ponsel sidebar tidak pernah tampil, jadi ini satu-satunya jalan
-           menuju akun sendiri — dan satu-satunya jalan keluar dari aplikasi. */}}
-      <a href="/pengaturan" class="{{if eq .Nav "akun"}}on{{end}}">{{template "icon-user"}}<span>Akun</span></a>
+    <nav class="tabbar" aria-label="Navigasi utama">
+      <a href="/" class="{{if eq .Nav "dashboard"}}on{{end}}" {{if eq .Nav "dashboard"}}aria-current="page"{{end}}>{{template "icon-home"}}<span>Beranda</span></a>
+      <a href="/transaksi" class="{{if eq .Nav "transaksi"}}on{{end}}" {{if eq .Nav "transaksi"}}aria-current="page"{{end}}>{{di "receipt"}}<span>Transaksi</span></a>
+      <button type="button" class="catat-trigger" data-open-dialog="catat-dialog"><span class="catat-icon">{{di "plus"}}</span><span>Catat</span></button>
+      <a href="/anggaran" class="{{if eq .Nav "anggaran"}}on{{end}}" {{if eq .Nav "anggaran"}}aria-current="page"{{end}}>{{di "pie"}}<span>Anggaran</span></a>
+      <a href="/lainnya" class="{{if or (eq .Nav "lainnya") (eq .Nav "dompet") (eq .Nav "hutang") (eq .Nav "investasi") (eq .Nav "laporan") (eq .Nav "subscription") (eq .Nav "kategori") (eq .Nav "akun")}}on{{end}}" {{if eq .Nav "lainnya"}}aria-current="page"{{end}}>{{template "icon-menu"}}<span>Lainnya</span></a>
     </nav>
   </div>
 {{end}}
 
-{{if eq .Nav "laporan"}}<script src="/static/vendor/echarts-report.min.js?v={{.V}}" defer></script>{{end}}
+{{if not .NoChrome}}
+<dialog id="catat-dialog" class="bottom-sheet"><div class="sheet-handle"></div><header class="sec-head"><h5>Catat Transaksi Bersama</h5><button type="button" class="header-button" data-close-dialog aria-label="Tutup">×</button></header><iframe title="Catat transaksi" data-catat-frame></iframe></dialog>
+<dialog id="notifications-dialog" class="bottom-sheet"><div class="sheet-handle"></div><header class="sec-head"><h5>Tagihan &amp; Pengingat</h5><button type="button" class="header-button" data-close-dialog aria-label="Tutup">×</button></header><div class="stack" data-notifications><p class="text-muted">Memuat tagihan…</p></div></dialog>
+<div class="toast" role="status" hidden></div><div class="update-banner" hidden><span>Catatan keluarga baru tersedia.</span><button class="btn btn-secondary" type="button" onclick="location.reload()">Perbarui</button></div>
+{{end}}
+
 <script src="/static/app.js?v={{.V}}" defer></script>
+<script src="/static/stitch.js?v={{.V}}" defer></script>
 </body>
 </html>
 
@@ -214,12 +216,19 @@
 
 {{/* Satu baris transaksi, dipakai di dashboard dan daftar transaksi. */}}
 {{define "tx-row"}}
-<a class="row" href="/transaksi/{{.ID}}">
-  <span class="row-ic t-{{.Tone}}">{{template "tx-icon" .Kind}}</span>
-  <span class="row-main">
-    <span class="row-title">{{.Desc}}</span>
-    <span class="row-sub text-muted">{{.WalletLabel}} · {{.DateLabel}}{{with .SeriesLabel}} · {{.}}{{end}}</span>
-  </span>
-  <span class="row-amt m-{{.Tone}}">{{.Amount}}</span>
+<a class="row stitch-tx-row" href="/transaksi/{{.ID}}">
+  <span class="row-ic t-{{.Tone}}">{{if .Category}}{{di (categoryIcon .Category)}}{{else}}{{template "tx-icon" .Kind}}{{end}}</span>
+  <span class="row-main"><span class="row-title">{{if .Note}}{{.Note}}{{else}}{{.ShortDesc}}{{end}}</span><span class="row-sub text-muted">{{if .Category}}{{.Category}} · {{end}}{{.WalletLabel}}{{with .SeriesLabel}} · {{.}}{{end}}</span><span class="row-byline">{{with .CreatedBy}}<span class="recorded-by"><span class="status-dot"></span> Dicatat {{.}}</span>{{end}}{{with .OccurredTime}}<span class="text-muted tiny">{{.}}</span>{{end}}</span></span>
+  <span class="row-amount"><strong class="row-amt m-{{.Tone}}">{{.Amount}}</strong><small class="text-muted">{{if .IsTransfer}}Pindah Saldo{{else}}{{.DateLabel}}{{end}}</small></span>
 </a>
 {{end}}
+
+{{define "member-avatar"}}<span class="avatar">{{initials .Name}}<img src="/avatar/{{.ID}}" alt="" onerror="this.remove()"></span>{{end}}
+{{define "recorder-picker"}}
+<section class="card recorder-card"><p class="small text-muted">Dicatat oleh anggota keluarga:</p><div class="recorder-options">{{range .FamilyMembers}}{{if not .Disabled}}<label><input type="radio" name="pencatat" value="{{.ID}}" {{if or (eq $.Form.pencatat (printf "%d" .ID)) (and (or (not $.Form.pencatat) (eq $.Form.pencatat "0")) (eq .ID $.User.ID))}}checked{{end}}>{{template "member-avatar" .}}<strong>{{.Name}}{{if eq .ID $.User.ID}} (Saya){{end}}</strong>{{di "check"}}</label>{{end}}{{end}}</div></section>
+{{end}}
+{{define "date-time"}}
+<section class="card date-time-card">{{di "calendar"}}<label class="date-display"><span class="small text-muted">Tanggal &amp; Waktu</span><span data-date-label>{{.Form.tanggal}}</span><input aria-label="Tanggal transaksi" name="tanggal" id="tanggal" type="date" required value="{{.Form.tanggal}}"></label><input class="time-input" aria-label="Jam transaksi" type="time" name="jam" value="{{.Form.jam}}"></section>
+{{end}}
+
+{{define "icon-menu"}}<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>{{end}}

@@ -1,5 +1,5 @@
 {{define "content"}}
-<div class="stack">
+<div class="stack ledger-form">
   {{/* Jenis dipilih lewat tautan, bukan radio: tiap jenis punya kolom yang
        berbeda, dan menampilkan ketiganya sekaligus akan meminta pecahan gram
        kepada orang yang sedang mencatat saham. Sama seperti form transaksi,
@@ -13,7 +13,7 @@
     </nav>
   {{end}}
 
-  <form method="post" action="{{.Action}}" class="stack">
+  <form method="post" action="{{.Action}}" class="stack ledger-form">
     <input type="hidden" name="jenis" value="{{.Form.jenis}}">
 
     {{if .Error}}<p class="banner m-out">{{.Error}}</p>{{end}}

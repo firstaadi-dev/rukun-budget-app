@@ -74,7 +74,7 @@ func (a *App) report(w http.ResponseWriter, r *http.Request) {
 		savingRate = fmt.Sprintf("%.1f%%", float64(current.TotalInMinor-current.TotalOutMinor)*100/float64(current.TotalInMinor))
 	}
 	a.render(w, r, "laporan.html", map[string]any{
-		"Title": "Laporan", "Nav": "laporan", "Period": p,
+		"Title": "Laporan Finansial", "Nav": "laporan", "Period": p,
 		"Breakdown": current, "TransactionCount": count, "AvgDaily": Format(avg, a.base),
 		"SavingRate": savingRate, "ExpenseChange": change,
 		"Budgets": budgetRows(cats, spend, rates, a.base), "Base": a.base,

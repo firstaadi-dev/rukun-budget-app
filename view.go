@@ -356,8 +356,9 @@ func viewTxs(ts []Tx, today time.Time) []TxView {
 }
 
 type TxGroup struct {
-	Label string
-	Items []TxView
+	FullLabel string
+	Label     string
+	Items     []TxView
 }
 
 func groupTxs(vs []TxView) []TxGroup {
@@ -367,7 +368,11 @@ func groupTxs(vs []TxView) []TxGroup {
 			out[n-1].Items = append(out[n-1].Items, v)
 			continue
 		}
-		out = append(out, TxGroup{Label: v.DateLabel, Items: []TxView{v}})
+		full := tanggalPanjang(v.Date)
+		if v.DateLabel == "Hari ini" || v.DateLabel == "Kemarin" {
+			full = v.DateLabel + " • " + full
+		}
+		out = append(out, TxGroup{FullLabel: full, Label: v.DateLabel, Items: []TxView{v}})
 	}
 	return out
 }
@@ -501,7 +506,7 @@ func budgetRows(categories []Category, spend []CategorySpend, rates map[string]R
 			Name: c.Name, Limit: Format(c.BudgetMinor, base), Used: Format(spent, base),
 			Remaining:  Format(c.BudgetMinor-spent, base),
 			OverAmount: Format(max(0, spent-c.BudgetMinor), base),
-			Percent:    int(min(100, float64(spent)/float64(c.BudgetMinor)*100)), Over: spent > c.BudgetMinor,
+			Percent:    int(float64(spent) / float64(c.BudgetMinor) * 100), Over: spent > c.BudgetMinor,
 		})
 	}
 	return rows

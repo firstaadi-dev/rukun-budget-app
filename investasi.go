@@ -274,6 +274,8 @@ func (v Investment) PakaiPasar() bool { return v.Symbol != "" }
 // ---------- tampilan ----------
 
 type InvestView struct {
+	Equivalent string
+	SortMinor  int64
 	Investment
 	UnitLabel string
 	Qty       string
@@ -385,6 +387,13 @@ func viewInvest(v Investment, quotes map[string]Kuotasi, rates map[string]Rate, 
 	nilai := NilaiMinor(e4, v.QtyE8)
 	out.nilaiMinor = nilai
 	out.Nilai = Format(nilai, v.Currency)
+	out.SortMinor = nilai
+	if v.Currency != "IDR" {
+		if rate, ok := rates[v.Currency+">IDR"]; ok && rate.Valid() {
+			out.Equivalent = Format(rate.Convert(nilai), "IDR")
+			out.SortMinor = rate.Convert(nilai)
+		}
+	}
 
 	selisih := nilai - v.ModalMinor
 	switch {
@@ -438,6 +447,7 @@ func viewInvests(vs []Investment, quotes map[string]Kuotasi, rates map[string]Ra
 // ---------- ringkasan ----------
 
 type InvestSummary struct {
+	TotalMinor int64
 	TotalModal string
 	TotalNilai string
 	Selisih    string
@@ -481,7 +491,7 @@ func summarizeInvests(vs []InvestView, rates map[string]Rate, base string) Inves
 	}
 
 	out := InvestSummary{
-		TotalModal: Format(modal, base), TotalNilai: Format(nilai, base),
+		TotalMinor: nilai, TotalModal: Format(modal, base), TotalNilai: Format(nilai, base),
 		Base: base, Unconverted: missing, TanpaHarga: tanpa, Tone: "neutral",
 	}
 	switch selisih := nilai - modal; {
@@ -726,6 +736,18 @@ func (a *App) investList(w http.ResponseWriter, r *http.Request) {
 	views := viewInvests(vs, a.kuotasi(ctx, vs), rates, a.today())
 	var active, closed []InvestView
 	for _, v := range views {
+		n := v.nilaiMinor
+		if !v.AdaHarga {
+			n = v.ModalMinor
+		}
+		v.SortMinor = n
+		v.Equivalent = ""
+		if v.Currency != a.base {
+			if rate, ok := rates[v.Currency+">"+a.base]; ok && rate.Valid() {
+				v.SortMinor = rate.Convert(n)
+				v.Equivalent = Format(v.SortMinor, a.base)
+			}
+		}
 		if v.QtyE8 == 0 && v.Sales > 0 {
 			closed = append(closed, v)
 		} else {
@@ -733,11 +755,17 @@ func (a *App) investList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	summary := summarizeInvests(active, rates, a.base)
 	data := map[string]any{
-		"Title": "Investasi", "Nav": "investasi",
+		"Title": "Investasi Keluarga", "Nav": "investasi",
 		"Groups": groupInvests(active), "Closed": groupInvests(closed),
-		"Summary": summarizeInvests(active, rates, a.base),
-		"Kinds":   investKinds,
+		"Summary": summary,
+		"Kinds":   investKinds, "PositionCount": len(active),
+	}
+	if a.base != "USD" {
+		if rate, ok := rates[a.base+">USD"]; ok && rate.Valid() {
+			data["PortfolioEquivalent"] = Format(rate.Convert(summary.TotalMinor), "USD")
+		}
 	}
 	// Sebab kegagalannya ikut ditampilkan, bukan cuma disimpan di log server.
 	// Yang membuka halaman ini tidak punya akses ke log itu, dan "sedang tidak

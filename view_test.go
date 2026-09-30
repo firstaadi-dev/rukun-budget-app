@@ -199,3 +199,11 @@ func TestPerhatian(t *testing.T) {
 		t.Error("baris tagihan telat tidak membawa nominal untuk form pembayaran")
 	}
 }
+
+func TestBudgetRowsShowActualOverspending(t *testing.T) {
+	rows := budgetRows([]Category{{Kind: "expense", Name: "Transportasi", BudgetMinor: 100_000_000}},
+		[]CategorySpend{{Kind: "expense", Category: "Transportasi", Currency: "IDR", Minor: 112_000_000}}, nil, "IDR")
+	if len(rows) != 1 || rows[0].Percent != 112 || !rows[0].Over {
+		t.Fatalf("anggaran melewati batas harus menampilkan 112%%: %+v", rows)
+	}
+}

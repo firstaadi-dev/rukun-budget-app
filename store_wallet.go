@@ -10,6 +10,10 @@ import (
 // ---------- Wallet ----------
 
 type Wallet struct {
+	OwnerLabel   string
+	LastFour     string
+	Cardholder   string
+	IsPrimary    bool
 	ID           int64
 	Name         string
 	Type         string // cash | bank | credit | ewallet
@@ -75,6 +79,7 @@ func (s *Store) Wallets(ctx context.Context, familyID int64) ([]Wallet, error) {
 	out := make([]Wallet, len(rows))
 	for i, row := range rows {
 		out[i] = Wallet{ID: row.ID, Name: row.Name, Type: row.Type, Provider: row.Provider,
+			OwnerLabel: row.OwnerLabel, LastFour: row.LastFour, Cardholder: row.Cardholder, IsPrimary: row.IsPrimary,
 			Currency: row.Currency, InitialMinor: row.InitialBalanceMinor,
 			SettlementDay: int(row.SettlementDay), PaymentDay: int(row.PaymentDay),
 			LimitMinor: row.CreditLimitMinor, BalanceMinor: row.BalanceMinor,
@@ -95,6 +100,7 @@ func (s *Store) Wallet(ctx context.Context, familyID, id int64) (Wallet, error) 
 	}
 	row := rows[0]
 	return Wallet{ID: row.ID, Name: row.Name, Type: row.Type, Provider: row.Provider,
+		OwnerLabel: row.OwnerLabel, LastFour: row.LastFour, Cardholder: row.Cardholder, IsPrimary: row.IsPrimary,
 		Currency: row.Currency, InitialMinor: row.InitialBalanceMinor,
 		SettlementDay: int(row.SettlementDay), PaymentDay: int(row.PaymentDay),
 		LimitMinor: row.CreditLimitMinor, BalanceMinor: row.BalanceMinor,
@@ -102,23 +108,58 @@ func (s *Store) Wallet(ctx context.Context, familyID, id int64) (Wallet, error) 
 }
 
 func (s *Store) CreateWallet(ctx context.Context, familyID int64, w Wallet) (int64, error) {
-	return sqlcdb.New(s.db).CreateWallet(ctx, sqlcdb.CreateWalletParams{
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(context.WithoutCancel(ctx))
+	if w.IsPrimary {
+		if _, err = tx.Exec(ctx, `SELECT id FROM families WHERE id=$1 FOR UPDATE`, familyID); err != nil {
+			return 0, err
+		}
+		if _, err = tx.Exec(ctx, `UPDATE wallets SET is_primary=false WHERE family_id=$1 AND is_primary`, familyID); err != nil {
+			return 0, err
+		}
+	}
+	id, err := sqlcdb.New(tx).CreateWallet(ctx, sqlcdb.CreateWalletParams{
 		FamilyID: familyID, Name: w.Name, Type: w.Type, Provider: w.Provider,
 		Currency: w.Currency, InitialBalanceMinor: w.InitialMinor,
 		SettlementDay: int16(w.SettlementDay), PaymentDay: int16(w.PaymentDay), CreditLimitMinor: w.LimitMinor,
+		OwnerLabel: w.OwnerLabel, LastFour: w.LastFour, Cardholder: w.Cardholder, IsPrimary: w.IsPrimary,
 	})
+	if err != nil {
+		return 0, err
+	}
+	return id, tx.Commit(ctx)
 }
 
 func (s *Store) UpdateWallet(ctx context.Context, familyID int64, w Wallet) error {
-	rows, err := sqlcdb.New(s.db).UpdateWallet(ctx, sqlcdb.UpdateWalletParams{
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(context.WithoutCancel(ctx))
+	if w.IsPrimary {
+		if _, err = tx.Exec(ctx, `SELECT id FROM families WHERE id=$1 FOR UPDATE`, familyID); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `UPDATE wallets SET is_primary=false WHERE family_id=$1 AND is_primary`, familyID); err != nil {
+			return err
+		}
+	}
+	rows, err := sqlcdb.New(tx).UpdateWallet(ctx, sqlcdb.UpdateWalletParams{
 		ID: w.ID, FamilyID: familyID, Name: w.Name, Type: w.Type, Provider: w.Provider,
 		Currency: w.Currency, InitialBalanceMinor: w.InitialMinor,
 		SettlementDay: int16(w.SettlementDay), PaymentDay: int16(w.PaymentDay), CreditLimitMinor: w.LimitMinor,
+		OwnerLabel: w.OwnerLabel, LastFour: w.LastFour, Cardholder: w.Cardholder, IsPrimary: w.IsPrimary,
 	})
 	if err == nil && rows == 0 {
 		return ErrNotFound
 	}
-	return err
+	if err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // DeleteWallet menolak menghapus dompet yang masih dipakai transaksi —

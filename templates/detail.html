@@ -1,54 +1,13 @@
 {{define "content"}}
-<div class="stack-lg">
-
-  <div class="detail-head">
-    <span class="detail-ic t-{{.Tx.Tone}}">{{template "tx-icon" .Tx.Kind}}</span>
-    <div class="detail-title">{{if .Tx.IsTransfer}}Transfer Antar Dompet{{else if .InvestTrade}}{{.KindLabel}} · {{.Tx.InvestmentName}}{{else}}{{.KindLabel}} · {{.Tx.Category}}{{end}}</div>
-    <div class="text-muted small">{{.Waktu}}</div>
-  </div>
-
-  <div class="card elev-sm detail-card">
-    {{if .Tx.IsTransfer}}
-      <div class="dl"><span class="text-muted">Dari</span><span>{{.Tx.WalletName}} · {{.Tx.WalletCur}}</span></div>
-      <div class="dl"><span class="text-muted">Nominal keluar</span><span>{{.Amount}}</span></div>
-      {{if .Tx.IsCrossCur}}
-        <div class="dl"><span class="text-muted">Kurs digunakan</span>
-          <span>{{.Tx.RateLabel}}{{if .RateCustom}} <span class="tag tag-outline tiny">kustom</span>{{end}}</span></div>
-      {{end}}
-      <div class="dl"><span class="text-muted">Biaya admin</span><span>{{.Fee}}</span></div>
-      <div class="hr"></div>
-      <div class="dl"><span class="text-muted">Ke</span><span>{{.Tx.ToWalletName}} · {{.Tx.ToWalletCur}}</span></div>
-      <div class="dl"><span class="text-muted">Nominal diterima</span><span>{{.AmountIn}}</span></div>
-    {{else if .InvestTrade}}
-      <div class="dl"><span class="text-muted">Posisi</span><span><a href="/investasi/{{.Tx.InvestmentID}}">{{.Tx.InvestmentName}}</a></span></div>
-      <div class="dl"><span class="text-muted">Kuantitas</span><span>{{.QtyLabel}}</span></div>
-      <div class="dl"><span class="text-muted">Dompet</span><span>{{if .Tx.WalletName}}{{.Tx.WalletName}}{{else}}tanpa dompet{{end}}</span></div>
-      <div class="dl"><span class="text-muted">Nominal</span><span>{{.Tx.Amount}}</span></div>
-      {{if eq .Tx.Kind "invest_sell"}}
-        <div class="dl"><span class="text-muted">Harga pokok</span><span>{{.CostBasis}}</span></div>
-        <div class="dl"><span class="text-muted">Untung/rugi terealisasi</span><span>{{.Realized}}</span></div>
-      {{end}}
-    {{else}}
-      <div class="dl"><span class="text-muted">Dompet</span><span>{{.Tx.WalletName}} · {{.Tx.WalletCur}}</span></div>
-      <div class="dl"><span class="text-muted">Kategori</span><span>{{.Tx.Category}}</span></div>
-      <div class="dl"><span class="text-muted">Nominal</span><span class="m-{{.Tx.Tone}}">{{.Tx.Amount}}</span></div>
-    {{end}}
-    <div class="hr"></div>
-    {{with .Tx.SeriesLabel}}
-      <div class="dl"><span class="text-muted">Rangkaian</span>
-        <span><span class="tag tag-neutral tiny">{{.}}</span></span></div>
-    {{end}}
-    <div class="dl"><span class="text-muted">Catatan</span><span class="dl-long">{{if .Tx.Note}}{{.Tx.Note}}{{else}}—{{end}}</span></div>
-    <div class="dl"><span class="text-muted">Dicatat oleh</span><span>{{if .Tx.CreatedBy}}{{.Tx.CreatedBy}}{{else}}—{{end}}</span></div>
-  </div>
-
-  <div class="detail-actions">
-    {{if not .InvestTrade}}<a href="/transaksi/{{.Tx.ID}}/ubah" class="btn btn-secondary">Edit</a>{{end}}
-    <form method="post" action="/transaksi/{{.Tx.ID}}/hapus"
-          onsubmit="return confirm('Hapus transaksi ini? Saldo dompet akan ikut berubah.')">
-      <button type="submit" class="btn btn-ghost">Hapus</button>
-    </form>
-  </div>
-
-</div>
-{{end}}
+<div class="stack-lg stitch-detail"><section class="card detail-head"><span class="detail-ic t-{{.Tx.Tone}}">{{if .Tx.Category}}{{di (categoryIcon .Tx.Category)}}{{else}}{{template "tx-icon" .Tx.Kind}}{{end}}</span><span class="tag t-{{.Tx.Tone}}">● {{.KindLabel}} Keluarga</span><h3>{{if .InvestTrade}}{{.Tx.InvestmentName}}{{else if .Tx.IsTransfer}}Transfer Antar Dompet{{else}}{{.Tx.Category}}{{end}}</h3><div class="big-figure m-{{.Tx.Tone}}">{{.Tx.Amount}}</div><span class="tag tag-accent-2">{{di "check"}} Tersimpan di catatan keluarga</span></section>
+ <section><h4>Rincian Informasi</h4><div class="card detail-information"><div class="information-row"><span class="row-ic t-neutral">{{di "wallet"}}</span><div class="row-main"><span class="text-muted">{{if .Tx.IsTransfer}}Sumber Dompet{{else}}Sumber Dompet{{end}}</span><strong>{{if .Tx.WalletName}}{{.Tx.WalletName}}{{else}}Tanpa dompet{{end}}</strong></div>{{if .Tx.WalletID}}<div class="right"><span class="small text-muted">Sisa Saldo</span><strong>{{if .WalletBalances}}{{index .WalletBalances .Tx.WalletID}}{{else}}—{{end}}</strong></div>{{end}}</div>
+ <div class="information-row"><span class="row-ic t-neutral">{{di "calendar"}}</span><div class="row-main"><span class="text-muted">Tanggal &amp; Waktu</span><strong>{{dateOnly .Tx.Date}}</strong></div>{{with .Tx.OccurredTime}}<span class="tag tag-neutral">{{.}} WIB</span>{{end}}</div>
+ {{if .Tx.Category}}<div class="information-row"><span class="row-ic t-neutral">{{di "pie"}}</span><div class="row-main"><span class="text-muted">Kategori Anggaran</span><strong>{{.Tx.Category}}</strong></div>{{with .TxBudget}}<span class="tag {{if .Over}}t-out{{else}}tag-accent{{end}}">{{if .Over}}Lewat Batas{{else}}Anggaran Aman{{end}}</span>{{end}}</div>{{end}}
+ {{if .Tx.IsTransfer}}<div class="information-row"><span class="row-ic t-neutral">{{di "transfer"}}</span><div class="row-main"><span class="text-muted">Dompet Tujuan</span><strong>{{.Tx.ToWalletName}}</strong></div><strong class="m-in">{{.AmountIn}}</strong></div><div class="budget-pair"><span>Biaya admin</span><strong>{{.Fee}}</strong></div>{{if .Tx.IsCrossCur}}<div class="budget-pair"><span>Kurs digunakan</span><strong>{{.Tx.RateLabel}}</strong></div>{{end}}{{end}}
+ {{if .InvestTrade}}<div class="budget-pair"><span>Kuantitas</span><strong>{{.QtyLabel}}</strong></div>{{with .CostBasis}}<div class="budget-pair"><span>Harga pokok</span><strong>{{.}}</strong></div>{{end}}{{with .Realized}}<div class="budget-pair"><span>Untung/rugi terealisasi</span><strong>{{.}}</strong></div>{{end}}{{end}}
+ <div class="detail-note"><span>{{di "receipt"}} Catatan Transaksi</span><p>{{if .Tx.Note}}{{.Tx.Note}}{{else}}Belum ada catatan tambahan.{{end}}</p></div>{{with .Tx.SeriesLabel}}<span class="tag tag-neutral">{{.}}</span>{{end}}{{if .Tx.HasReceipt}}<a class="btn btn-secondary" href="/transaksi/{{.Tx.ID}}/struk" target="_blank" rel="noopener">{{di "camera"}} Lihat Struk Belanja</a>{{end}}</div></section>
+ <section class="card recorder-profile"><span class="avatar avatar-lg">{{initials .Tx.CreatedBy}}{{if .Tx.RecorderID}}<img src="/avatar/{{.Tx.RecorderID}}" alt="" onerror="this.remove()">{{end}}</span><div class="row-main"><strong>{{.Tx.CreatedBy}}</strong><span class="small text-muted">Dicatat {{dateOnly .Tx.CreatedAt}}</span>{{if and .Tx.EnteredBy (ne .Tx.EnteredBy .Tx.CreatedBy)}}<span class="tiny text-muted">Dimasukkan oleh {{.Tx.EnteredBy}}</span>{{end}}</div><form method="post" action="/transaksi/{{.Tx.ID}}/reaksi"><button class="btn {{if .Liked}}tag-accent-2{{else}}btn-secondary{{end}}">{{di "heart"}} {{if .Liked}}Disukai{{else}}Kasih Jempol{{end}}{{if .ReactionCount}} ({{.ReactionCount}}){{end}}</button></form></section>
+ {{with .TxBudget}}<section class="card budget-status"><div class="budget-pair"><span>Status Anggaran: {{.Name}}</span><strong>{{.Percent}}% Terpakai</strong></div><progress value="{{.Percent}}" max="100"></progress><p class="small">{{di "check"}} {{if .Over}}Lewat batas {{.OverAmount}}. Yuk, sesuaikan anggaran.{{else}}Aman! Sisa {{.Remaining}} untuk periode ini.{{end}}</p></section>{{end}}
+ <div class="sticky-actions detail-actions"><button class="btn btn-danger" type="button" data-open-dialog="delete-tx">{{di "receipt"}} Hapus</button>{{if not .InvestTrade}}<a class="btn btn-primary" href="/transaksi/{{.Tx.ID}}/ubah">{{di "settings"}} Edit Transaksi</a>{{end}}</div>
+ <dialog class="bottom-sheet" id="delete-tx"><div class="sheet-handle"></div><h4>Hapus transaksi ini?</h4><p>{{.Tx.Amount}} · {{.Tx.WalletLabel}}</p><p class="text-muted">Catatan akan dihapus dan saldo dompet dihitung ulang. Tindakan ini tidak bisa dibatalkan.</p><form method="post" action="/transaksi/{{.Tx.ID}}/hapus"><button class="btn btn-danger btn-block">Hapus Transaksi</button></form><button type="button" class="btn btn-secondary btn-block" data-close-dialog>Batal</button></dialog>
+</div>{{end}}

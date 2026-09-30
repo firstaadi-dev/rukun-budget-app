@@ -1,5 +1,5 @@
 -- name: GetWallets :many
-SELECT w.id, w.name, w.type, COALESCE(w.provider, '') AS provider, w.currency,
+SELECT w.id, w.name, w.type, w.owner_label, w.last_four, w.cardholder, w.is_primary, COALESCE(w.provider, '') AS provider, w.currency,
        w.initial_balance_minor, COALESCE(w.settlement_day, 0) AS settlement_day,
        COALESCE(w.payment_day, 0) AS payment_day,
        COALESCE(w.credit_limit_minor, 0) AS credit_limit_minor,
@@ -23,12 +23,12 @@ ORDER BY w.type, w.id;
 
 -- name: CreateWallet :one
 INSERT INTO wallets (family_id, name, type, provider, currency, initial_balance_minor,
-                     settlement_day, payment_day, credit_limit_minor)
+                     settlement_day, payment_day, credit_limit_minor, owner_label, last_four, cardholder, is_primary)
 VALUES (sqlc.arg(family_id), sqlc.arg(name), sqlc.arg(type), NULLIF(sqlc.arg(provider)::text, ''),
         sqlc.arg(currency), sqlc.arg(initial_balance_minor),
         NULLIF(sqlc.arg(settlement_day)::smallint, 0),
         NULLIF(sqlc.arg(payment_day)::smallint, 0),
-        NULLIF(sqlc.arg(credit_limit_minor)::bigint, 0))
+        NULLIF(sqlc.arg(credit_limit_minor)::bigint, 0), sqlc.arg(owner_label), sqlc.arg(last_four), sqlc.arg(cardholder), sqlc.arg(is_primary))
 RETURNING id;
 
 -- name: UpdateWallet :execrows
@@ -37,7 +37,8 @@ UPDATE wallets SET name = sqlc.arg(name), type = sqlc.arg(type),
        initial_balance_minor = sqlc.arg(initial_balance_minor),
        settlement_day = NULLIF(sqlc.arg(settlement_day)::smallint, 0),
        payment_day = NULLIF(sqlc.arg(payment_day)::smallint, 0),
-       credit_limit_minor = NULLIF(sqlc.arg(credit_limit_minor)::bigint, 0)
+       credit_limit_minor = NULLIF(sqlc.arg(credit_limit_minor)::bigint, 0),
+       owner_label = sqlc.arg(owner_label), last_four = sqlc.arg(last_four), cardholder = sqlc.arg(cardholder), is_primary = sqlc.arg(is_primary)
 WHERE id = sqlc.arg(id) AND family_id = sqlc.arg(family_id);
 
 -- name: CountWalletTransactions :one

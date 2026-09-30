@@ -1,18 +1,8 @@
 {{define "content"}}
 <div class="stack">
-  <div class="page-head">
-    <h4>Transaksi</h4>
-    <a href="/transaksi/ekspor?{{.ExportQuery}}" class="btn btn-secondary">Unduh CSV</a>
-    {{/* Ikuti filter yang sedang aktif: saat sedang melihat Pemasukan, tombol
-         ini mencatat pemasukan. Tanpa filter, jatuh ke pengeluaran yang paling
-         sering dicatat — dan jenisnya masih bisa diganti di dalam form. */}}
-    <a href="/transaksi/baru?jenis={{if .Filter}}{{.Filter}}{{else}}expense{{end}}"
-       class="btn btn-primary">Tambah{{template "icon-plus"}}</a>
-  </div>
-
   {{/* Periode berdiri paling atas karena ia yang paling menentukan isi daftar:
        sisanya menyaring di dalam rentang yang dipilih di sini. */}}
-  <div class="periode">
+  <section class="card transaction-period"><div class="periode">
     <span class="periode-controls">
     {{/* Panah hanya ada pada bulan. Pada rentang khusus, panah harus melangkah
          sejauh rentangnya sendiri, dan "bulan berikutnya" dari 3–17 Juli tidak
@@ -27,7 +17,7 @@
          ditekan di luar, dan itu kenyamanan, bukan syarat. */}}
     <details class="menu">
       <summary class="periode-label" aria-label="Ubah periode">
-        {{.Periode.Label}}{{template "icon-chev"}}
+        {{di "calendar"}} {{.Periode.Label}}{{template "icon-chev"}}
       </summary>
       <div class="menu-pop card elev-md tx-date-picker">
         <form method="get" action="/transaksi">
@@ -77,6 +67,7 @@
     </span>
   </div>
 
+  <div class="transaction-metrics"><div><span class="m-in">↓ Masuk</span><strong class="m-in">{{.Metrics.In}}</strong></div><div><span class="m-out">↑ Keluar</span><strong class="m-out">{{.Metrics.Out}}</strong></div><div><span>▣ Selisih</span><strong>{{.Metrics.Net}}</strong></div></div></section>
   {{/* Pencarian dan tanggal tetap selalu tampak; penyaring lain dikumpulkan
        dalam satu menu agar tidak memenuhi layar ponsel. */}}
   <div class="tx-toolbar">
@@ -90,12 +81,13 @@
     {{else}}
       <input type="hidden" name="periode" value="{{.Periode.Nilai}}">
     {{end}}
-    <span class="tx-search">
+    <span class="tx-search">{{di "search"}}
       <input class="input" id="cari" name="cari" type="search" value="{{.Cari}}"
-             placeholder="Catatan, kategori, pihak, atau dompet">
+             placeholder="Cari catatan, kategori, dompet…"><button class="header-button" type="button" data-voice-search aria-label="Cari dengan suara">{{di "mic"}}</button>
     </span>
    </form>
 
+   <form method="get" class="transaction-filter-pills"><input type="hidden" name="periode" value="{{.Periode.Nilai}}"><input type="hidden" name="cari" value="{{.Cari}}"><input type="hidden" name="kategori" value="{{.Kategori}}">{{if .Periode.Rentang}}<input type="hidden" name="dari" value="{{.Periode.Dari}}"><input type="hidden" name="sampai" value="{{.Periode.Sampai}}">{{end}}<label>Jenis: <select name="jenis" aria-label="Jenis transaksi" onchange="this.form.submit()">{{range .Filters}}<option value="{{.Value}}" {{if .On}}selected{{end}}>{{.Label}}</option>{{end}}</select></label><label>Dompet: <select name="dompet" aria-label="Dompet transaksi" onchange="this.form.submit()"><option value="">Semua Dompet</option>{{range .Wallets}}<option value="{{.ID}}" {{if eq $.DompetID .ID}}selected{{end}}>{{.Name}}</option>{{end}}</select></label><noscript><button class="btn">Terapkan</button></noscript></form>
    <details class="menu tx-filter-menu">
     <summary class="btn btn-secondary">Filter{{template "icon-chev"}}</summary>
     <div class="menu-pop card elev-md">
@@ -152,7 +144,7 @@
   {{if .Groups}}
     {{range .Groups}}
       <section>
-        <h6 class="group-head">{{.Label}}</h6>
+        <div class="sec-head transaction-day"><h6 class="group-head">{{.FullLabel}}</h6>{{if $.DailyTotals}}<span class="small">{{index $.DailyTotals .Label}}</span>{{end}}</div>
         <div class="rows">{{range .Items}}{{template "tx-row" .}}{{end}}</div>
       </section>
     {{end}}
@@ -165,6 +157,7 @@
       {{if .Periode.Semua}}yang tercatat{{else}}{{.Periode.Frasa}}{{end}}{{if .Kategori}} untuk kategori itu{{end}}.
       {{if not .Periode.Semua}}<a href="{{.URLSemua}}">Lihat seluruh waktu</a>{{end}}</p>
   {{end}}
+  {{if not .NextPage}}<p class="period-end">Menampilkan seluruh transaksi {{.Periode.Label}}</p>{{end}}
   {{if .NextPage}}
     <a class="btn btn-secondary" href="{{.NextPage}}">Lihat transaksi berikutnya</a>
   {{end}}

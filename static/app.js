@@ -1,5 +1,4 @@
-// Rukun — skrip pelengkap form. Semua halaman tetap berfungsi tanpa file ini;
-// yang hilang cuma isian otomatis, bukan kemampuan menyimpan data.
+// Rukun — isian otomatis, perhitungan transfer, dan kontrol form.
 
 const EXP = { JPY: 0, KRW: 0, VND: 0, CLP: 0, ISK: 0, BHD: 3, KWD: 3, JOD: 3, OMR: 3, TND: 3 };
 const exp = (cur) => (cur in EXP ? EXP[cur] : 2);
@@ -55,23 +54,21 @@ const symOf = (sel) => sel.selectedOptions[0]?.dataset.symbol || '';
 const themeChoices = $$('[data-theme-choice]');
 function setTheme(theme, save = false) {
   const value = theme === 'ceria' ? 'ceria' : 'klasik';
-  if (value === 'ceria') document.documentElement.dataset.theme = value;
-  else delete document.documentElement.dataset.theme;
+  document.documentElement.dataset.theme = value;
   themeChoices.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.themeChoice === value)));
-  const color = value === 'ceria' ? '#fff8f4' : '#f3f2f2';
   const meta = $('meta[name="theme-color"]');
-  if (meta) meta.content = color;
+  if (meta) meta.content = '#f9f9f6';
   if (save) {
     try { localStorage.setItem('rukun-theme', value); } catch { /* Tema tetap berlaku sampai halaman dibuka ulang. */ }
   }
 }
 themeChoices.forEach((button) => button.addEventListener('click', () => setTheme(button.dataset.themeChoice, true)));
-try { setTheme(localStorage.getItem('rukun-theme') || 'klasik'); } catch { setTheme('klasik'); }
+try { setTheme(localStorage.getItem('rukun-theme') || 'ceria'); } catch { setTheme('ceria'); }
 
 // Diagram laporan tetap punya daftar kategori berupa tautan sebagai fallback;
 // ECharts menambah tooltip dan navigasi langsung dari irisan diagram.
 if (window.echarts) {
-  const chartColors = ['#a06f24', '#5b9277', '#b85e55', '#6d83ad', '#98729d', '#718c52', '#cc8847', '#4f8b91'];
+  const chartColors = ['#0d6e6e', '#006c49', '#b43438', '#4f86ac', '#98729d', '#718c52', '#cc8847', '#4f8b91'];
   $$('[data-report-chart]').forEach((el) => {
     const rows = $$('[data-chart-category]', el.parentElement);
     const chart = window.echarts.init(el);
@@ -388,6 +385,11 @@ $$('input[inputmode="decimal"]').forEach((el) => {
       hintEl.textContent = '\u00b7 belum ada kurs acuan, isi manual';
     }
     markCustom();
+    if (customToggle) {
+      const current = factor();
+      customToggle.checked = !defFactor || (current && Math.abs(current - defFactor) >= defFactor * 1e-9);
+      rateEl.readOnly = !customToggle.checked;
+    }
   }
 
   function markCustom() {
@@ -403,6 +405,7 @@ $$('input[inputmode="decimal"]').forEach((el) => {
     derive = 'in';
     inEl.value = '';
     feeEl.value = '';
+    rateEl.value = '';
     syncPair();
     recalc();
   }
@@ -417,6 +420,10 @@ $$('input[inputmode="decimal"]').forEach((el) => {
   // Saat mengubah transfer lama, nominal diterima sudah tersimpan apa adanya:
   // jangan dihitung ulang, biarkan biaya admin yang menyesuaikan.
   if (inEl.value) derive = 'fee';
+  const customToggle = $('[data-custom-rate-toggle]', form);
+  const resetRate = () => {setRateFromFactor(defFactor);derive='in';markCustom();recalc();form.dispatchEvent(new Event('change', {bubbles:true}));};
+  $('[data-rate-reset]', form)?.addEventListener('click', resetRate);
+  customToggle?.addEventListener('change', () => {rateEl.readOnly=!customToggle.checked;if(!customToggle.checked)resetRate();else rateEl.focus();});
   syncPair();
 })();
 
@@ -440,7 +447,7 @@ $$('[data-range-calendar]').forEach((calendar) => {
   const toInput = form.elements.sampai;
   const months = $('[data-calendar-months]', calendar);
   const selection = $('[data-calendar-selection]', calendar);
-  const parse = (value) => value ? new Date(`${value}T00:00:00`) : null;fitur
+  const parse = (value) => value ? new Date(`${value}T00:00:00`) : null;
   const iso = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   const initial = parse(calendar.dataset.from) || (calendar.dataset.month.startsWith('0001-') ? null : parse(calendar.dataset.month)) || new Date();
   let cursor = new Date(initial.getFullYear(), initial.getMonth(), 1);
@@ -560,7 +567,7 @@ $$('.menu').forEach((menu) => {
 // ---------- PWA ----------
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
+  window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
 }
 
 // ---------- pencarian simbol di form investasi ----------
@@ -711,3 +718,22 @@ $$('[data-cari]').forEach((input) => {
   totalEl.addEventListener('input', () => { derive = 'biaya'; recalc(); });
   biayaEl.addEventListener('input', () => { derive = 'qty'; recalc(); });
 })();
+
+// Native disclosure keeps Catat usable without JavaScript.
+$$('[data-close-catat]').forEach((button) => button.addEventListener('click', () => {
+  const menu = button.closest('details');
+  menu.open = false;
+  $('summary', menu).focus();
+}));
+
+$$('[data-copy]').forEach((button) => button.addEventListener('click', async () => {
+  const input = document.getElementById(button.dataset.copy);
+  try {
+    await navigator.clipboard.writeText(input.value);
+    button.textContent = 'Tersalin';
+  } catch {
+    input.focus();
+    input.select();
+    button.textContent = 'Salin teks terpilih';
+  }
+}));
