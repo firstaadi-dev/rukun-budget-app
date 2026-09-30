@@ -441,113 +441,105 @@ $$('[data-search-debounce] input[type="search"]').forEach((input) => {
   });
 });
 
-$$('[data-range-calendar]').forEach((calendar) => {
-  const form = calendar.closest('form');
-  const fromInput = form.elements.dari;
-  const toInput = form.elements.sampai;
-  const months = $('[data-calendar-months]', calendar);
-  const selection = $('[data-calendar-selection]', calendar);
-  const parse = (value) => value ? new Date(`${value}T00:00:00`) : null;
-  const iso = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  const initial = parse(calendar.dataset.from) || (calendar.dataset.month.startsWith('0001-') ? null : parse(calendar.dataset.month)) || new Date();
-  let cursor = new Date(initial.getFullYear(), initial.getMonth(), 1);
-
-  function render() {
-    months.replaceChildren();
-    const start = parse(fromInput.value);
-    const end = parse(toInput.value);
-    if (!start) selection.textContent = 'Pilih tanggal mulai';
-    else if (!end) selection.textContent = `Mulai ${start.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })} · pilih tanggal akhir`;
-    else selection.textContent = `${start.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })} – ${end.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}`;
-
-    for (let offset = 0; offset < 2; offset++) {
-      const monthDate = new Date(cursor.getFullYear(), cursor.getMonth() + offset, 1);
-      const pane = document.createElement('section');
-      pane.className = 'tx-calendar-month';
-      const title = document.createElement('h5');
-      title.textContent = monthDate.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-      pane.append(title);
-      const grid = document.createElement('div');
-      grid.className = 'tx-calendar-grid';
-      ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'].forEach((day) => {
-        const label = document.createElement('span');
-        label.className = 'tx-calendar-weekday';
-        label.textContent = day;
-        grid.append(label);
-      });
-      const first = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
-      const offsetMonday = (first.getDay() + 6) % 7;
-      const gridStart = new Date(first.getFullYear(), first.getMonth(), 1 - offsetMonday);
-      for (let i = 0; i < 42; i++) {
-        const date = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
-        const value = iso(date);
-        const day = document.createElement('button');
-        day.type = 'button';
-        day.className = 'tx-calendar-day';
-        day.textContent = String(date.getDate());
-        if (date.getMonth() !== monthDate.getMonth()) day.classList.add('outside');
-        if (start && value === iso(start)) day.classList.add('selected');
-        if (end && value === iso(end)) day.classList.add('selected');
-        if (start && end && value > iso(start) && value < iso(end)) day.classList.add('in-range');
-        day.setAttribute('aria-label', date.toLocaleDateString('id-ID', { dateStyle: 'full' }));
-        day.addEventListener('click', (event) => {
-          event.stopPropagation();
-          if (!fromInput.value || toInput.value) {
-            fromInput.value = value;
-            toInput.value = '';
-          } else if (value < fromInput.value) {
-            toInput.value = fromInput.value;
-            fromInput.value = value;
-          } else {
-            toInput.value = value;
-          }
-          render();
-          if (fromInput.value && toInput.value) form.requestSubmit();
-        });
-        grid.append(day);
-      }
-      pane.append(grid);
-      months.append(pane);
-    }
+// ---------- period picker: draft range, applied only on submit ----------
+$$('[data-period-picker]').forEach(form => {
+ const dialog = form.closest('dialog');
+ const from = form.elements.dari, to = form.elements.sampai, period = form.elements.periode;
+ const grid = $('[data-period-grid]', form);
+ const parse = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') && !value.startsWith('0001') ? new Date(`${value}T00:00:00`) : null;
+ const iso = date => `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+ const dayNumber = date => Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()) / 86400000;
+ const daysBetween = (start,end) => dayNumber(end)-dayNumber(start)+1;
+ const today = parse(form.dataset.today) || new Date();
+ const original = {from:from.value,to:to.value,period:period.value,mode:form.dataset.initialMode};
+ let mode=original.mode, activePreset='', editingEnd=false;
+ let cursor = parse(from.value) || today;
+ cursor = new Date(cursor.getFullYear(),cursor.getMonth(),1);
+ const dateLabel = date => date ? date.toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'}) : 'Pilih tanggal';
+ const presets = $$('[data-period-preset]',form);
+ function render() {
+  from.disabled=to.disabled=false;
+  period.disabled=mode==='custom';
+  from.required=to.required=mode==='custom';
+  const start=parse(from.value),end=parse(to.value);
+  const count=start&&end?daysBetween(start,end):0;
+  $('[data-period-from-label]',form).textContent=dateLabel(start);
+  $('[data-period-to-label]',form).textContent=dateLabel(end);
+  $('[data-period-days]',form).textContent=count>0?`${count} Hari`:'— Hari';
+  $('[data-period-apply-days]',form).textContent=count>0?`(${count} Hari)`:'';
+  $('[data-period-start-badge]',form).textContent=mode==='cycle'?'Mulai Siklus':'Tanggal Mulai';
+  $('[data-period-end-badge]',form).textContent=mode==='cycle'?'Akhir Siklus':'Tanggal Selesai';
+  $('[data-period-note]',form).textContent=mode==='cycle'?`Siklus keluarga (tgl ${form.dataset.startDay || 1})`:mode==='all'?'Seluruh catatan keluarga':'Rentang pilihan keluarga';
+  $('[data-period-match]',form).textContent=mode==='cycle'?'Tepat 1 Bulan Finansial':mode==='all'?'Seluruh Waktu':'Rentang Kustom';
+  $('[data-period-instruction]',form).textContent=start&&!end?'Pilih tanggal selesai untuk melengkapi rentang.':'Pilih tanggal mulai, lalu tanggal selesai.';
+  presets.forEach(button => {const selected=button.dataset.periodPreset===activePreset;button.classList.toggle('active',selected);button.setAttribute('aria-pressed',String(selected));});
+  const first=new Date(cursor.getFullYear(),cursor.getMonth(),1);
+  const offset=(first.getDay()+6)%7;
+  const monthDays=new Date(cursor.getFullYear(),cursor.getMonth()+1,0).getDate();
+  const gridStart=new Date(first.getFullYear(),first.getMonth(),1-offset);
+  const total=Math.ceil((offset+monthDays)/7)*7;
+  const last=new Date(gridStart.getFullYear(),gridStart.getMonth(),gridStart.getDate()+total-1);
+  let monthLabel=cursor.toLocaleDateString('id-ID',{month:'short',year:'numeric'});
+  if(end&&end.getMonth()!==cursor.getMonth()&&start&&start.getMonth()===cursor.getMonth()) {
+   monthLabel=cursor.toLocaleDateString('id-ID',{month:'short',...(cursor.getFullYear()!==end.getFullYear()?{year:'numeric'}:{})})+' – '+end.toLocaleDateString('id-ID',{month:'short',year:'numeric'});
   }
-
-  $('[data-calendar-prev]', calendar).addEventListener('click', () => {
-    cursor.setMonth(cursor.getMonth() - 1);
+  $('[data-period-month]',form).textContent=monthLabel;
+  grid.replaceChildren();
+  ['Sen','Sel','Rab','Kam','Jum','Sab','Min'].forEach((label,index)=>{const el=document.createElement('span');el.className='period-weekday'+(index===6?' sunday':'');el.textContent=label;grid.append(el);});
+  for(let i=0;i<total;i++) {
+   const date=new Date(gridStart.getFullYear(),gridStart.getMonth(),gridStart.getDate()+i),value=iso(date);
+   const button=document.createElement('button');button.type='button';button.className='period-calendar-day';button.textContent=date.getDate();
+   button.classList.toggle('outside',date.getMonth()!==cursor.getMonth());button.classList.toggle('sunday',date.getDay()===0);
+   const selected=(start&&value===iso(start))||(end&&value===iso(end));
+   button.classList.toggle('selected',!!selected);button.classList.toggle('in-range',!!(start&&end&&value>iso(start)&&value<iso(end)));
+   button.setAttribute('aria-label',date.toLocaleDateString('id-ID',{dateStyle:'full'}));button.setAttribute('aria-pressed',String(!!selected));
+   button.addEventListener('click',()=>{
+    mode='custom';activePreset='custom';
+    if(editingEnd&&from.value) {to.value=value;editingEnd=false;}
+    else if(!from.value||to.value){from.value=value;to.value='';}
+    else to.value=value;
+    if(to.value&&to.value<from.value)[from.value,to.value]=[to.value,from.value];
     render();
-  });
-  $('[data-calendar-next]', calendar).addEventListener('click', () => {
-    cursor.setMonth(cursor.getMonth() + 1);
-    render();
-  });
-  calendar.closest('details').addEventListener('toggle', () => { if (calendar.closest('details').open) render(); });
-  calendar._render = render;
-  render();
+    const focused=$$('button',grid).find(el=>el.getAttribute('aria-label')===button.getAttribute('aria-label'));focused?.focus();
+   });grid.append(button);
+  }
+  const continuation=$('[data-period-continuation]',form);
+  continuation.hidden=!(end&&end>last);
+  $('[data-period-continuation-date]',form).textContent=dateLabel(end);
+ }
+ function setRange(start,end,preset) {from.value=iso(start);to.value=iso(end);mode='custom';activePreset=preset;cursor=new Date(start.getFullYear(),start.getMonth(),1);editingEnd=false;render();}
+ function reset() {
+  const cycle=presets.find(button=>button.dataset.periodPreset==='cycle');
+  if(cycle) {from.value=cycle.dataset.from;to.value=cycle.dataset.to;period.value=cycle.dataset.period;mode='cycle';activePreset='cycle';}
+  else {from.value=original.from;to.value=original.to;period.value=original.period;mode=original.mode;activePreset='';}
+  const start=parse(from.value)||today;cursor=new Date(start.getFullYear(),start.getMonth(),1);editingEnd=false;render();
+ }
+ presets.forEach(button=>button.addEventListener('click',()=>{
+  const preset=button.dataset.periodPreset;
+  if(preset==='cycle'||preset==='previous'){from.value=button.dataset.from;to.value=button.dataset.to;period.value=button.dataset.period;mode='cycle';activePreset=preset;const start=parse(from.value)||today;cursor=new Date(start.getFullYear(),start.getMonth(),1);editingEnd=false;render();return;}
+  if(preset==='custom'){mode='custom';activePreset=preset;render();return;}
+  const start=new Date(today.getFullYear(),today.getMonth(),today.getDate()),end=new Date(start);
+  if(preset==='last7')start.setDate(start.getDate()-6);
+  if(preset==='last30')start.setDate(start.getDate()-29);
+  if(preset==='month'){start.setDate(1);end.setMonth(end.getMonth()+1,0);}
+  if(preset==='year'){start.setMonth(0,1);end.setMonth(11,31);}
+  if(preset==='yesterday'){start.setDate(start.getDate()-1);end.setTime(start.getTime());}
+  if(preset==='thisWeek'||preset==='lastWeek'){start.setDate(start.getDate()-(start.getDay()+6)%7-(preset==='lastWeek'?7:0));end.setTime(start.getTime());end.setDate(end.getDate()+6);}
+  if(preset==='lastMonth'){start.setMonth(start.getMonth()-1,1);end.setDate(0);}
+  setRange(start,end,preset);
+ }));
+ [from,to].forEach(input=>input.addEventListener('click',()=>{try{input.showPicker?.();}catch{}}));
+ [from,to].forEach(input=>input.addEventListener('change',()=>{mode='custom';activePreset='custom';if(to.value&&from.value&&to.value<from.value)[from.value,to.value]=[to.value,from.value];const date=parse(input.value);if(date)cursor=new Date(date.getFullYear(),date.getMonth(),1);render();}));
+ $('[data-period-prev]',form).addEventListener('click',()=>{cursor.setMonth(cursor.getMonth()-1);render();});
+ $('[data-period-next]',form).addEventListener('click',()=>{cursor.setMonth(cursor.getMonth()+1);render();});
+ $('[data-period-edit-end]',form).addEventListener('click',()=>{const end=parse(to.value);if(end)cursor=new Date(end.getFullYear(),end.getMonth(),1);editingEnd=true;render();});
+ $('[data-period-reset]',form).addEventListener('click',reset);
+ form.addEventListener('submit',()=>{if(mode==='cycle'||mode==='all'){from.disabled=to.disabled=true;}else period.disabled=true;});
+ $$('[data-open-dialog="period-dialog"]').forEach(button=>button.addEventListener('click',()=>{from.value=original.from;to.value=original.to;period.value=original.period;mode=original.mode;activePreset=mode==='cycle'?(period.value===presets.find(b=>b.dataset.periodPreset==='cycle')?.dataset.period?'cycle':period.value===presets.find(b=>b.dataset.periodPreset==='previous')?.dataset.period?'previous':''):'custom';const start=parse(from.value)||today;cursor=new Date(start.getFullYear(),start.getMonth(),1);editingEnd=false;render();}));
+ render();
 });
 
-$$('[data-range-preset]').forEach((button) => {
-  button.addEventListener('click', () => {
-    const form = button.closest('form');
-    const from = new Date();
-    const to = new Date();
-    const mondayOffset = (from.getDay() + 6) % 7;
-    switch (button.dataset.rangePreset) {
-      case 'yesterday': from.setDate(from.getDate() - 1); to.setTime(from.getTime()); break;
-      case 'last7': from.setDate(from.getDate() - 6); break;
-      case 'thisWeek': from.setDate(from.getDate() - mondayOffset); to.setDate(from.getDate() + 6); break;
-      case 'lastWeek': from.setDate(from.getDate() - mondayOffset - 7); to.setDate(from.getDate() + 6); break;
-      case 'last30': from.setDate(from.getDate() - 29); break;
-      case 'thisMonth': from.setDate(1); break;
-      case 'lastMonth': from.setMonth(from.getMonth() - 1, 1); to.setDate(0); break;
-    }
-    const iso = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-    form.elements.dari.value = iso(from);
-    form.elements.sampai.value = iso(to);
-    $('[data-range-calendar]', form)?._render();
-    form.requestSubmit();
-  });
-});
-
-// ---------- panel periode: menutup sendiri ----------
+// ---------- menu: menutup sendiri ----------
 
 // <details> mengurus buka-tutupnya sendiri, jadi panel ini tetap bisa dipakai
 // tanpa file ini. Yang ditambahkan di sini cuma kebiasaan panel mengambang:

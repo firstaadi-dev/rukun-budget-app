@@ -41,7 +41,7 @@ type TxFilterOpt struct {
 // txParams: penyaring yang boleh menempel di URL daftar transaksi. Didaftar
 // tertutup supaya parameter asing tidak ikut terbawa dari satu tautan ke
 // tautan berikutnya.
-var txParams = []string{"jenis", "kategori", "dompet", "periode", "dari", "sampai", "cari", "cursor"}
+var txParams = []string{"jenis", "kategori", "dompet", "periode", "dari", "sampai", "cari", "pencatat", "cursor"}
 
 // txWaktu: penyaring waktu, yang ketiganya menjawab pertanyaan yang sama lewat
 // jalan berbeda. Mengganti salah satunya harus melepas dua sisanya — kalau
@@ -90,6 +90,13 @@ func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 	}
 	kategori := q.Get("kategori")
 	cari := strings.TrimSpace(q.Get("cari"))
+	recorderID, _ := strconv.ParseInt(q.Get("pencatat"), 10, 64)
+	recorderID = max(0, recorderID)
+	if recorderID > 0 {
+		q.Set("pencatat", strconv.FormatInt(recorderID, 10))
+	} else {
+		q.Del("pencatat")
+	}
 	dompetID, _ := strconv.ParseInt(q.Get("dompet"), 10, 64)
 	if dompetID < 0 {
 		dompetID = 0
@@ -150,7 +157,7 @@ func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 	// bisa dibedakan dari 200 hasil pertama dari seribu.
 	txs, err := a.store.Transactions(ctx, family(r), TxFilter{
 		Kinds: kindsForFilter(filter), Category: kategori, Cari: cari,
-		WalletID: dompetID, From: periode.From, To: periode.To, Limit: txListLimit + 1,
+		WalletID: dompetID, RecorderID: recorderID, From: periode.From, To: periode.To, Limit: txListLimit + 1,
 		BeforeDate: beforeDate, BeforeID: beforeID,
 	})
 	if err != nil {
@@ -182,7 +189,7 @@ func (a *App) txList(w http.ResponseWriter, r *http.Request) {
 		"Title": "Transaksi", "Nav": "transaksi",
 		"Filter": filter, "Filters": txFilterOptions(q, filter),
 		"Kategori": kategori, "Categories": cats,
-		"DompetID": dompetID, "Wallets": wallets,
+		"DompetID": dompetID, "RecorderID": recorderID, "Wallets": wallets,
 		"Cari": cari, "Periode": periode,
 		"URLPrev":          txURL(q, "periode", periode.Prev),
 		"URLNext":          txURL(q, "periode", periode.Next),

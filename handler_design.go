@@ -30,11 +30,13 @@ type partnerActivity struct {
 	Count, Share int
 }
 type periodMetrics struct {
-	In, Out, Net, Transfer string
-	InCount, OutCount      int
-	Weeks                  []weeklyFlow
-	Partners               []partnerActivity
-	Daily                  map[string]string
+	In, Out, Net, Transfer            string
+	SpendingRatio, PaceLabel, NetTone string
+	HasIncome                         bool
+	InCount, OutCount                 int
+	Weeks                             []weeklyFlow
+	Partners                          []partnerActivity
+	Daily                             map[string]string
 }
 type savingsGoal struct{ Name, Target, TargetPlain, Date, Collected, Percent string }
 type debtCard struct {
@@ -92,6 +94,25 @@ func (a *App) designData(r *http.Request, page string, d map[string]any) error {
 		p = bacaPeriodeKustom(v.Date.Format(formatPeriode), "", "", v.Date, f.PeriodStartDay)
 	}
 	d["CurrentPeriod"] = p
+	if page == "transaksi.html" {
+		current := bacaPeriodeKustom("", "", "", a.today(), f.PeriodStartDay)
+		d["PeriodStartDay"] = f.PeriodStartDay
+		d["PickerCycle"] = current
+		d["PickerPreviousCycle"] = bacaPeriodeKustom(current.Prev, "", "", a.today(), f.PeriodStartDay)
+		d["PickerFrom"], d["PickerTo"] = p.Dari, p.Sampai
+		if p.Bulan {
+			d["PickerFrom"], d["PickerTo"] = p.From.Format(formatTanggal), p.To.AddDate(0, 0, -1).Format(formatTanggal)
+		}
+		d["PeriodCompact"] = compactPeriod(p)
+		if !p.From.IsZero() && !p.To.IsZero() {
+			days := daysUntil(p.To, p.From)
+			d["CycleDays"] = days
+			d["CycleDay"] = max(0, min(days, daysUntil(a.today(), p.From)+1))
+			d["CycleRemaining"] = max(0, min(days, daysUntil(p.To, a.today())-1))
+			d["CycleFuture"] = hari(a.today()).Before(hari(p.From))
+			d["CycleEnded"] = !hari(a.today()).Before(hari(p.To))
+		}
+	}
 	switch page {
 	case "dashboard.html", "anggaran.html", "detail.html", "transaksi_form.html":
 		cats, err := a.store.Categories(ctx, id, "expense")
@@ -136,6 +157,8 @@ func (a *App) designData(r *http.Request, page string, d map[string]any) error {
 		if page == "transaksi.html" {
 			filter := TxFilter{From: p.From, To: p.To, Kinds: kindsForFilter(r.URL.Query().Get("jenis")), Category: r.URL.Query().Get("kategori"), Cari: strings.TrimSpace(r.URL.Query().Get("cari"))}
 			filter.WalletID, _ = strconv.ParseInt(r.URL.Query().Get("dompet"), 10, 64)
+			filter.RecorderID, _ = strconv.ParseInt(r.URL.Query().Get("pencatat"), 10, 64)
+			filter.RecorderID = max(0, filter.RecorderID)
 			filtered, err := a.store.Transactions(ctx, id, filter)
 			if err != nil {
 				return err
@@ -155,6 +178,7 @@ func (a *App) designData(r *http.Request, page string, d map[string]any) error {
 		}
 		d["WalletSummary"] = summarize(ws, rates, a.base)
 		equivalents := map[int64]string{}
+		rateLabels := map[int64]string{}
 		balances := map[int64]string{}
 		var debit []WalletView
 		for _, w := range ws {
@@ -165,10 +189,12 @@ func (a *App) designData(r *http.Request, page string, d map[string]any) error {
 			if w.Currency != a.base {
 				if rate, ok := rates[w.Currency+">"+a.base]; ok && rate.Valid() {
 					equivalents[w.ID] = Format(rate.Convert(w.BalanceMinor), a.base)
+					rateLabels[w.ID] = rate.String()
 				}
 			}
 		}
 		d["WalletEquivalents"] = equivalents
+		d["WalletRateLabels"] = rateLabels
 		d["WalletBalances"] = balances
 		d["DebitWallets"] = debit
 	}
@@ -332,6 +358,27 @@ func (a *App) periodMetrics(txs []Tx, p Periode, rates map[string]Rate) periodMe
 	m.In = Format(income, a.base)
 	m.Out = Format(expense, a.base)
 	m.Net = Format(income-expense, a.base)
+	m.NetTone = "in"
+	if income > expense {
+		m.Net = "+" + m.Net
+	}
+	if income < expense {
+		m.NetTone = "out"
+	}
+	m.HasIncome = income > 0
+	m.SpendingRatio = percentLabel(expense, income)
+	m.PaceLabel = "Belum Ada Pemasukan"
+	if m.HasIncome {
+		m.PaceLabel = "Pace Aman"
+		elapsed, duration := daysUntil(a.today(), p.From)+1, daysUntil(p.To, p.From)
+		allowed := 100.0
+		if duration > 0 {
+			allowed = float64(max(0, min(duration, elapsed))) * 100 / float64(duration)
+		}
+		if float64(expense)*100/float64(income) > allowed {
+			m.PaceLabel = "Perlu Dipantau"
+		}
+	}
 	m.Transfer = Format(transfer, a.base)
 	for k, n := range daily {
 		prefix := ""

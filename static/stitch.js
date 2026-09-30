@@ -19,7 +19,7 @@ $$('[data-filter-group]').forEach(group => {
  const name = group.dataset.filterGroup;
  $$('button[data-filter]', group).forEach(button => {
   button.setAttribute('aria-pressed', String(button.classList.contains('active')));
-  button.addEventListener('click', () => { $$('button', group).forEach(b => { b.classList.toggle('active', b === button); b.setAttribute('aria-pressed', String(b === button)); }); $$(`[data-filter-item="${name}"]`).forEach(item => { item.hidden = button.dataset.filter !== 'all' && item.dataset.filterValue !== button.dataset.filter; }); });
+  button.addEventListener('click', () => { $$('button', group).forEach(b => { b.classList.toggle('active', b === button); b.setAttribute('aria-pressed', String(b === button)); }); $$(`[data-filter-item="${name}"]`).forEach(item => { item.hidden = button.dataset.filter !== 'all' && item.dataset.filterValue !== button.dataset.filter; }); $$(`[data-filter-section="${name}"]`).forEach(section => { section.hidden = !$$(`[data-filter-item="${name}"]`, section).some(item => !item.hidden); }); });
  });
 });
 $('[data-sort-positions]')?.addEventListener('change', event => {

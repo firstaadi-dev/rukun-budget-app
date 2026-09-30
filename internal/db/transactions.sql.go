@@ -82,11 +82,12 @@ WHERE t.family_id = $1
       OR iv.name ILIKE '%' || $8::text || '%')
   AND ($9::bigint = 0 OR t.wallet_id = $9
        OR t.to_wallet_id = $9)
-  AND ($10::bigint = 0 OR t.investment_id = $10)
-  AND ($11::date IS NULL
-       OR (t.occurred_on, t.id) < ($11::date, $12::bigint))
+  AND ($10::bigint = 0 OR COALESCE(t.recorder_id,t.created_by) = $10)
+  AND ($11::bigint = 0 OR t.investment_id = $11)
+  AND ($12::date IS NULL
+       OR (t.occurred_on, t.id) < ($12::date, $13::bigint))
 ORDER BY t.occurred_on DESC, t.id DESC
-LIMIT NULLIF($13::integer, 0)
+LIMIT NULLIF($14::integer, 0)
 `
 
 type GetTransactionsParams struct {
@@ -99,6 +100,7 @@ type GetTransactionsParams struct {
 	ToDate        pgtype.Date
 	Search        string
 	WalletID      int64
+	RecorderID    int64
 	InvestmentID  int64
 	BeforeDate    pgtype.Date
 	BeforeID      int64
@@ -151,6 +153,7 @@ func (q *Queries) GetTransactions(ctx context.Context, arg GetTransactionsParams
 		arg.ToDate,
 		arg.Search,
 		arg.WalletID,
+		arg.RecorderID,
 		arg.InvestmentID,
 		arg.BeforeDate,
 		arg.BeforeID,

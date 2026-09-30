@@ -1,0 +1,410 @@
+<!DOCTYPE html><html lang="id"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Pemilih Periode Kalender - Rukun</title>
+<!-- Google Fonts: Plus Jakarta Sans & Inter -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Tailwind CSS v3 -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "surface-container": "#eeeeeb",
+            "error": "#ba1a1a",
+            "inverse-primary": "#84d4d3",
+            "tertiary-fixed": "#ffdad8",
+            "on-surface-variant": "#3e4948",
+            "on-secondary-fixed-variant": "#005236",
+            "primary-fixed-dim": "#84d4d3",
+            "outline": "#6e7979",
+            "on-primary-fixed": "#002020",
+            "on-error-container": "#93000a",
+            "on-surface": "#1a1c1b",
+            "on-primary": "#ffffff",
+            "on-tertiary-fixed": "#410006",
+            "background": "#f9f9f6",
+            "on-secondary-container": "#00714d",
+            "on-tertiary-container": "#ffd6d4",
+            "surface-container-lowest": "#ffffff",
+            "surface": "#f9f9f6",
+            "secondary-container": "#6cf8bb",
+            "on-error": "#ffffff",
+            "on-primary-container": "#9dedec",
+            "primary-container": "#0d6e6e",
+            "surface-container-highest": "#e2e3e0",
+            "secondary-fixed": "#6ffbbe",
+            "surface-dim": "#dadad7",
+            "primary-fixed": "#a0f0f0",
+            "secondary-fixed-dim": "#4edea3",
+            "tertiary": "#931a24",
+            "primary": "#005454",
+            "on-secondary-fixed": "#002113",
+            "outline-variant": "#bec9c8",
+            "tertiary-fixed-dim": "#ffb3b0",
+            "on-tertiary": "#ffffff",
+            "on-secondary": "#ffffff",
+            "inverse-on-surface": "#f1f1ee",
+            "surface-container-low": "#f4f4f1",
+            "on-background": "#1a1c1b",
+            "surface-bright": "#f9f9f6",
+            "secondary": "#006c49",
+            "on-primary-fixed-variant": "#004f50",
+            "surface-tint": "#016a6a",
+            "surface-variant": "#e2e3e0",
+            "on-tertiary-fixed-variant": "#8c1520",
+            "error-container": "#ffdad6",
+            "inverse-surface": "#2f312f",
+            "tertiary-container": "#b43438",
+            "surface-container-high": "#e8e8e5"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "margin": "1rem",
+            "margin-tablet": "2rem",
+            "space-xl": "2rem",
+            "gutter-sm": "0.75rem",
+            "space-md": "1rem",
+            "space-sm": "0.5rem",
+            "gutter": "1rem",
+            "space-lg": "1.5rem",
+            "margin-desktop": "3rem",
+            "space-xs": "0.25rem",
+            "gutter-lg": "1.5rem"
+          },
+          "fontFamily": {
+            "body-sm": ["Plus Jakarta Sans"],
+            "display-lg": ["Plus Jakarta Sans"],
+            "currency-md": ["Inter"],
+            "label-md": ["Plus Jakarta Sans"],
+            "headline-sm": ["Plus Jakarta Sans"],
+            "currency-display": ["Inter"],
+            "headline-md": ["Plus Jakarta Sans"],
+            "body-md": ["Plus Jakarta Sans"],
+            "currency-sm": ["Inter"],
+            "headline-lg": ["Plus Jakarta Sans"],
+            "label-sm": ["Plus Jakarta Sans"],
+            "body-lg": ["Plus Jakarta Sans"]
+          },
+          "fontSize": {
+            "body-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }],
+            "display-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "800" }],
+            "currency-md": ["16px", { "lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+            "label-md": ["13px", { "lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+            "headline-sm": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+            "currency-display": ["28px", { "lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+            "headline-md": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+            "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+            "currency-sm": ["13px", { "lineHeight": "18px", "fontWeight": "600" }],
+            "headline-lg": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.015em", "fontWeight": "700" }],
+            "label-sm": ["11px", { "lineHeight": "14px", "letterSpacing": "0.02em", "fontWeight": "600" }],
+            "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }]
+          }
+        }
+      }
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    /* Smooth custom styling */
+    .range-connector-start {
+      border-top-left-radius: 9999px;
+      border-bottom-left-radius: 9999px;
+    }
+    .range-connector-end {
+      border-top-right-radius: 9999px;
+      border-bottom-right-radius: 9999px;
+    }
+    /* Hide scrollbar for clean chip row */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-surface text-on-surface antialiased font-body-md min-h-screen flex justify-center items-end sm:items-center p-0 sm:p-4 selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- Mobile Screen Shell Simulated Container (390px) -->
+<div class="relative w-full max-w-[430px] h-[100dvh] max-h-[900px] overflow-hidden bg-surface-container-low shadow-2xl rounded-none sm:rounded-[36px] flex flex-col justify-end border border-outline-variant/30">
+<!-- BACKGROUND UNDERLAY: Screen "Transaksi Keluarga" blurred representation -->
+<div class="absolute inset-0 z-0 bg-background flex flex-col pointer-events-none filter blur-[2px] opacity-60">
+<!-- Background App Bar -->
+<header class="flex justify-between items-center px-space-md py-space-sm bg-surface">
+<div class="flex items-center gap-space-sm">
+<div class="w-10 h-10 rounded-full bg-secondary-container/60 text-on-secondary-container font-headline-sm flex items-center justify-center font-bold">F</div>
+<div>
+<h1 class="font-headline-sm text-headline-sm text-primary font-bold">Transaksi Keluarga</h1>
+<div class="flex items-center gap-1.5 text-body-sm text-secondary font-medium">
+<span class="w-2 h-2 rounded-full bg-secondary inline-block"></span>
+              Sinkron
+            </div>
+</div>
+</div>
+<div class="flex items-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined p-2">download</span>
+<span class="material-symbols-outlined p-2">notifications</span>
+</div>
+</header>
+<!-- Background Month Summary Card -->
+<div class="m-space-md p-space-md bg-surface-container-lowest rounded-2xl border border-outline-variant/20 shadow-sm">
+<div class="flex justify-between items-center mb-space-sm font-headline-sm text-headline-sm text-on-surface font-bold">
+<span class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">calendar_month</span>
+            September 2026
+          </span>
+<span class="material-symbols-outlined">expand_less</span>
+</div>
+<div class="grid grid-cols-3 gap-2">
+<div class="p-2.5 bg-surface-container-low rounded-xl">
+<span class="text-label-sm text-secondary block font-bold">↓ Masuk</span>
+<span class="font-currency-sm text-currency-sm text-secondary">Rp20.000.000</span>
+</div>
+<div class="p-2.5 bg-surface-container-low rounded-xl">
+<span class="text-label-sm text-tertiary block font-bold">↑ Keluar</span>
+<span class="font-currency-sm text-currency-sm text-tertiary">Rp121.212</span>
+</div>
+<div class="p-2.5 bg-surface-container-low rounded-xl">
+<span class="text-label-sm text-on-surface-variant block font-bold">▢ Selisih</span>
+<span class="font-currency-sm text-currency-sm text-on-surface">Rp19.878.788</span>
+</div>
+</div>
+</div>
+</div>
+<!-- MODAL OVERLAY SCRIM (LEVEL 2 ELEVATION) -->
+<div class="absolute inset-0 z-10 bg-on-surface/40 backdrop-blur-[6px] transition-opacity"></div>
+<!-- ERGONOMIC BOTTOM SHEET MODAL (CALENDAR DATE RANGE PICKER) -->
+<div class="relative z-20 w-full bg-surface-container-lowest rounded-t-[32px] shadow-[0_-12px_36px_-6px_rgba(13,110,110,0.18)] border-t border-outline-variant/30 flex flex-col max-h-[92vh] overflow-hidden animate-slide-up">
+<!-- Drag Handle Pill -->
+<div class="w-full flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing">
+<div class="w-12 h-1.5 bg-surface-container-highest rounded-full"></div>
+</div>
+<!-- Header: Title and Close -->
+<div class="px-space-md py-space-xs flex justify-between items-center border-b border-outline-variant/15 pb-3">
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface font-bold tracking-tight">Pilih Periode Waktu</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Atur rentang anggaran atau pembukuan keluarga</p>
+</div>
+<button aria-label="Tutup" class="w-9 h-9 rounded-full bg-surface-container-low text-on-surface-variant hover:bg-surface-container flex items-center justify-center transition-colors active:scale-95" type="button">
+<span class="material-symbols-outlined text-[20px]">close</span>
+</button>
+</div>
+<!-- Scrollable Main Container with Clean Breathing Room -->
+<div class="overflow-y-auto px-space-md py-space-sm space-y-4 max-h-[calc(92vh-155px)] no-scrollbar">
+<!-- Segmented Tab Navigation: Kalender vs Preset -->
+<div class="overflow-x-auto no-scrollbar flex items-center gap-2 py-1 px-0.5 -mx-1">
+  <button class="whitespace-nowrap px-3.5 py-1.5 rounded-full bg-primary text-on-primary font-label-md text-label-sm font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all" type="button">
+    <span class="material-symbols-outlined text-[16px] text-on-primary">check</span>
+    <span class="">Siklus Ini (28 Sep – 27 Okt)</span>
+  </button>
+  <button class="whitespace-nowrap px-3.5 py-1.5 rounded-full bg-surface-container-lowest border border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low font-label-md text-label-sm font-medium transition-colors active:scale-95" type="button">
+    Siklus Lalu
+  </button>
+  <button class="whitespace-nowrap px-3.5 py-1.5 rounded-full bg-surface-container-lowest border border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low font-label-md text-label-sm font-medium transition-colors active:scale-95" type="button">
+    Bulan Ini (Kalender)
+  </button>
+  <button class="whitespace-nowrap px-3.5 py-1.5 rounded-full bg-surface-container-lowest border border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low font-label-md text-label-sm font-medium transition-colors active:scale-95" type="button">
+    Bulan Lalu
+  </button>
+  <button class="whitespace-nowrap px-3.5 py-1.5 rounded-full bg-surface-container-lowest border border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low font-label-md text-label-sm font-medium transition-colors active:scale-95" type="button">
+    7 Hari Terakhir
+  </button>
+  <button class="whitespace-nowrap px-3.5 py-1.5 rounded-full bg-surface-container-lowest border border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low font-label-md text-label-sm font-medium transition-colors active:scale-95" type="button">
+    30 Hari Terakhir
+  </button>
+  <button class="whitespace-nowrap px-3.5 py-1.5 rounded-full bg-surface-container-lowest border border-outline-variant/30 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low font-label-md text-label-sm font-medium transition-colors active:scale-95" type="button">
+    Tahun Ini
+  </button>
+  <button class="whitespace-nowrap px-3.5 py-1.5 rounded-full bg-surface-container-lowest border border-outline-variant/30 text-primary hover:bg-surface-container-low font-label-md text-label-sm font-bold flex items-center gap-1 transition-colors active:scale-95" type="button">
+    <span class="material-symbols-outlined text-[15px]">tune</span>
+    <span class="">Kustom / Kalender</span>
+  </button>
+</div>
+<!-- SELECTED RANGE PREVIEW CARD (BENTO STYLE) -->
+<div class="p-3.5 bg-surface-container-low/70 rounded-2xl border border-outline-variant/25">
+<div class="flex items-center justify-between gap-2">
+<!-- Start Date Card -->
+<div class="flex-1 bg-surface-container-lowest p-2.5 rounded-xl border border-outline-variant/20 shadow-xs">
+<div class="flex items-center gap-1 mb-0.5">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span class="text-label-sm font-label-sm text-outline font-semibold uppercase tracking-wider">Mulai</span>
+</div>
+<div class="font-headline-sm text-headline-sm text-on-surface font-bold leading-tight">28 Sep 2026</div>
+<span class="inline-flex items-center mt-1 px-1.5 py-0.5 rounded-md bg-secondary-container/40 text-on-secondary-container font-label-sm text-[10px] font-bold">
+                Mulai Siklus
+              </span>
+</div>
+<!-- Arrow Indicator & Days Pill -->
+<div class="flex flex-col items-center justify-center px-1">
+<span class="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-label-sm text-[11px] font-bold tracking-tight whitespace-nowrap mb-1">
+                30 Hari
+              </span>
+<span class="material-symbols-outlined text-outline-variant text-[20px]">arrow_forward</span>
+</div>
+<!-- End Date Card -->
+<div class="flex-1 bg-surface-container-lowest p-2.5 rounded-xl border border-outline-variant/20 shadow-xs">
+<div class="flex items-center gap-1 mb-0.5">
+<span class="w-2 h-2 rounded-full bg-primary-container"></span>
+<span class="text-label-sm font-label-sm text-outline font-semibold uppercase tracking-wider">Sampai</span>
+</div>
+<div class="font-headline-sm text-headline-sm text-on-surface font-bold leading-tight">27 Okt 2026</div>
+<span class="inline-flex items-center mt-1 px-1.5 py-0.5 rounded-md bg-secondary-container/40 text-on-secondary-container font-label-sm text-[10px] font-bold">
+                Akhir Siklus
+              </span>
+</div>
+</div>
+<div class="mt-2.5 pt-2 border-t border-outline-variant/20 flex items-center justify-between text-body-sm">
+<span class="text-on-surface-variant flex items-center gap-1 text-[12px]">
+<span class="material-symbols-outlined text-secondary text-[16px]">verified</span>
+              Siklus gajian Ayu &amp; Bima
+            </span>
+<span class="text-secondary font-bold text-[12px]">Tepat 1 Bulan Finansial</span>
+</div>
+</div>
+<!-- MONTH SWITCHER & CALENDAR CONTAINER -->
+<div class="bg-surface-container-lowest p-3.5 rounded-2xl border border-outline-variant/20 shadow-xs">
+<!-- Month Header Controls -->
+<div class="flex items-center justify-between pb-3 mb-2 border-b border-surface-container">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[22px]">calendar_today</span>
+<h3 class="font-headline-sm text-headline-sm text-on-surface font-bold">
+                Sep – Okt 2026
+              </h3>
+</div>
+<div class="flex items-center gap-1">
+<button aria-label="Bulan sebelumnya" class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-on-surface active:scale-90 transition-transform" type="button">
+<span class="material-symbols-outlined text-[20px]">chevron_left</span>
+</button>
+<button aria-label="Bulan berikutnya" class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container hover:text-on-surface active:scale-90 transition-transform" type="button">
+<span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</button>
+</div>
+</div>
+<!-- Day of Week Row (Spacious & Clean) -->
+<div class="grid grid-cols-7 mb-2 text-center">
+<span class="font-label-sm text-label-sm font-bold text-outline py-1">Sen</span>
+<span class="font-label-sm text-label-sm font-bold text-outline py-1">Sel</span>
+<span class="font-label-sm text-label-sm font-bold text-outline py-1">Rab</span>
+<span class="font-label-sm text-label-sm font-bold text-outline py-1">Kam</span>
+<span class="font-label-sm text-label-sm font-bold text-outline py-1">Jum</span>
+<span class="font-label-sm text-label-sm font-bold text-outline py-1">Sab</span>
+<span class="font-label-sm text-label-sm font-bold text-tertiary/70 py-1">Min</span>
+</div>
+<!-- Calendar Dates Grid: Spacious 44px Touch Targets with Smooth Highlight -->
+<div class="grid grid-cols-7 gap-y-1.5 text-center items-center">
+<!-- Row 1 (September starts Tue 1st) -->
+<div class="h-10 flex items-center justify-center text-outline-variant font-body-md text-surface-dim">31</div>
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">1</div>
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">2</div>
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">3</div>
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">4</div>
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">5</div>
+<div class="h-10 flex items-center justify-center font-body-md text-tertiary hover:bg-surface-container-high rounded-full cursor-pointer">6</div>
+<!-- Row 2 -->
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">7</div>
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">8</div>
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">9</div>
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">10</div>
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">11</div>
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">12</div>
+<div class="h-10 flex items-center justify-center font-body-md text-tertiary hover:bg-surface-container-high rounded-full cursor-pointer">13</div>
+<!-- Row 3 -->
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">14</div>
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">15</div>
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">16</div>
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">17</div>
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">18</div>
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">19</div>
+<div class="h-10 flex items-center justify-center font-body-md text-tertiary hover:bg-surface-container-high rounded-full cursor-pointer">20</div>
+<!-- Row 4 -->
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">21</div>
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">22</div>
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">23</div>
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">24</div>
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">25</div>
+<div class="h-10 flex items-center justify-center font-body-md text-on-surface hover:bg-surface-container-high rounded-full cursor-pointer">26</div>
+<div class="h-10 flex items-center justify-center font-body-md text-tertiary hover:bg-surface-container-high rounded-full cursor-pointer">27</div>
+<!-- Row 5: Active Selected Range (28 Sep - 30 Sep) -->
+<!-- 28 Sep (Start selection) -->
+<div class="h-10 flex items-center justify-center bg-primary-fixed/30 range-connector-start">
+<div class="w-9 h-9 rounded-full bg-primary-container text-on-primary flex items-center justify-center font-bold shadow-sm ring-2 ring-primary">
+                28
+              </div>
+</div>
+<!-- 29 Sep (Continuous Range) -->
+<div class="h-10 flex items-center justify-center bg-primary-fixed/30 font-body-md font-semibold text-primary">
+              29
+            </div>
+<!-- 30 Sep (Continuous Range) -->
+<div class="h-10 flex items-center justify-center bg-primary-fixed/30 font-body-md font-semibold text-primary">
+              30
+            </div>
+<!-- 1 Okt (Cross month continuous range) -->
+<div class="h-10 flex items-center justify-center bg-primary-fixed/30 font-body-md font-semibold text-primary">
+              1
+            </div>
+<!-- 2 Okt (Continuous range) -->
+<div class="h-10 flex items-center justify-center bg-primary-fixed/30 font-body-md font-semibold text-primary">
+              2
+            </div>
+<!-- 3 Okt (Continuous range) -->
+<div class="h-10 flex items-center justify-center bg-primary-fixed/30 font-body-md font-semibold text-primary">
+              3
+            </div>
+<!-- 4 Okt (Continuous range) -->
+<div class="h-10 flex items-center justify-center bg-primary-fixed/30 font-body-md font-semibold text-primary">
+              4
+            </div>
+<!-- Row 6: Continuation of October Range up to 27th (Visual collapsed representation indicator) -->
+<div class="col-span-7 py-1 px-3 my-0.5 bg-primary-fixed/20 rounded-lg flex items-center justify-between text-body-sm text-primary font-medium">
+<span class="flex items-center gap-1.5 text-[11px]">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                Rentang berlanjut hingga <strong>27 Okt 2026</strong>
+</span>
+<span class="inline-flex items-center gap-1 bg-surface-container-lowest px-2 py-0.5 rounded-md text-[11px] font-bold text-primary shadow-xs">
+                Ubah Tanggal Selesai
+                <span class="material-symbols-outlined text-[14px]">edit_calendar</span>
+</span>
+</div>
+</div>
+</div>
+<!-- QUICK FINANCIAL CYCLE CHIPS (Replacing the cluttered 8-item matrix with smart contextual chips) -->
+
+</div>
+<!-- BOTTOM ACTION CTA (LEVEL 1 ELEVATION PINNED DOCK) -->
+<div class="p-space-md bg-surface-container-lowest border-t border-outline-variant/20 flex items-center gap-3">
+<!-- Reset Action -->
+<button class="px-4 py-3 rounded-2xl bg-surface-container-low text-on-surface-variant hover:text-on-surface hover:bg-surface-container font-headline-sm text-label-md font-bold transition-all active:scale-95 flex items-center justify-center gap-1" type="button">
+<span class="material-symbols-outlined text-[18px]">history</span>
+          Reset
+        </button>
+<!-- Primary Apply Button -->
+<button class="flex-1 py-3 px-4 rounded-2xl bg-primary-container text-on-primary hover:bg-primary font-headline-sm text-headline-sm font-bold shadow-[0_4px_16px_rgba(13,110,110,0.25)] transition-all active:scale-95 flex items-center justify-center gap-2" type="button">
+<span class="">Terapkan Periode</span>
+<span class="text-body-sm font-normal opacity-90">(30 Hari)</span>
+<span class="material-symbols-outlined text-[20px]">check</span>
+</button>
+</div>
+</div>
+</div>
+
+
+</body></html>

@@ -142,6 +142,7 @@ func (s *Store) getTxs(ctx context.Context, params sqlcdb.GetTransactionsParams)
 // TxFilter menyaring daftar transaksi. Setiap ruas yang dibiarkan kosong
 // berarti tidak menyaring apa-apa di sisi itu.
 type TxFilter struct {
+	RecorderID int64
 	// Kinds kosong berarti semua jenis. Category kosong berarti semua kategori;
 	// transfer dan hutang piutang tidak punya kategori, jadi menyaringnya dengan
 	// sendirinya menyisakan pengeluaran dan pemasukan saja.
@@ -168,7 +169,7 @@ type TxFilter struct {
 func (s *Store) Transactions(ctx context.Context, familyID int64, f TxFilter) ([]Tx, error) {
 	params := sqlcdb.GetTransactionsParams{
 		FamilyID: familyID, Kinds: f.Kinds, Category: f.Category,
-		Search: f.Cari, WalletID: f.WalletID, InvestmentID: f.Investment,
+		Search: f.Cari, WalletID: f.WalletID, InvestmentID: f.Investment, RecorderID: f.RecorderID,
 		LimitCount: int32(f.Limit), BeforeID: f.BeforeID,
 	}
 	if !f.From.IsZero() {

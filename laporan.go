@@ -100,6 +100,8 @@ func (a *App) txExport(w http.ResponseWriter, r *http.Request) {
 	if category != "" && (kind == "transfer" || kind == "hutang" || kind == "invest_buy") {
 		kind = ""
 	}
+	recorderID, _ := strconv.ParseInt(q.Get("pencatat"), 10, 64)
+	recorderID = max(0, recorderID)
 	walletID, _ := strconv.ParseInt(q.Get("dompet"), 10, 64)
 	if walletID < 0 {
 		walletID = 0
@@ -112,7 +114,7 @@ func (a *App) txExport(w http.ResponseWriter, r *http.Request) {
 	p := bacaPeriodeKustom(q.Get("periode"), q.Get("dari"), q.Get("sampai"), a.today(), f.PeriodStartDay)
 	txs, err := a.store.Transactions(r.Context(), family(r), TxFilter{
 		Kinds: kindsForFilter(kind), Category: category, Cari: strings.TrimSpace(q.Get("cari")),
-		WalletID: walletID, From: p.From, To: p.To,
+		WalletID: walletID, RecorderID: recorderID, From: p.From, To: p.To,
 	})
 	if err != nil {
 		a.fail(w, r, err)

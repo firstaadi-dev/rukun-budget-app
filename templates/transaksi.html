@@ -1,80 +1,19 @@
 {{define "content"}}
 <div class="stack">
-  {{/* Periode berdiri paling atas karena ia yang paling menentukan isi daftar:
-       sisanya menyaring di dalam rentang yang dipilih di sini. */}}
-  <section class="card transaction-period"><div class="periode">
-    <span class="periode-controls">
-    {{/* Panah hanya ada pada bulan. Pada rentang khusus, panah harus melangkah
-         sejauh rentangnya sendiri, dan "bulan berikutnya" dari 3–17 Juli tidak
-         punya jawaban yang bisa ditebak orang yang menekannya. */}}
-    {{if .Periode.Bulan}}
-      <a class="btn btn-ghost btn-icon" href="{{.URLPrev}}" aria-label="Bulan sebelumnya">&lsaquo;</a>
-    {{end}}
-
-    {{/* Nama periodenya sekaligus tombolnya: menekan "Agustus 2026" membuka
-         pemilih rentang tanggal tepat di bawahnya. Digantung di <details>, jadi
-         buka-tutupnya tetap jalan tanpa JS — skripnya cuma menutup panel saat
-         ditekan di luar, dan itu kenyamanan, bukan syarat. */}}
-    <details class="menu">
-      <summary class="periode-label" aria-label="Ubah periode">
-        {{di "calendar"}} {{.Periode.Label}}{{template "icon-chev"}}
-      </summary>
-      <div class="menu-pop card elev-md tx-date-picker">
-        <form method="get" action="/transaksi">
-          <input type="hidden" name="jenis" value="{{.Filter}}">
-          <input type="hidden" name="kategori" value="{{.Kategori}}">
-          <input type="hidden" name="dompet" value="{{.DompetID}}">
-          <input type="hidden" name="cari" value="{{.Cari}}">
-          <div class="tx-date-body">
-            <nav class="tx-date-presets" aria-label="Rentang cepat">
-              <button type="button" data-range-preset="today">Hari Ini</button>
-              <button type="button" data-range-preset="yesterday">Kemarin</button>
-              <button type="button" data-range-preset="last7">7 Hari Terakhir</button>
-              <button type="button" data-range-preset="thisWeek">Minggu Ini</button>
-              <button type="button" data-range-preset="lastWeek">Minggu Lalu</button>
-              <button type="button" data-range-preset="last30">30 Hari Terakhir</button>
-              <button type="button" data-range-preset="thisMonth">Bulan Ini</button>
-              <button type="button" data-range-preset="lastMonth">Bulan Lalu</button>
-            </nav>
-            <div class="tx-calendar" data-range-calendar data-from="{{.Periode.Dari}}" data-to="{{.Periode.Sampai}}" data-month="{{.Periode.From.Format "2006-01-02"}}">
-              <input id="dari" name="dari" type="hidden" value="{{.Periode.Dari}}">
-              <input id="sampai" name="sampai" type="hidden" value="{{.Periode.Sampai}}">
-              <div class="tx-calendar-head">
-                <button type="button" class="btn btn-ghost btn-icon" data-calendar-prev aria-label="Bulan sebelumnya">&lsaquo;</button>
-                <div data-calendar-months class="tx-calendar-months"></div>
-                <button type="button" class="btn btn-ghost btn-icon" data-calendar-next aria-label="Bulan berikutnya">&rsaquo;</button>
-              </div>
-              <p class="text-muted small" data-calendar-selection>Pilih tanggal mulai</p>
-            </div>
-          </div>
-          <div class="menu-pop-kaki">
-            {{if .Periode.Rentang}}
-              <a class="small" href="{{.URLBulanIni}}">Hapus rentang</a>
-            {{end}}
-            {{if .Periode.Semua}}
-              <a class="small" href="{{.URLBulanIni}}">Bulan ini</a>
-            {{else}}
-              <a class="small" href="{{.URLSemua}}">Seluruh waktu</a>
-            {{end}}
-          </div>
-        </form>
-      </div>
-    </details>
-
-    {{if .Periode.Bulan}}
-      <a class="btn btn-ghost btn-icon" href="{{.URLNext}}" aria-label="Bulan berikutnya">&rsaquo;</a>
-    {{end}}
-    </span>
-  </div>
-
-  <div class="transaction-metrics"><div><span class="m-in">↓ Masuk</span><strong class="m-in">{{.Metrics.In}}</strong></div><div><span class="m-out">↑ Keluar</span><strong class="m-out">{{.Metrics.Out}}</strong></div><div><span>▣ Selisih</span><strong>{{.Metrics.Net}}</strong></div></div></section>
+  <section class="card transaction-period cycle-summary">
+    <div class="cycle-summary-top"><span class="cycle-tag">{{di "calendar"}} {{if .Periode.Bulan}}{{if ne .PeriodStartDay 1}}Siklus Gajian (Tgl {{.PeriodStartDay}}){{else}}Siklus Bulanan{{end}}{{else if .Periode.Semua}}Seluruh Waktu{{else}}Rentang Kustom{{end}}</span><button type="button" class="cycle-change" data-open-dialog="period-dialog">{{di "calendar"}} Ubah</button></div>
+    <div class="cycle-navigation">{{if .Periode.Bulan}}<a class="cycle-arrow" href="{{.URLPrev}}" aria-label="Periode sebelumnya">‹</a>{{end}}<div><button class="cycle-range" type="button" data-open-dialog="period-dialog">{{if .PeriodCompact}}{{.PeriodCompact}}{{else}}{{.Periode.Label}}{{end}} {{template "icon-chev"}}</button>{{if .CycleDays}}<p class="small text-muted">{{if .CycleFuture}}Periode belum dimulai{{else if .CycleEnded}}Periode selesai{{else}}Hari ke-{{.CycleDay}} dari {{.CycleDays}} hari <span class="cycle-separator">•</span> <strong class="m-in">{{.CycleRemaining}} hari tersisa</strong>{{end}}</p>{{end}}</div>{{if .Periode.Bulan}}<a class="cycle-arrow" href="{{.URLNext}}" aria-label="Periode berikutnya">›</a>{{end}}</div>
+    <div class="transaction-metrics"><div><span class="m-in">↓ Masuk</span><strong class="m-in">{{.Metrics.In}}</strong></div><div><span class="m-out">↑ Keluar</span><strong class="m-out">{{.Metrics.Out}}</strong></div><div><span>{{di "balance"}} Selisih</span><strong class="m-{{.Metrics.NetTone}}">{{.Metrics.Net}}</strong></div></div>
+    <div class="cycle-pace"><div><span>{{di "check"}} Ritme Pengeluaran: <strong>{{.Metrics.PaceLabel}}</strong></span>{{if .Metrics.HasIncome}}<strong>{{.Metrics.SpendingRatio}}% terpakai</strong>{{end}}</div>{{if .Metrics.HasIncome}}<progress value="{{.Metrics.SpendingRatio}}" max="100" aria-label="Pengeluaran dibanding pemasukan"></progress>{{end}}</div>
+  </section>
+  {{template "period-picker" .}}
   {{/* Pencarian dan tanggal tetap selalu tampak; penyaring lain dikumpulkan
        dalam satu menu agar tidak memenuhi layar ponsel. */}}
   <div class="tx-toolbar">
    <form method="get" action="/transaksi" class="filter-row" data-search-debounce>
     <input type="hidden" name="jenis" value="{{.Filter}}">
     <input type="hidden" name="kategori" value="{{.Kategori}}">
-    <input type="hidden" name="dompet" value="{{.DompetID}}">
+    <input type="hidden" name="dompet" value="{{.DompetID}}"><input type="hidden" name="pencatat" value="{{.RecorderID}}">
     {{if .Periode.Rentang}}
       <input type="hidden" name="dari" value="{{.Periode.Dari}}">
       <input type="hidden" name="sampai" value="{{.Periode.Sampai}}">
@@ -83,16 +22,15 @@
     {{end}}
     <span class="tx-search">{{di "search"}}
       <input class="input" id="cari" name="cari" type="search" value="{{.Cari}}"
-             placeholder="Cari catatan, kategori, dompet…"><button class="header-button" type="button" data-voice-search aria-label="Cari dengan suara">{{di "mic"}}</button>
+             placeholder="Cari transaksi, toko, cicilan…"><button class="header-button" type="button" data-voice-search aria-label="Cari dengan suara">{{di "mic"}}</button>
     </span>
    </form>
 
-   <form method="get" class="transaction-filter-pills"><input type="hidden" name="periode" value="{{.Periode.Nilai}}"><input type="hidden" name="cari" value="{{.Cari}}"><input type="hidden" name="kategori" value="{{.Kategori}}">{{if .Periode.Rentang}}<input type="hidden" name="dari" value="{{.Periode.Dari}}"><input type="hidden" name="sampai" value="{{.Periode.Sampai}}">{{end}}<label>Jenis: <select name="jenis" aria-label="Jenis transaksi" onchange="this.form.submit()">{{range .Filters}}<option value="{{.Value}}" {{if .On}}selected{{end}}>{{.Label}}</option>{{end}}</select></label><label>Dompet: <select name="dompet" aria-label="Dompet transaksi" onchange="this.form.submit()"><option value="">Semua Dompet</option>{{range .Wallets}}<option value="{{.ID}}" {{if eq $.DompetID .ID}}selected{{end}}>{{.Name}}</option>{{end}}</select></label><noscript><button class="btn">Terapkan</button></noscript></form>
-   <details class="menu tx-filter-menu">
-    <summary class="btn btn-secondary">Filter{{template "icon-chev"}}</summary>
-    <div class="menu-pop card elev-md">
+   <div class="transaction-filters"><form method="get" class="transaction-filter-pills"><input type="hidden" name="periode" value="{{.Periode.Nilai}}"><input type="hidden" name="cari" value="{{.Cari}}"><input type="hidden" name="kategori" value="{{.Kategori}}">{{if .Periode.Rentang}}<input type="hidden" name="dari" value="{{.Periode.Dari}}"><input type="hidden" name="sampai" value="{{.Periode.Sampai}}">{{end}}<label class="type-filter"><select name="jenis" aria-label="Jenis transaksi" onchange="this.form.submit()">{{range .Filters}}<option value="{{.Value}}" {{if .On}}selected{{end}}>{{if not .Value}}Semua Jenis{{else}}{{.Label}}{{end}}</option>{{end}}</select></label><label><select name="dompet" aria-label="Dompet transaksi" onchange="this.form.submit()"><option value="">Semua Dompet</option>{{range .Wallets}}<option value="{{.ID}}" {{if eq $.DompetID .ID}}selected{{end}}>{{.Name}}</option>{{end}}</select></label><label class="member-filter">Oleh: <select name="pencatat" aria-label="Pencatat transaksi" onchange="this.form.submit()"><option value="">Semua</option>{{range .FamilyMembers}}<option value="{{.ID}}" {{if eq $.RecorderID .ID}}selected{{end}}>{{.Name}}</option>{{end}}</select></label><noscript><button class="btn">Terapkan</button></noscript></form>
+   <button class="category-filter-trigger" type="button" data-open-dialog="tx-filter-dialog">Kategori {{di "settings"}}</button></div>
+   <dialog class="bottom-sheet transaction-filter-dialog" id="tx-filter-dialog"><div class="sheet-handle"></div><header class="sec-head"><h4>Filter Transaksi</h4><button class="header-button" type="button" data-close-dialog aria-label="Tutup">×</button></header>
       <form method="get" action="/transaksi" class="stack">
-        <input type="hidden" name="cari" value="{{.Cari}}">
+        <input type="hidden" name="cari" value="{{.Cari}}"><input type="hidden" name="pencatat" value="{{.RecorderID}}">
         {{if .Periode.Rentang}}
           <input type="hidden" name="dari" value="{{.Periode.Dari}}">
           <input type="hidden" name="sampai" value="{{.Periode.Sampai}}">
@@ -132,8 +70,7 @@
         </div>
         <button type="submit" class="btn btn-primary">Terapkan filter</button>
       </form>
-    </div>
-   </details>
+   </dialog>
   </div>
 
   {{if .Kategori}}
@@ -145,7 +82,7 @@
     {{range .Groups}}
       <section>
         <div class="sec-head transaction-day"><h6 class="group-head">{{.FullLabel}}</h6>{{if $.DailyTotals}}<span class="small">{{index $.DailyTotals .Label}}</span>{{end}}</div>
-        <div class="rows">{{range .Items}}{{template "tx-row" .}}{{end}}</div>
+        <div class="cycle-transaction-cards">{{range .Items}}{{template "cycle-tx-row" .}}{{end}}</div>
       </section>
     {{end}}
   {{else if .Cari}}
@@ -157,9 +94,26 @@
       {{if .Periode.Semua}}yang tercatat{{else}}{{.Periode.Frasa}}{{end}}{{if .Kategori}} untuk kategori itu{{end}}.
       {{if not .Periode.Semua}}<a href="{{.URLSemua}}">Lihat seluruh waktu</a>{{end}}</p>
   {{end}}
-  {{if not .NextPage}}<p class="period-end">Menampilkan seluruh transaksi {{.Periode.Label}}</p>{{end}}
+  {{if not .NextPage}}<p class="period-end">Menampilkan seluruh transaksi {{if .Periode.Bulan}}siklus {{end}}{{if .PeriodCompact}}{{.PeriodCompact}}{{else}}{{.Periode.Label}}{{end}}</p>{{end}}
   {{if .NextPage}}
     <a class="btn btn-secondary" href="{{.NextPage}}">Lihat transaksi berikutnya</a>
   {{end}}
 </div>
+{{end}}
+
+{{define "cycle-tx-row"}}
+<a class="card cycle-tx-row" href="/transaksi/{{.ID}}"><span class="row-ic t-{{.Tone}}">{{if .Category}}{{di (categoryIcon .Category)}}{{else}}{{template "tx-icon" .Kind}}{{end}}</span><span class="row-main"><strong class="row-title">{{if .Note}}{{.Note}}{{else}}{{.ShortDesc}}{{end}}</strong><span class="small text-muted">{{if .Category}}{{.Category}} · {{end}}{{.WalletLabel}}</span>{{with .SeriesLabel}}<span class="cycle-installment">{{.}}</span>{{end}}{{with .CreatedBy}}<span class="recorded-by"><span class="status-dot"></span> Dicatat {{.}}</span>{{end}}</span><span class="row-amount"><strong class="row-amt m-{{.Tone}}">{{.Amount}}</strong>{{with .OccurredTime}}<small class="text-muted">{{.}} WIB</small>{{end}}{{if .IsTransfer}}<small class="text-muted">Pindah Saldo</small>{{end}}</span></a>
+{{end}}
+{{define "period-picker"}}
+<dialog id="period-dialog" class="bottom-sheet period-picker">
+ <div class="sheet-handle"></div><header class="period-picker-header"><div><h4>Pilih Periode Waktu</h4><p class="small text-muted">Atur rentang anggaran atau pembukuan keluarga</p></div><button type="button" class="header-button" data-close-dialog aria-label="Tutup">×</button></header>
+ <form method="get" action="/transaksi" data-period-picker data-today="{{with .Today}}{{iso .}}{{end}}" data-start-day="{{.PeriodStartDay}}" data-initial-mode="{{if .Periode.Bulan}}cycle{{else if .Periode.Semua}}all{{else}}custom{{end}}">
+  <input type="hidden" name="jenis" value="{{.Filter}}"><input type="hidden" name="kategori" value="{{.Kategori}}"><input type="hidden" name="dompet" value="{{.DompetID}}"><input type="hidden" name="pencatat" value="{{.RecorderID}}"><input type="hidden" name="cari" value="{{.Cari}}"><input type="hidden" name="periode" value="{{.Periode.Nilai}}">
+  <div class="period-picker-scroll"><nav class="period-presets" aria-label="Rentang cepat">{{with .PickerCycle}}<button type="button" data-period-preset="cycle" data-period="{{.Nilai}}" data-from="{{iso .From}}" data-to="{{periodEnd .}}">{{di "check"}} Siklus Ini ({{compactPeriod .}})</button>{{end}}{{with .PickerPreviousCycle}}<button type="button" data-period-preset="previous" data-period="{{.Nilai}}" data-from="{{iso .From}}" data-to="{{periodEnd .}}">Siklus Lalu</button>{{end}}<button type="button" data-period-preset="month">Bulan Ini (Kalender)</button><button type="button" data-period-preset="last7">7 Hari Terakhir</button><button type="button" data-period-preset="last30">30 Hari Terakhir</button><button type="button" data-period-preset="year">Tahun Ini</button><button type="button" data-period-preset="today">Hari Ini</button><button type="button" data-period-preset="yesterday">Kemarin</button><button type="button" data-period-preset="thisWeek">Minggu Ini</button><button type="button" data-period-preset="lastWeek">Minggu Lalu</button><button type="button" data-period-preset="lastMonth">Bulan Lalu</button><button type="button" data-period-preset="custom">{{di "settings"}} Kustom / Kalender</button><a href="{{.URLSemua}}">Seluruh Waktu</a></nav>
+   <section class="period-range-preview"><div class="period-date-pair"><label class="period-date-card"><span><span class="status-dot"></span> Mulai</span><strong data-period-from-label></strong><span class="period-date-badge" data-period-start-badge>Mulai Siklus</span><input type="date" name="dari" value="{{.PickerFrom}}" aria-label="Tanggal mulai"></label><div class="period-day-count"><strong data-period-days>— Hari</strong><span>→</span></div><label class="period-date-card"><span><span class="status-dot"></span> Sampai</span><strong data-period-to-label></strong><span class="period-date-badge" data-period-end-badge>Akhir Siklus</span><input type="date" name="sampai" value="{{.PickerTo}}" aria-label="Tanggal selesai"></label></div><div class="period-range-note">{{di "check"}}<span data-period-note>Siklus {{.Family}}</span><strong data-period-match>Tepat 1 Bulan Finansial</strong></div></section>
+   <section class="period-calendar"><div class="period-calendar-heading"><h5>{{di "calendar"}} <span data-period-month></span></h5><button class="header-button" type="button" data-period-prev aria-label="Bulan sebelumnya">‹</button><button class="header-button" type="button" data-period-next aria-label="Bulan berikutnya">›</button></div><div class="period-calendar-grid" data-period-grid></div><div class="period-continuation" hidden data-period-continuation><span>Rentang berlanjut hingga <strong data-period-continuation-date></strong></span><button type="button" data-period-edit-end>Ubah Tanggal Selesai {{di "calendar"}}</button></div><p class="small text-muted" data-period-instruction>Pilih tanggal mulai, lalu tanggal selesai.</p></section>
+  </div>
+  <footer class="period-picker-footer"><button class="btn btn-secondary" type="button" data-period-reset>{{di "history"}} Reset</button><button class="btn btn-primary" type="submit">Terapkan Periode <small data-period-apply-days></small> {{di "check"}}</button></footer>
+ </form>
+</dialog>
 {{end}}

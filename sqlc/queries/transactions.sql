@@ -35,6 +35,7 @@ WHERE t.family_id = sqlc.arg(family_id)
       OR iv.name ILIKE '%' || sqlc.arg(search)::text || '%')
   AND (sqlc.arg(wallet_id)::bigint = 0 OR t.wallet_id = sqlc.arg(wallet_id)
        OR t.to_wallet_id = sqlc.arg(wallet_id))
+  AND (sqlc.arg(recorder_id)::bigint = 0 OR COALESCE(t.recorder_id,t.created_by) = sqlc.arg(recorder_id))
   AND (sqlc.arg(investment_id)::bigint = 0 OR t.investment_id = sqlc.arg(investment_id))
   AND (sqlc.narg(before_date)::date IS NULL
        OR (t.occurred_on, t.id) < (sqlc.narg(before_date)::date, sqlc.arg(before_id)::bigint))

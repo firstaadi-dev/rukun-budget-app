@@ -404,7 +404,12 @@ func staticHandler() http.Handler {
 }
 
 var tmplFuncs = template.FuncMap{
-	"initials": initials, "di": designIcon, "categoryIcon": categoryIcon, "serviceIcon": serviceIcon, "dateOnly": dateOnly, "daysUntil": daysUntil, "pct": percentLabel,
+	"initials": initials, "di": designIcon, "categoryIcon": categoryIcon, "serviceIcon": serviceIcon, "dateOnly": dateOnly, "daysUntil": daysUntil, "pct": percentLabel, "compactPeriod": compactPeriod, "periodEnd": func(p Periode) string {
+		if p.To.IsZero() {
+			return ""
+		}
+		return p.To.AddDate(0, 0, -1).Format(formatTanggal)
+	},
 	"symbol": Symbol,
 	"lower":  strings.ToLower,
 	"neg":    func(n int) int { return -n },

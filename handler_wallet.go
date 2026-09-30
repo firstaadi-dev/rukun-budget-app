@@ -44,10 +44,22 @@ func (a *App) walletList(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
-	a.render(w, r, "dompet.html", map[string]any{
+	urutkanKartu(cards)
+	data := map[string]any{
 		"Title": "Dompet", "Nav": "dompet",
 		"Wallets": withCards(viewWallets(wallets), cards),
-	})
+	}
+	for _, card := range cards {
+		if card.Telat() {
+			data["CreditDueAlert"] = "Terlambat " + strconv.Itoa(-card.HariLagi) + " hari"
+			break
+		}
+		if card.Segera() {
+			data["CreditDueAlert"] = "H-" + strconv.Itoa(card.HariLagi) + " Jatuh Tempo"
+			break
+		}
+	}
+	a.render(w, r, "dompet.html", data)
 }
 
 // cardStatuses merangkum tiap akun berbasis kredit. Akun yang siklusnya belum
