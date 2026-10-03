@@ -29,7 +29,78 @@ $('[data-sort-positions]')?.addEventListener('change', event => {
 function syncWalletPicker(picker) { const select = $('select', picker); const option = select?.selectedOptions[0]; if (!option) return; $('[data-wallet-name]', picker).textContent = option.dataset.name || option.textContent; $('[data-wallet-balance]', picker).textContent = option.dataset.balance || ''; }
 $$('.wallet-picker').forEach(picker => { syncWalletPicker(picker); $('select', picker).addEventListener('change', () => syncWalletPicker(picker)); });
 $$('.date-display').forEach(label => { const input = $('input', label); const update = () => { if (!input.value) return; const [year, month, day] = input.value.split('-').map(Number); $('[data-date-label]', label).textContent = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(year, month - 1, day)); }; input.addEventListener('change', update); update(); });
-$$('[data-receipt-input]').forEach(input => input.addEventListener('change', () => { const file = input.files?.[0]; if (file && file.size > 2 * 1024 * 1024) { toast('Struk maksimal 2 MB.'); input.value = ''; } const name = input.files?.[0]?.name; $('[data-receipt-name]', input.closest('label')).textContent = name || 'JPG, PNG, WebP atau PDF · maksimal 2 MB'; const summary = $('[data-receipt-summary]', input.form); if (summary) { summary.hidden = !name; summary.textContent = name || ''; } }));
+const receiptMaxBytes = 2 * 1024 * 1024;
+async function compressReceiptImage(file) {
+ // Keep small originals intact; large camera photos are resized and encoded as JPEG.
+ if (file.size <= receiptMaxBytes) return file;
+ const url = URL.createObjectURL(file);
+ const image = new Image();
+ try {
+  await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = () => reject(new Error('Foto tidak dapat dibaca. Gunakan JPG, PNG atau WebP.')); image.src = url; });
+  let scale = Math.min(1, 2400 / Math.max(image.naturalWidth, image.naturalHeight));
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  if (!context || !image.naturalWidth || !image.naturalHeight) throw new Error('Foto tidak dapat diproses di browser ini.');
+  for (let attempt = 0; attempt < 6; attempt++) {
+   canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+   canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+   // White backing preserves legibility for transparent PNG receipts.
+   context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height);
+   context.drawImage(image, 0, 0, canvas.width, canvas.height);
+   for (const quality of [0.88, 0.75, 0.6]) {
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+    if (!blob) throw new Error('Foto gagal dikompres. Coba pilih foto lain.');
+    if (blob.size <= receiptMaxBytes) {
+     return new File([blob], `${file.name.replace(/\.[^.]+$/, '') || 'struk'}.jpg`, { type: 'image/jpeg', lastModified: file.lastModified });
+    }
+   }
+   scale *= 0.75;
+  }
+  throw new Error('Foto masih terlalu besar setelah dikompres. Coba foto dengan resolusi lebih kecil.');
+ } finally { URL.revokeObjectURL(url); }
+}
+$$('[data-receipt-input]').forEach(input => {
+ let pending = null, revision = 0, waitingSubmission = false;
+ const form = input.form;
+ const nameLabel = $('[data-receipt-name]', input.closest('label'));
+ const summary = $('[data-receipt-summary]', form);
+ const display = message => { nameLabel.textContent = message || 'Foto dikompres otomatis · PDF maksimal 2 MB'; if (summary) { summary.hidden = !message; summary.textContent = message || ''; } };
+ input.addEventListener('change', () => {
+  const file = input.files?.[0], current = ++revision;
+  input.setCustomValidity('');
+  if (!file) { pending = null; display(''); return; }
+  display('Menyiapkan lampiran…');
+  const task = (async () => {
+   try {
+    let upload = file;
+    if (file.size > receiptMaxBytes) {
+     if (!file.type.startsWith('image/')) throw new Error('PDF maksimal 2 MB. Pilih PDF dengan ukuran lebih kecil.');
+     upload = await compressReceiptImage(file);
+     if (current !== revision) return;
+     const transfer = new DataTransfer(); transfer.items.add(upload); input.files = transfer.files;
+     if (input.files[0]?.size !== upload.size || input.files[0]?.name !== upload.name) throw new Error('Foto hasil kompresi belum dapat dilampirkan. Coba browser lain.');
+    }
+    if (current === revision) display(upload.name);
+   } catch (error) {
+    if (current !== revision) return;
+    input.value = ''; input.setCustomValidity(error.message); display(error.message); toast(error.message);
+   }
+  })();
+  pending = task;
+  task.finally(() => { if (current === revision) pending = null; });
+ });
+ // Enter or tapping Save must never upload the original while compression is running.
+ form.addEventListener('submit', async event => {
+  if (!pending && !waitingSubmission) return;
+  event.preventDefault();
+  if (waitingSubmission) return;
+  waitingSubmission = true; const submitter = event.submitter;
+  try {
+   while (pending) await pending;
+  } finally { waitingSubmission = false; }
+  if (form.reportValidity()) form.requestSubmit(submitter || undefined);
+ });
+});
 
 (() => {
  const form = $('.expense-form'); if (!form) return;
