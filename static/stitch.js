@@ -106,6 +106,12 @@ $$('[data-receipt-input]').forEach(input => {
  const form = $('.expense-form'); if (!form) return;
  const amount = $('#nominal', form), wallet = $('#dompet', form), toggle = $('[data-installment-toggle]', form), fields = $('.installment-fields', form);
  const mode = $('[data-installment-mode]', form), duration = $('[name="cicilan"]', form);
+ const footer = $('.save-footer', form), main = form.closest('main');
+ if (footer && main) {
+  const reserveFooter = () => { main.style.paddingBottom = `${Math.ceil(footer.getBoundingClientRect().height) + 24}px`; };
+  reserveFooter();
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(reserveFooter).observe(footer);
+ }
  const symbol = () => symOf(wallet), currency = () => curOf(wallet);
  let timer, controller, revision = 0, budgetKey = "";
  const status = $('[data-budget-state]', form);
