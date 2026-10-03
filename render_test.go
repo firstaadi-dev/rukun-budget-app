@@ -377,6 +377,12 @@ func TestPagesRender(t *testing.T) {
 			c.data["Family"] = "Keluarga Santoso"
 		}
 
+		if c.page == "hutang.html" {
+			summary := c.data["Summary"].(DebtSummary)
+			c.data["DebtCards"] = viewDebtCards(summary.Parties, nil)
+			c.data["DebtCounts"] = map[string]int{"hutang": 1, "piutang": 1}
+		}
+
 		var buf bytes.Buffer
 		if err := tmpl.ExecuteTemplate(&buf, "layout.html", c.data); err != nil {
 			t.Errorf("%s: %v", c.page, err)

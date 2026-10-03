@@ -43,6 +43,7 @@ type debtCard struct {
 	PartyView
 	Original, Remaining, Last, Due, Direction, Action string
 	PaidPercent                                       int
+	Overpaid                                          bool
 }
 
 func (a *App) designData(r *http.Request, page string, d map[string]any) error {
@@ -253,39 +254,13 @@ func (a *App) designData(r *http.Request, page string, d map[string]any) error {
 			if err != nil {
 				return err
 			}
-			var cards []debtCard
-			for _, party := range summary.Parties {
-				for _, bal := range party.Saldo {
-					for _, direction := range []string{"hutang", "piutang"} {
-						remaining, kind, action := bal.HutangMinor, "debt_in", "Catat Pelunasan Hutang"
-						if direction == "piutang" {
-							remaining, kind, action = bal.PiutangMinor, "loan_out", "Catat Penerimaan Dana"
-						}
-						if remaining <= 0 {
-							continue
-						}
-						var original int64
-						last := ""
-						for _, t := range all {
-							if t.PartyID != party.ID || t.WalletCur != bal.Currency {
-								continue
-							}
-							if t.Kind == kind {
-								original += t.AmountMinor
-							}
-							if last == "" {
-								last = kindLabel[t.Kind] + " " + Format(t.AmountMinor, t.WalletCur) + " · " + tanggalPendek(t.Date)
-							}
-						}
-						due := ""
-						if party.DueOn.Valid {
-							due = tanggalPendek(party.DueOn.Time)
-						}
-						cards = append(cards, debtCard{party, Format(original, bal.Currency), Format(remaining, bal.Currency), last, due, direction, action, int(max(0, min(100, (original-remaining)*100/max(1, original))))})
-					}
-				}
-			}
+			cards := viewDebtCards(summary.Parties, all)
 			d["DebtCards"] = cards
+			counts := map[string]int{"hutang": 0, "piutang": 0}
+			for _, card := range cards {
+				counts[card.Direction]++
+			}
+			d["DebtCounts"] = counts
 		}
 	}
 	if page == "investasi.html" {
@@ -604,4 +579,48 @@ func (a *App) savingTarget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/pengaturan", http.StatusSeeOther)
+}
+
+// viewDebtCards preserves every nonzero balance, including overpayments.
+func viewDebtCards(parties []PartyView, txs []Tx) []debtCard {
+	var cards []debtCard
+	for _, party := range parties {
+		for _, bal := range party.Saldo {
+			for _, direction := range []string{"hutang", "piutang"} {
+				remaining, kind, action := bal.HutangMinor, "debt_in", "Bayar Hutang"
+				if direction == "piutang" {
+					remaining, kind, action = bal.PiutangMinor, "loan_out", "Catat Penerimaan Dana"
+				}
+				if remaining == 0 {
+					continue
+				}
+				var original int64
+				last := ""
+				for _, t := range txs {
+					if t.PartyID != party.ID || t.WalletCur != bal.Currency {
+						continue
+					}
+					if t.Kind == kind {
+						original += t.AmountMinor
+					}
+					if last == "" {
+						last = kindLabel[t.Kind] + " " + Format(t.AmountMinor, t.WalletCur) + " · " + tanggalPendek(t.Date)
+					}
+				}
+				due := ""
+				if party.DueOn.Valid {
+					due = tanggalPendek(party.DueOn.Time)
+				}
+				if remaining < 0 {
+					action = "Lihat riwayat lebih bayar"
+				}
+				cards = append(cards, debtCard{
+					PartyView: party, Original: Format(original, bal.Currency), Remaining: Format(remaining, bal.Currency),
+					Last: last, Due: due, Direction: direction, Action: action, Overpaid: remaining < 0,
+					PaidPercent: int(max(0, min(100, (original-remaining)*100/max(1, original)))),
+				})
+			}
+		}
+	}
+	return cards
 }

@@ -1,3 +1,50 @@
 {{define "content"}}
-<div class="stack-lg"><p class="soft-note">{{di "handshake"}}<span><strong>Keterbukaan Membawa Kedamaian</strong><small>Pencatatan yang jelas dengan kerabat dan mitra menjaga silaturahmi tetap hangat dan bebas prasangka.</small></span></p>{{with .Summary}}<section class="card debt-recap"><div class="sec-head"><span class="card-kicker">Rekapitulasi Keluarga</span><span class="tag tag-accent-2">● Diperbarui Saat Dibuka</span></div><div class="debt-recap-pair"><div><span class="small">● Saya Berhutang</span><strong class="m-out">{{.TotalHutang}}</strong><small class="m-out">↗ Kewajiban Bayar</small></div><div><span class="small">● Orang Lain Berhutang</span><strong class="m-in">{{.TotalPiutang}}</strong><small class="m-in">↙ Hak Penerimaan</small></div></div><div class="debt-net">{{di "wallet"}} Selisih Bersih:<strong class="m-{{.NetTone}}">{{.Net}}</strong></div>{{with .Unconverted}}<p class="hint">Belum termasuk {{range .}}{{.}} {{end}} karena kurs belum diketahui.</p>{{end}}</section>{{end}}
-<section class="stack-lg"><div><div class="sec-head"><h5>Daftar Pihak &amp; Kontak</h5><span class="small text-muted">{{len .DebtCards}} Catatan Aktif</span></div><nav class="filter-pills" data-filter-group="debts" aria-label="Jenis hutang"><button class="active" data-filter="all">Semua Pihak</button><button data-filter="hutang">Saya Berhutang</button><button data-filter="piutang">Orang Lain Berhutang</button></nav></div>{{range .DebtCards}}<article class="card debt-party{{if eq .Direction "hutang"}} debt-owing{{end}}" data-filter-item="debts" data-filter-value="{{.Direction}}"><div class="sec-head"><span class="avatar {{if eq .Direction "hutang"}}t-out{{end}}">{{initials .Name}}</span><a class="row-main party-link" href="/hutang/pihak/{{.ID}}"><strong>{{.Name}}</strong><span class="small text-muted">{{.Note}}</span></a><span class="tag {{if eq .Direction "hutang"}}t-out{{else}}tag-accent-2{{end}}">● {{if eq .Direction "hutang"}}Saya berhutang{{else}}Orang lain berhutang kepada saya{{end}}</span></div><div class="debt-amount-panel"><div class="budget-pair"><span class="small">Sisa belum lunas:</span><strong class="{{if eq .Direction "hutang"}}m-out{{else}}m-in{{end}}">{{.Remaining}}</strong></div><div class="budget-pair small"><span class="text-muted">Nominal Awal</span><span>{{.Original}}</span></div><progress value="{{.PaidPercent}}" max="100"></progress></div>{{with .Last}}<p class="soft-note small">{{di "receipt"}} Riwayat terakhir: {{.}}</p>{{end}}{{with .Due}}<p class="small m-out">{{di "calendar"}} Jatuh tempo: {{.}}</p>{{end}}{{with .PaymentWalletName}}<p class="soft-note small">{{di "bank"}} Rencana dibayar via: <strong>{{.}}</strong></p>{{end}}<a class="btn btn-secondary btn-block" href="/hutang/pihak/{{.ID}}/bayar?arah={{.Direction}}">{{di "check"}} {{.Action}}</a></article>{{else}}<p class="empty">Belum ada hutang atau piutang yang belum lunas.</p>{{end}}<details class="card"><summary>Pihak &amp; riwayat yang sudah lunas</summary>{{range .Summary.Parties}}{{if .Kosong}}<a class="btn btn-ghost" href="/hutang/pihak/{{.ID}}">{{.Name}}</a>{{end}}{{end}}</details></section><div class="sticky-actions"><a class="btn btn-primary btn-block" href="/hutang/baru">{{di "plus"}} Catat Hutang / Piutang Baru</a></div></div>{{end}}
+<div class="debt-page stack-lg">
+  <aside class="debt-note" data-debt-note>
+    {{di "handshake"}}<span>Keterbukaan pencatatan menjaga silaturahmi tetap hangat &amp; berkah.</span>
+    <button type="button" aria-label="Tutup pesan" data-dismiss-debt-note>×</button>
+  </aside>
+  {{with .Summary}}
+  <section class="card debt-recap">
+    <div class="sec-head debt-recap-head"><span class="card-kicker">{{di "wallet"}} Rekapitulasi</span><span class="tag tag-accent-2">● Diperbarui Saat Dibuka</span></div>
+    <div class="debt-recap-columns">
+      <div><span class="small"> <span class="m-out">●</span> Saya Hutang</span><strong class="m-out">{{.TotalHutang}}</strong><small>{{.HutangParties}} Pihak</small></div>
+      <div><span class="small"><span class="m-in">●</span> Piutang Saya</span><strong class="m-in">{{.TotalPiutang}}</strong><small>{{.PiutangParties}} Pihak</small></div>
+      <div class="debt-net"><span class="small" title="Selisih Bersih">Selisih Bersih</span><strong class="m-{{.NetTone}}">{{.Net}}</strong><small class="m-{{.NetTone}}">{{if eq .NetTone "in"}}Piutang Net{{else if eq .NetTone "out"}}Hutang Net{{else}}Seimbang{{end}}</small></div>
+    </div>
+    {{with .Unconverted}}<p class="hint">Belum termasuk {{range .}}{{.}} {{end}} karena kurs belum diketahui.</p>{{end}}
+  </section>
+  {{end}}
+  <section class="debt-contacts stack-sm">
+    <div class="sec-head"><h5>Daftar Pihak &amp; Kontak</h5><span class="small text-muted">{{len .DebtCards}} Catatan Aktif</span></div>
+    <nav class="filter-pills" data-filter-group="debts" aria-label="Jenis hutang">
+      <button type="button" class="active" data-filter="all">Semua ({{len .DebtCards}})</button>
+      <button type="button" data-filter="hutang">Saya Berhutang ({{with .DebtCounts}}{{index . "hutang"}}{{else}}0{{end}})</button>
+      <button type="button" data-filter="piutang">Orang Berhutang ({{with .DebtCounts}}{{index . "piutang"}}{{else}}0{{end}})</button>
+    </nav>
+    <div class="debt-contact-list stack-sm">
+      {{range .DebtCards}}
+      <article class="card debt-party{{if eq .Direction "hutang"}} debt-owing{{end}}" data-filter-item="debts" data-filter-value="{{.Direction}}">
+        <div class="debt-contact-row">
+          <span class="avatar {{if eq .Direction "hutang"}}t-out{{end}}">{{initials .Name}}</span>
+          <a class="row-main party-link" href="/hutang/pihak/{{.ID}}">
+            <span class="debt-contact-title"><strong title="{{.Name}}">{{.Name}}</strong><span class="debt-direction {{if eq .Direction "hutang"}}t-out{{else}}tag-accent-2{{end}}">{{if eq .Direction "hutang"}}Hutang{{else}}Piutang{{end}}</span></span>
+            <span class="small text-muted" title="{{.Note}}{{with .PaymentWalletName}} · {{.}}{{end}}">{{if .Note}}{{.Note}}{{else}}{{if eq .Direction "hutang"}}Pinjaman diterima{{else}}Pinjaman diberikan{{end}}{{end}}{{with .PaymentWalletName}} · {{.}}{{end}}</span>
+          </a>
+          <div class="debt-contact-amount"><span class="text-muted">{{if .Overpaid}}Lebih bayar{{else if eq .Direction "hutang"}}Tagihan{{else}}Sisa{{end}}</span><strong class="{{if or .Overpaid (eq .Direction "hutang")}}m-out{{else}}m-in{{end}}">{{.Remaining}}</strong></div>
+          <a class="debt-payment {{if eq .Direction "hutang"}}m-out{{else}}m-in{{end}}" href="/hutang/pihak/{{.ID}}{{if not .Overpaid}}/bayar?arah={{.Direction}}{{end}}" aria-label="{{.Action}}: {{.Name}}" title="{{.Action}}">{{if .Overpaid}}{{di "history"}}{{else if eq .Direction "hutang"}}{{di "check"}}{{else}}{{di "cash"}}{{end}}</a>
+        </div>
+        <div class="debt-contact-footer">
+          {{if .Overpaid}}<span class="m-out">{{di "info"}} Saldo {{.Direction}} negatif karena lebih bayar</span>
+          {{else if .Due}}<span class="m-out">{{di "calendar"}} Jatuh tempo: {{.Due}}</span>
+          {{else}}<progress value="{{.PaidPercent}}" max="100" aria-label="Pelunasan {{.Direction}} {{.Name}}"></progress><span>{{.PaidPercent}}% dari {{.Original}}</span>{{end}}
+        </div>
+        {{with .Last}}<span class="debt-last text-muted">{{.}}</span>{{end}}
+      </article>
+      {{else}}<p class="empty">Belum ada hutang atau piutang yang belum lunas.</p>{{end}}
+    </div>
+    <details class="card debt-history"><summary>Pihak &amp; riwayat yang sudah lunas</summary>{{range .Summary.Parties}}{{if .Kosong}}<a class="btn btn-ghost" href="/hutang/pihak/{{.ID}}">{{.Name}}</a>{{end}}{{end}}</details>
+  </section>
+  <div class="sticky-actions"><a class="btn btn-primary btn-block" href="/hutang/baru">{{di "plus"}} Catat Hutang / Piutang Baru</a></div>
+</div>
+{{end}}

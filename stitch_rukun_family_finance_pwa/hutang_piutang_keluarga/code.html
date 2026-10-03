@@ -1,16 +1,14 @@
-<!DOCTYPE html>
-
-<html lang="id"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<!DOCTYPE html><html lang="id"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
 <title>Hutang &amp; Piutang - Rukun</title>
 <!-- Material Symbols Outlined -->
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
 <!-- Google Fonts: Plus Jakarta Sans & Inter -->
-<link href="https://fonts.googleapis.com" rel="preconnect"/>
-<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&amp;family=Plus Jakarta Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&amp;family=Plus Jakarta Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
 <!-- Tailwind CSS CDN -->
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <!-- Tailwind Theme Configuration Verbatim -->
@@ -234,7 +232,12 @@
       -webkit-tap-highlight-color: transparent;
     }
   </style>
-</head>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
 <body class="bg-background text-on-surface antialiased min-h-screen flex justify-center selection:bg-primary selection:text-on-primary">
 <!-- Mobile Viewport Container (max 430px) -->
 <div class="w-full max-w-[430px] min-h-screen bg-background flex flex-col relative pb-32">
@@ -255,229 +258,223 @@
 </button>
 </header>
 <!-- Main Content Canvas -->
-<main class="flex-1 px-margin pt-space-md space-y-space-lg">
-<!-- Emotional Harmony Greeting -->
-<section class="bg-surface-container-low rounded-2xl p-space-md flex items-start gap-space-sm border border-outline-variant/30">
-<div class="w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center text-secondary shrink-0 mt-0.5">
-<span class="material-symbols-outlined text-secondary" data-icon="handshake" style="font-variation-settings: 'FILL' 1;">handshake</span>
+<main class="flex-1 px-margin pt-3 space-y-3.5">
+<!-- Compact Motivational Micro-Banner -->
+<section class="bg-surface-container-low rounded-xl px-3 py-2 flex items-center justify-between border border-outline-variant/30">
+<div class="flex items-center gap-2 overflow-hidden">
+<div class="w-6 h-6 rounded-full bg-secondary/10 flex items-center justify-center text-secondary shrink-0">
+<span class="material-symbols-outlined text-[16px] text-secondary" data-icon="handshake" style="font-variation-settings: 'FILL' 1;">handshake</span>
 </div>
-<div class="space-y-0.5">
-<p class="text-label-md font-label-md font-bold text-primary">Keterbukaan Membawa Kedamaian</p>
-<p class="text-body-sm font-body-sm text-on-surface-variant">
-            Pencatatan yang jelas dengan kerabat dan mitra menjaga silaturahmi tetap hangat dan bebas prasangka.
-          </p>
+<p class="text-body-sm font-body-sm font-medium text-on-surface truncate">
+Keterbukaan pencatatan menjaga silaturahmi tetap hangat &amp; berkah.
+</p>
 </div>
+<span class="material-symbols-outlined text-[16px] text-outline shrink-0 ml-1 cursor-pointer" data-icon="close">close</span>
 </section>
-<!-- Level 1 Hero: Clean Dual-Pill Balance Summary Card -->
-<section class="bg-surface-container-lowest rounded-3xl p-space-lg border border-primary/10 shadow-[0_4px_20px_-2px_rgba(13,110,110,0.06)] relative overflow-hidden">
-<!-- Subtle botanical glow accent -->
-<div class="absolute -right-8 -top-8 w-32 h-32 bg-primary-fixed/20 rounded-full blur-2xl pointer-events-none"></div>
-<div class="relative z-10 space-y-space-md">
-<div class="flex items-center justify-between">
-<span class="text-label-sm font-label-sm text-outline tracking-wider font-semibold">REKAPITULASI KELUARGA</span>
-<span class="inline-flex items-center gap-1 text-label-sm font-label-sm text-secondary bg-secondary-fixed/30 px-2.5 py-0.5 rounded-full font-bold">
+
+<!-- Compact Summary Card: 3-column horizontal summary in one sleek card -->
+<section class="bg-surface-container-lowest rounded-2xl p-3 border border-primary/10 shadow-[0_4px_20px_-2px_rgba(13,110,110,0.06)] relative overflow-hidden">
+<div class="flex items-center justify-between pb-2 mb-2 border-b border-surface-container">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary" data-icon="account_balance_wallet" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+<span class="text-label-sm font-label-sm font-bold text-primary tracking-wider uppercase">Rekapitulasi</span>
+</div>
+<span class="inline-flex items-center gap-1 text-[11px] font-bold text-secondary bg-secondary-fixed/30 px-2 py-0.5 rounded-full">
 <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-              Update Hari Ini
-            </span>
+Update Hari Ini
+</span>
 </div>
-<!-- Dual Pill Container -->
-<div class="grid grid-cols-2 gap-space-sm">
-<!-- Saya Berhutang (Kewajiban) Pill -->
-<div class="bg-surface-container-low rounded-2xl p-space-sm border border-tertiary-fixed/60 flex flex-col justify-between">
-<div class="flex items-center gap-1.5 mb-1">
-<span class="w-2 h-2 rounded-full bg-tertiary"></span>
-<span class="text-label-sm font-label-sm text-on-surface-variant font-medium">Saya Berhutang</span>
+<div class="grid grid-cols-3 gap-2 text-center divide-x divide-surface-container">
+<!-- Hutang Saya -->
+<div class="px-1">
+<div class="flex items-center justify-center gap-1 mb-0.5">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+<span class="text-[11px] font-medium text-on-surface-variant truncate">Saya Hutang</span>
 </div>
-<div class="text-currency-md font-currency-md text-tertiary tracking-tight font-bold">
-                Rp 1.500.000
-              </div>
-<div class="text-label-sm font-label-sm text-outline mt-1 flex items-center gap-1">
-<span class="material-symbols-outlined text-[13px] text-tertiary" data-icon="north_east">north_east</span>
-<span>Kewajiban Bayar</span>
+<p class="text-currency-sm font-currency-sm font-bold text-tertiary tracking-tight">Rp 1.5jt</p>
+<span class="text-[10px] text-outline block">1 Pihak</span>
 </div>
+<!-- Piutang / Orang Berhutang -->
+<div class="px-1">
+<div class="flex items-center justify-center gap-1 mb-0.5">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+<span class="text-[11px] font-medium text-on-surface-variant truncate">Piutang Saya</span>
 </div>
-<!-- Orang Lain Berhutang (Piutang) Pill -->
-<div class="bg-surface-container-low rounded-2xl p-space-sm border border-secondary-fixed/80 flex flex-col justify-between">
-<div class="flex items-center gap-1.5 mb-1">
-<span class="w-2 h-2 rounded-full bg-secondary"></span>
-<span class="text-label-sm font-label-sm text-on-surface-variant font-medium">Orang Lain Berhutang</span>
+<p class="text-currency-sm font-currency-sm font-bold text-secondary tracking-tight">Rp 3.8jt</p>
+<span class="text-[10px] text-outline block">3 Pihak</span>
 </div>
-<div class="text-currency-md font-currency-md text-secondary tracking-tight font-bold">
-                Rp 3.800.000
-              </div>
-<div class="text-label-sm font-label-sm text-outline mt-1 flex items-center gap-1">
-<span class="material-symbols-outlined text-[13px] text-secondary" data-icon="south_west">south_west</span>
-<span>Hak Penerimaan</span>
-</div>
-</div>
-</div>
-<!-- Net Balance Badge Container -->
-<div class="pt-space-xs border-t border-surface-container flex items-center justify-between bg-primary-fixed/20 rounded-2xl px-space-md py-2.5">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-primary text-[18px]" data-icon="account_balance_wallet" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
-<span class="text-label-md font-label-md font-bold text-primary">Selisih Bersih:</span>
-</div>
-<div class="text-right">
-<span class="text-headline-sm font-headline-sm text-primary font-bold tracking-tight">+Rp 2.300.000</span>
-<span class="block text-label-sm font-label-sm text-secondary font-semibold">(Piutang Bersih)</span>
-</div>
+<!-- Selisih Bersih -->
+<div class="px-1 bg-primary-fixed/20 rounded-xl py-0.5">
+<span class="text-[11px] font-bold text-primary block">Selisih</span>
+<p class="text-currency-sm font-currency-sm font-bold text-primary tracking-tight">+Rp 2.3jt</p>
+<span class="text-[10px] font-semibold text-secondary block">Piutang Net</span>
 </div>
 </div>
 </section>
-<!-- Filter / View Tabs -->
-<section class="space-y-space-sm">
-<div class="flex items-center justify-between">
-<h2 class="text-headline-sm font-headline-sm text-primary font-bold">Daftar Pihak &amp; Kontak</h2>
-<span class="text-label-sm font-label-sm text-on-surface-variant">3 Catatan Aktif</span>
+
+<!-- Filter Pills Carousel (Tight & Sleek) -->
+<section class="space-y-2">
+<div class="flex items-center justify-between px-0.5">
+<h2 class="text-headline-sm font-headline-sm font-bold text-primary text-[16px]">Daftar Pihak &amp; Kontak</h2>
+<span class="text-label-sm font-label-sm text-outline">4 Catatan Aktif</span>
 </div>
-<!-- Filter Chips Carousel -->
-<div class="flex items-center gap-space-sm overflow-x-auto no-scrollbar pb-1">
-<!-- Active Filter -->
-<button class="h-9 px-4 rounded-full bg-primary-fixed/40 border-[1.5px] border-primary text-primary font-label-md text-label-md font-bold whitespace-nowrap active:scale-95 transition-transform" type="button">
-            Semua Pihak
-          </button>
-<!-- Inactive Filter 1 -->
-<button class="h-9 px-4 rounded-full bg-surface-container-lowest border border-outline-variant/60 text-on-surface-variant font-label-md text-label-md font-medium whitespace-nowrap hover:bg-surface-container active:scale-95 transition-colors" type="button">
-            Saya Berhutang (1)
-          </button>
-<!-- Inactive Filter 2 -->
-<button class="h-9 px-4 rounded-full bg-surface-container-lowest border border-outline-variant/60 text-on-surface-variant font-label-md text-label-md font-medium whitespace-nowrap hover:bg-surface-container active:scale-95 transition-colors" type="button">
-            Orang Lain Berhutang (2)
-          </button>
+<div class="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
+<button class="h-8 px-3 rounded-full bg-primary-fixed/40 border-[1.5px] border-primary text-primary font-label-md text-[12px] font-bold whitespace-nowrap active:scale-95 transition-transform" type="button">
+Semua (4)
+</button>
+<button class="h-8 px-3 rounded-full bg-surface-container-lowest border border-outline-variant/60 text-on-surface-variant font-label-md text-[12px] font-medium whitespace-nowrap hover:bg-surface-container active:scale-95 transition-colors" type="button">
+Saya Berhutang (1)
+</button>
+<button class="h-8 px-3 rounded-full bg-surface-container-lowest border border-outline-variant/60 text-on-surface-variant font-label-md text-[12px] font-medium whitespace-nowrap hover:bg-surface-container active:scale-95 transition-colors" type="button">
+Orang Berhutang (3)
+</button>
 </div>
 </section>
-<!-- List of Parties / Contacts Bento Stack -->
-<section class="space-y-space-md">
-<!-- Card 1: Om Hendra (Piutang Keluarga) -->
-<article class="bg-surface-container-lowest rounded-3xl p-space-md border border-outline-variant/30 shadow-[0_4px_20px_-2px_rgba(13,110,110,0.04)] space-y-3.5">
-<div class="flex items-start justify-between gap-2">
-<div class="flex items-center gap-space-sm">
-<div class="w-11 h-11 rounded-2xl bg-secondary-fixed/30 flex items-center justify-center text-secondary font-bold text-headline-sm">
-                OH
-              </div>
+
+<!-- Compact Contact List Cards (Enables 3-4 cards visible simultaneously) -->
+<section class="space-y-2 pb-6">
+<!-- Card 1: Om Hendra -->
+<article class="bg-surface-container-lowest rounded-2xl p-3 border border-outline-variant/30 shadow-sm hover:border-secondary/40 transition-all">
+<div class="flex items-center justify-between gap-2">
+<div class="flex items-center gap-2.5 min-w-0 flex-1">
+<div class="w-9 h-9 rounded-xl bg-secondary-fixed/30 flex items-center justify-center text-secondary font-bold text-[14px] shrink-0">
+OH
+</div>
+<div class="min-w-0 flex-1">
+<div class="flex items-center gap-1.5">
+<h3 class="text-[14px] font-bold text-on-surface truncate">Om Hendra</h3>
+<span class="inline-flex items-center gap-0.5 bg-secondary-fixed/20 text-secondary text-[10px] font-bold px-1.5 py-0.2 rounded font-label-sm shrink-0">
+Piutang
+</span>
+</div>
+<p class="text-body-sm font-body-sm text-outline truncate text-[11px]">Renovasi Teras • Cicilan ke-2 via BCA</p>
+</div>
+</div>
+<div class="text-right shrink-0 flex items-center gap-2">
 <div>
-<h3 class="text-headline-sm font-headline-sm font-bold text-on-surface">Om Hendra</h3>
-<p class="text-body-sm font-body-sm text-outline font-medium">Renovasi Teras</p>
+<span class="text-[10px] text-outline block">Sisa</span>
+<span class="text-currency-md font-currency-md text-secondary font-bold text-[14px]">Rp 2.500.000</span>
+</div>
+<button aria-label="Catat Penerimaan Dana" class="w-8 h-8 rounded-full bg-surface-container-low hover:bg-secondary-fixed/30 flex items-center justify-center text-secondary border border-outline-variant/30 active:scale-95 transition-colors" title="Terima Dana" type="button">
+<span class="material-symbols-outlined text-[18px]" data-icon="payments">payments</span>
+</button>
 </div>
 </div>
-<!-- Type Badge with Explicit Text -->
-<span class="inline-flex items-center gap-1 bg-secondary-fixed/20 border border-secondary/30 text-secondary text-label-sm font-label-sm font-bold px-2.5 py-1 rounded-full text-right">
-<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-              Orang lain berhutang kepada saya
-            </span>
-</div>
-<!-- Nominal Breakdown -->
-<div class="bg-surface-container-low rounded-2xl p-space-sm space-y-2">
-<div class="flex justify-between items-baseline">
-<span class="text-body-sm font-body-sm text-on-surface-variant">Sisa belum lunas:</span>
-<span class="text-currency-md font-currency-md text-secondary font-bold">Rp 2.500.000</span>
-</div>
-<div class="flex justify-between items-center text-label-sm font-label-sm text-outline border-t border-surface-container-high pt-1.5">
-<span>Nominal Awal</span>
-<span class="font-currency-sm text-on-surface-variant">Rp 5.000.000</span>
-</div>
-<!-- Progress bar 50% paid -->
-<div class="w-full bg-surface-variant h-2 rounded-full overflow-hidden">
+<!-- Slim Progress Micro-Bar -->
+<div class="mt-2 pt-2 border-t border-surface-container flex items-center justify-between gap-3 text-[11px] text-outline">
+<div class="flex-1 bg-surface-variant h-1.5 rounded-full overflow-hidden">
 <div class="bg-secondary h-full rounded-full" style="width: 50%;"></div>
 </div>
+<span class="shrink-0 font-medium text-on-surface-variant text-[11px]">50% dari Rp 5.000.000</span>
 </div>
-<!-- Riwayat Terakhir Note -->
-<div class="flex items-start gap-2 bg-surface rounded-xl p-2.5 border border-outline-variant/20">
-<span class="material-symbols-outlined text-[16px] text-primary shrink-0 mt-0.5" data-icon="receipt_long">receipt_long</span>
-<div class="text-body-sm font-body-sm text-on-surface-variant">
-<span class="font-semibold text-primary">Riwayat terakhir:</span> Cicilan ke-2 diterima Rp 1.500.000 via BCA (18 Sep 2026)
-            </div>
-</div>
-<!-- Action Button -->
-<button class="w-full h-11 bg-surface-container-high hover:bg-secondary-fixed/40 text-primary hover:text-on-secondary-container font-label-md text-label-md font-bold rounded-2xl flex items-center justify-center gap-2 border border-outline-variant/30 active:scale-[0.98] transition-all" type="button">
-<span class="material-symbols-outlined text-[18px]" data-icon="payments">payments</span>
-<span>Catat Penerimaan Dana</span>
-</button>
 </article>
+
 <!-- Card 2: Dina (Adik Ayu) -->
-<article class="bg-surface-container-lowest rounded-3xl p-space-md border border-outline-variant/30 shadow-[0_4px_20px_-2px_rgba(13,110,110,0.04)] space-y-3.5">
-<div class="flex items-start justify-between gap-2">
-<div class="flex items-center gap-space-sm">
-<div class="w-11 h-11 rounded-2xl bg-secondary-fixed/30 flex items-center justify-center text-secondary font-bold text-headline-sm">
-                DA
-              </div>
+<article class="bg-surface-container-lowest rounded-2xl p-3 border border-outline-variant/30 shadow-sm hover:border-secondary/40 transition-all">
+<div class="flex items-center justify-between gap-2">
+<div class="flex items-center gap-2.5 min-w-0 flex-1">
+<div class="w-9 h-9 rounded-xl bg-secondary-fixed/30 flex items-center justify-center text-secondary font-bold text-[14px] shrink-0">
+DA
+</div>
+<div class="min-w-0 flex-1">
+<div class="flex items-center gap-1.5">
+<h3 class="text-[14px] font-bold text-on-surface truncate">Dina (Adik Ayu)</h3>
+<span class="inline-flex items-center gap-0.5 bg-secondary-fixed/20 text-secondary text-[10px] font-bold px-1.5 py-0.2 rounded font-label-sm shrink-0">
+Piutang
+</span>
+</div>
+<p class="text-body-sm font-body-sm text-outline truncate text-[11px]">Pinjaman Laptop • Tanpa Bunga</p>
+</div>
+</div>
+<div class="text-right shrink-0 flex items-center gap-2">
 <div>
-<h3 class="text-headline-sm font-headline-sm font-bold text-on-surface">Dina</h3>
-<p class="text-body-sm font-body-sm text-outline font-medium">Adik Ayu • Pinjaman Laptop</p>
+<span class="text-[10px] text-outline block">Sisa</span>
+<span class="text-currency-md font-currency-md text-secondary font-bold text-[14px]">Rp 1.300.000</span>
 </div>
-</div>
-<!-- Type Badge with Explicit Text -->
-<span class="inline-flex items-center gap-1 bg-secondary-fixed/20 border border-secondary/30 text-secondary text-label-sm font-label-sm font-bold px-2.5 py-1 rounded-full text-right">
-<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-              Orang lain berhutang kepada saya
-            </span>
-</div>
-<!-- Nominal Breakdown -->
-<div class="bg-surface-container-low rounded-2xl p-space-sm space-y-1.5">
-<div class="flex justify-between items-baseline">
-<span class="text-body-sm font-body-sm text-on-surface-variant">Sisa belum lunas:</span>
-<span class="text-currency-md font-currency-md text-secondary font-bold">Rp 1.300.000</span>
-</div>
-<div class="flex items-center gap-1.5 text-label-sm font-label-sm text-on-surface-variant pt-1">
-<span class="material-symbols-outlined text-[15px] text-secondary" data-icon="favorite" style="font-variation-settings: 'FILL' 1;">favorite</span>
-<span>Pinjaman kekeluargaan tanpa bunga</span>
-</div>
-</div>
-<!-- Catatan -->
-<div class="flex items-start gap-2 bg-surface rounded-xl p-2.5 border border-outline-variant/20">
-<span class="material-symbols-outlined text-[16px] text-secondary shrink-0 mt-0.5" data-icon="calendar_today">calendar_today</span>
-<div class="text-body-sm font-body-sm text-on-surface-variant">
-<span class="font-semibold text-on-surface">Catatan:</span> Jatuh tempo santai akhir tahun 2026
-            </div>
-</div>
-<!-- Action Button -->
-<button class="w-full h-11 bg-surface-container-high hover:bg-secondary-fixed/40 text-primary hover:text-on-secondary-container font-label-md text-label-md font-bold rounded-2xl flex items-center justify-center gap-2 border border-outline-variant/30 active:scale-[0.98] transition-all" type="button">
+<button aria-label="Catat Penerimaan Dana" class="w-8 h-8 rounded-full bg-surface-container-low hover:bg-secondary-fixed/30 flex items-center justify-center text-secondary border border-outline-variant/30 active:scale-95 transition-colors" title="Terima Dana" type="button">
 <span class="material-symbols-outlined text-[18px]" data-icon="payments">payments</span>
-<span>Catat Penerimaan Dana</span>
 </button>
+</div>
+</div>
+<div class="mt-2 pt-2 border-t border-surface-container flex items-center justify-between text-[11px] text-outline">
+<div class="flex items-center gap-1 text-secondary">
+<span class="material-symbols-outlined text-[13px]" data-icon="favorite" style="font-variation-settings: 'FILL' 1;">favorite</span>
+<span class="">Keluarga santai akhir 2026</span>
+</div>
+<span class="text-on-surface-variant font-medium">Belum ada cicilan</span>
+</div>
 </article>
+
 <!-- Card 3: Toko Material Abadi (Saya Berhutang) -->
-<article class="bg-surface-container-lowest rounded-3xl p-space-md border border-tertiary-fixed/70 shadow-[0_4px_20px_-2px_rgba(147,26,36,0.06)] space-y-3.5">
-<div class="flex items-start justify-between gap-2">
-<div class="flex items-center gap-space-sm">
-<div class="w-11 h-11 rounded-2xl bg-tertiary-fixed/50 flex items-center justify-center text-tertiary font-bold text-headline-sm">
-                TM
-              </div>
+<article class="bg-surface-container-lowest rounded-2xl p-3 border border-tertiary-fixed/70 shadow-sm hover:border-tertiary/40 transition-all">
+<div class="flex items-center justify-between gap-2">
+<div class="flex items-center gap-2.5 min-w-0 flex-1">
+<div class="w-9 h-9 rounded-xl bg-tertiary-fixed/50 flex items-center justify-center text-tertiary font-bold text-[14px] shrink-0">
+TM
+</div>
+<div class="min-w-0 flex-1">
+<div class="flex items-center gap-1.5">
+<h3 class="text-[14px] font-bold text-on-surface truncate">Toko Material Abadi</h3>
+<span class="inline-flex items-center gap-0.5 bg-tertiary-fixed/40 text-tertiary text-[10px] font-bold px-1.5 py-0.2 rounded font-label-sm shrink-0">
+Hutang
+</span>
+</div>
+<p class="text-body-sm font-body-sm text-outline truncate text-[11px]">Pasir &amp; Semen • BCA Rumah Tangga</p>
+</div>
+</div>
+<div class="text-right shrink-0 flex items-center gap-2">
 <div>
-<h3 class="text-headline-sm font-headline-sm font-bold text-on-surface">Toko Material Abadi</h3>
-<p class="text-body-sm font-body-sm text-outline font-medium">Pasir &amp; Semen</p>
+<span class="text-[10px] text-outline block">Tagihan</span>
+<span class="text-currency-md font-currency-md text-tertiary font-bold text-[14px]">Rp 1.500.000</span>
 </div>
-</div>
-<!-- Type Badge with Explicit Text (Coral + Clear wording) -->
-<span class="inline-flex items-center gap-1 bg-tertiary-fixed/40 border border-tertiary/40 text-tertiary text-label-sm font-label-sm font-bold px-2.5 py-1 rounded-full text-right">
-<span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
-              Saya berhutang
-            </span>
-</div>
-<!-- Nominal Breakdown -->
-<div class="bg-surface-container-low rounded-2xl p-space-sm space-y-1.5">
-<div class="flex justify-between items-baseline">
-<span class="text-body-sm font-body-sm text-on-surface-variant">Sisa tagihan belum dibayar:</span>
-<span class="text-currency-md font-currency-md text-tertiary font-bold">Rp 1.500.000</span>
-</div>
-<div class="flex items-center gap-1.5 text-label-sm font-label-sm text-tertiary font-semibold pt-1">
-<span class="material-symbols-outlined text-[15px]" data-icon="event_busy">event_busy</span>
-<span>Jatuh tempo: 10 Oktober 2026</span>
-</div>
-</div>
-<!-- Terkait Dompet -->
-<div class="flex items-center justify-between bg-surface rounded-xl p-2.5 border border-outline-variant/20">
-<div class="flex items-center gap-2">
-<span class="material-symbols-outlined text-[16px] text-primary" data-icon="account_balance">account_balance</span>
-<span class="text-body-sm font-body-sm text-on-surface-variant font-medium">Rencana dibayar via:</span>
-</div>
-<span class="text-label-md font-label-md font-bold text-primary">BCA Rumah Tangga</span>
-</div>
-<!-- Action Button: Coral Pelunasan -->
-<button class="w-full h-11 bg-tertiary-fixed/30 hover:bg-tertiary-fixed/60 text-tertiary font-label-md text-label-md font-bold rounded-2xl flex items-center justify-center gap-2 border border-tertiary/20 active:scale-[0.98] transition-all" type="button">
+<button aria-label="Bayar Hutang" class="w-8 h-8 rounded-full bg-tertiary-fixed/30 hover:bg-tertiary-fixed/60 flex items-center justify-center text-tertiary border border-tertiary/20 active:scale-95 transition-colors" title="Bayar Pelunasan" type="button">
 <span class="material-symbols-outlined text-[18px]" data-icon="check_circle">check_circle</span>
-<span>Catat Pelunasan Hutang</span>
 </button>
+</div>
+</div>
+<div class="mt-2 pt-2 border-t border-surface-container flex items-center justify-between text-[11px]">
+<div class="flex items-center gap-1 text-tertiary font-medium">
+<span class="material-symbols-outlined text-[13px]" data-icon="event_busy">event_busy</span>
+<span class="">Jatuh tempo: 10 Okt 2026</span>
+</div>
+<span class="text-outline text-[11px]">Invoice #2026-088</span>
+</div>
+</article>
+
+<!-- Card 4: Mbak Rini (Arisan Keluarga - Piutang Tambahan) -->
+<article class="bg-surface-container-lowest rounded-2xl p-3 border border-outline-variant/30 shadow-sm hover:border-secondary/40 transition-all">
+<div class="flex items-center justify-between gap-2">
+<div class="flex items-center gap-2.5 min-w-0 flex-1">
+<div class="w-9 h-9 rounded-xl bg-secondary-fixed/30 flex items-center justify-center text-secondary font-bold text-[14px] shrink-0">
+MR
+</div>
+<div class="min-w-0 flex-1">
+<div class="flex items-center gap-1.5">
+<h3 class="text-[14px] font-bold text-on-surface truncate">Mbak Rini</h3>
+<span class="inline-flex items-center gap-0.5 bg-secondary-fixed/20 text-secondary text-[10px] font-bold px-1.5 py-0.2 rounded font-label-sm shrink-0">
+Piutang
+</span>
+</div>
+<p class="text-body-sm font-body-sm text-outline truncate text-[11px]">Talangan Arisan Keluarga • Mandiri</p>
+</div>
+</div>
+<div class="text-right shrink-0 flex items-center gap-2">
+<div>
+<span class="text-[10px] text-outline block">Sisa</span>
+<span class="text-currency-md font-currency-md text-secondary font-bold text-[14px]">Rp 500.000</span>
+</div>
+<button aria-label="Catat Penerimaan Dana" class="w-8 h-8 rounded-full bg-surface-container-low hover:bg-secondary-fixed/30 flex items-center justify-center text-secondary border border-outline-variant/30 active:scale-95 transition-colors" title="Terima Dana" type="button">
+<span class="material-symbols-outlined text-[18px]" data-icon="payments">payments</span>
+</button>
+</div>
+</div>
+<div class="mt-2 pt-2 border-t border-surface-container flex items-center justify-between text-[11px] text-outline">
+<div class="flex items-center gap-1 text-secondary font-medium">
+<span class="material-symbols-outlined text-[13px]" data-icon="schedule">schedule</span>
+<span class="">Janji transfer akhir pekan ini</span>
+</div>
+<span class="text-on-surface-variant font-medium">Sisa 1x cicilan</span>
+</div>
 </article>
 </section>
 </main>
@@ -485,8 +482,10 @@
 <div class="fixed bottom-4 left-0 right-0 z-40 max-w-[430px] mx-auto px-margin">
 <button class="w-full h-14 bg-primary-container text-on-primary font-headline-sm text-headline-sm font-bold rounded-full shadow-[0_8px_24px_-2px_rgba(13,110,110,0.35)] flex items-center justify-center gap-2 hover:bg-primary active:scale-95 transition-all" type="button">
 <span class="material-symbols-outlined text-2xl font-bold" data-icon="add">add</span>
-<span>Catat Hutang / Piutang Baru</span>
+<span class="">Catat Hutang / Piutang Baru</span>
 </button>
 </div>
 </div>
+
+
 </body></html>

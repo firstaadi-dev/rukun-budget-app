@@ -800,13 +800,14 @@ func viewParty(p Party) PartyView {
 }
 
 type DebtSummary struct {
-	Base         string
-	TotalHutang  string
-	TotalPiutang string
-	Net          string
-	NetTone      string
-	Parties      []PartyView
-	Unconverted  []string
+	HutangParties, PiutangParties int
+	Base                          string
+	TotalHutang                   string
+	TotalPiutang                  string
+	Net                           string
+	NetTone                       string
+	Parties                       []PartyView
+	Unconverted                   []string
 }
 
 // summarizeDebts menjumlahkan hutang dan piutang seluruh pihak ke mata uang
@@ -815,12 +816,24 @@ type DebtSummary struct {
 // yang diam-diam salah.
 func summarizeDebts(parties []Party, rates map[string]Rate, base string) DebtSummary {
 	var hutang, piutang int64
+	var hutangParties, piutangParties int
 	seen := map[string]bool{}
 	var missing []string
 
 	views := make([]PartyView, 0, len(parties))
 	for _, p := range parties {
 		views = append(views, viewParty(p))
+		hasHutang, hasPiutang := false, false
+		for _, b := range p.Saldo {
+			hasHutang = hasHutang || b.HutangMinor != 0
+			hasPiutang = hasPiutang || b.PiutangMinor != 0
+		}
+		if hasHutang {
+			hutangParties++
+		}
+		if hasPiutang {
+			piutangParties++
+		}
 		for _, b := range p.Saldo {
 			h, pi := b.HutangMinor, b.PiutangMinor
 			if b.Currency != base {
@@ -849,6 +862,7 @@ func summarizeDebts(parties []Party, rates map[string]Rate, base string) DebtSum
 	}
 	return DebtSummary{
 		Base: base, TotalHutang: Format(hutang, base), TotalPiutang: Format(piutang, base),
+		HutangParties: hutangParties, PiutangParties: piutangParties,
 		Net: Format(net, base), NetTone: tone,
 		Parties: views, Unconverted: missing,
 	}

@@ -308,6 +308,14 @@ func (a *App) payCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	for _, tx := range txs {
+		if tx.Kind == "income" {
+			if err := a.store.EnsureCategory(r.Context(), family(r), tx.Kind, tx.Category); err != nil {
+				a.fail(w, r, err)
+				return
+			}
+		}
+	}
 	if _, err := a.store.CreateTxs(r.Context(), family(r), txs, userFrom(r.Context()).ID); err != nil {
 		a.fail(w, r, err)
 		return
@@ -315,9 +323,8 @@ func (a *App) payCreate(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/hutang/pihak/"+strconv.FormatInt(p.ID, 10), http.StatusSeeOther)
 }
 
-// paymentTxs menambah piutang sebesar kelebihan penerimaan sebelum melunasinya.
-// Penyesuaiannya tidak memakai dompet: seluruh uang memang diterima, sedangkan
-// baris tambahan ini hanya menjaga saldo piutang berakhir tepat nol.
+// paymentTxs membagi penerimaan berlebih menjadi pelunasan dan pemasukan profit.
+// Keduanya masuk ke dompet yang sama; saldo piutang berhenti tepat di nol.
 func paymentTxs(p Party, t Tx, arah string) ([]Tx, error) {
 	for _, b := range p.Saldo {
 		if b.Currency != t.WalletCur {
@@ -328,6 +335,9 @@ func paymentTxs(p Party, t Tx, arah string) ([]Tx, error) {
 		if arah == "piutang" {
 			sisa, label = b.PiutangMinor, "Piutang"
 		}
+		if sisa <= 0 {
+			return nil, errors.New("Tidak ada sisa " + strings.ToLower(label) + " yang bisa dilunasi dalam mata uang itu.")
+		}
 		if t.AmountMinor <= sisa {
 			return []Tx{t}, nil
 		}
@@ -335,13 +345,20 @@ func paymentTxs(p Party, t Tx, arah string) ([]Tx, error) {
 			return nil, errors.New(label + " ke " + p.Name + " tinggal " +
 				Format(sisa, b.Currency) + ", tidak bisa dibayar lebih dari itu.")
 		}
-		adjustment := t
-		adjustment.Kind = "loan_out"
-		adjustment.WalletID = 0
-		adjustment.WalletName = ""
-		adjustment.AmountMinor = t.AmountMinor - sisa
-		adjustment.Note = "Penyesuaian kelebihan pembayaran piutang"
-		return []Tx{adjustment, t}, nil
+		if !t.HasWallet() {
+			return nil, errors.New("Pilih dompet penerima untuk mencatat kelebihan pembayaran sebagai profit.")
+		}
+		profit := Tx{
+			Kind: "income", Date: t.Date, WalletID: t.WalletID, WalletCur: t.WalletCur,
+			AmountMinor: t.AmountMinor - sisa, Category: "Profit Piutang",
+			Note:         "Profit kelebihan pembayaran piutang dari " + p.Name,
+			OccurredTime: t.OccurredTime, RecorderID: t.RecorderID,
+		}
+		if t.Note != "" {
+			profit.Note += " · " + t.Note
+		}
+		t.AmountMinor = sisa
+		return []Tx{t, profit}, nil
 	}
 	return nil, errors.New("Tidak ada catatan dalam mata uang itu untuk pihak ini.")
 }

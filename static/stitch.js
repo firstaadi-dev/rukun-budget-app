@@ -103,3 +103,5 @@ if (document.body.dataset.family && document.body.dataset.revision && !document.
  document.addEventListener('input', event => { const form = event.target.closest('form'); if (form?.method === 'post') form.dataset.dirty = 'true'; });
  setInterval(syncFamily, 30000); window.addEventListener('online', syncFamily); document.addEventListener('visibilitychange', syncFamily); syncFamily();
 }
+
+$('[data-dismiss-debt-note]')?.addEventListener('click', event => { event.currentTarget.closest('[data-debt-note]').hidden = true; });

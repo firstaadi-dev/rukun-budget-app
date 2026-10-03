@@ -49,7 +49,7 @@
              value="{{.Form.nominal}}" placeholder="0">
     </div>
     <p class="hint">Sudah terisi sisa penuh. Kurangi kalau membayar sebagian.
-      {{if eq .Form.arah "piutang"}}Jika penerimaan lebih besar, kelebihannya otomatis dicatat sebagai penyesuaian piutang.{{end}}
+      {{if eq .Form.arah "piutang"}}Jika penerimaan lebih besar, piutang dilunasi sampai nol dan kelebihannya dicatat sebagai pemasukan Profit Piutang di dompet penerima.{{end}}
     </p>
   </div>
 
