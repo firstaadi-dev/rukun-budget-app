@@ -248,6 +248,7 @@ func (a *App) routes() http.Handler {
 	auth("POST /transaksi/{id}/reaksi", a.react)
 	auth("GET /laporan", a.report)
 	auth("GET /anggaran", a.budgetList)
+	auth("GET /anggaran/evaluasi", a.expenseBudgetStatus)
 
 	auth("GET /dompet", a.walletList)
 	auth("GET /dompet/baru", a.walletForm)

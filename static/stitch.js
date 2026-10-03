@@ -29,29 +29,46 @@ $('[data-sort-positions]')?.addEventListener('change', event => {
 function syncWalletPicker(picker) { const select = $('select', picker); const option = select?.selectedOptions[0]; if (!option) return; $('[data-wallet-name]', picker).textContent = option.dataset.name || option.textContent; $('[data-wallet-balance]', picker).textContent = option.dataset.balance || ''; }
 $$('.wallet-picker').forEach(picker => { syncWalletPicker(picker); $('select', picker).addEventListener('change', () => syncWalletPicker(picker)); });
 $$('.date-display').forEach(label => { const input = $('input', label); const update = () => { if (!input.value) return; const [year, month, day] = input.value.split('-').map(Number); $('[data-date-label]', label).textContent = new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(year, month - 1, day)); }; input.addEventListener('change', update); update(); });
-$$('[data-receipt-input]').forEach(input => input.addEventListener('change', () => { const file = input.files?.[0]; if (file && file.size > 2 * 1024 * 1024) { toast('Struk maksimal 2 MB.'); input.value = ''; } $('[data-receipt-name]', input.closest('label')).textContent = input.files?.[0]?.name || 'JPG, PNG, WebP atau PDF · maksimal 2 MB'; }));
+$$('[data-receipt-input]').forEach(input => input.addEventListener('change', () => { const file = input.files?.[0]; if (file && file.size > 2 * 1024 * 1024) { toast('Struk maksimal 2 MB.'); input.value = ''; } const name = input.files?.[0]?.name; $('[data-receipt-name]', input.closest('label')).textContent = name || 'JPG, PNG, WebP atau PDF · maksimal 2 MB'; const summary = $('[data-receipt-summary]', input.form); if (summary) { summary.hidden = !name; summary.textContent = name || ''; } }));
 
 (() => {
  const form = $('.expense-form'); if (!form) return;
  const amount = $('#nominal', form), wallet = $('#dompet', form), toggle = $('[data-installment-toggle]', form), fields = $('.installment-fields', form);
  const mode = $('[data-installment-mode]', form), duration = $('[name="cicilan"]', form);
  const symbol = () => symOf(wallet), currency = () => curOf(wallet);
+ let timer, controller, revision = 0, budgetKey = "";
+ const status = $('[data-budget-state]', form);
+ const showBudget = (state, message) => { status.dataset.status = state; status.textContent = message; };
+ const scheduleBudget = () => {
+  if (form.dataset.kind !== 'expense') { status.hidden = true; return; }
+  const category = $('[name="kategori"]:checked', form)?.value;
+  const key = JSON.stringify([category, amount.value, wallet.value, $('[name="tanggal"]', form).value, toggle?.checked, mode?.value, duration?.value]);
+  if (key === budgetKey) return; budgetKey = key;
+  clearTimeout(timer); controller?.abort(); const current = ++revision;
+  if (!category) { showBudget('', 'Pilih kategori untuk melihat anggaran'); return; }
+  showBudget('', 'Memeriksa anggaran…');
+  timer = setTimeout(async () => {
+   controller = new AbortController();
+   const params = new URLSearchParams({ kategori: category, nominal: amount.value || '0', dompet: wallet.value, tanggal: $('[name="tanggal"]', form).value, id: form.dataset.editId || '0' });
+   if (toggle?.checked) { params.set('mode', mode.value); params.set('cicilan', duration.value); }
+   try {
+    const response = await fetch(`/anggaran/evaluasi?${params}`, { signal: controller.signal, cache: 'no-store', headers: { Accept: 'application/json' } });
+    if (!response.ok) throw new Error();
+    const result = await response.json(); if (current === revision) showBudget(result.status, result.message);
+   } catch (error) { if (error.name !== 'AbortError' && current === revision) { budgetKey = ''; showBudget('', 'Anggaran belum dapat diperiksa.'); } }
+  }, 180);
+ };
  const update = () => {
   const n = parseNum(amount.value) || 0;
   const formatted = `${symbol()} ${fmtPlain(n, currency())}`;
   $('[data-live-amount]', form).textContent = formatted;
   if (toggle?.checked) { const months = Math.max(2, Number(duration.value) || 3); $('[data-installment-preview]', form).textContent = `(${symbol()} ${fmtPlain(mode.value === 'ulang' ? n : n / months, currency())} / bln)`; $('[data-installment-help]', form).textContent = mode.value === 'ulang' ? 'Nominal penuh dicatat setiap bulan sesuai durasi yang dipilih.' : 'Pencatatan dibagi rata per bulan ke kategori terkait tanpa membebani arus kas bulan ini sekaligus.'; }
-  let rows = []; try { rows = JSON.parse($('[data-budget-json]')?.dataset.budgetJson || '[]') || []; } catch {}
-  const category = $('[name="kategori"]:checked', form)?.value;
-  const row = rows.find(r => r.Name === category); const status = $('[data-budget-state]', form);
-  if (!category) { status.textContent = 'Pilih kategori untuk melihat anggaran'; status.classList.remove('m-out'); return; }
-  if (!row || currency() !== (document.body.dataset.base || 'IDR')) { status.textContent = row ? 'Anggaran diperiksa pada catatan keluarga' : 'Kategori fleksibel · belum ada batas anggaran'; status.classList.remove('m-out'); return; }
-  const left = parseNum(row.Remaining) || 0; const charge = toggle?.checked && mode.value === 'cicil' ? n / Math.max(2, Number(duration.value) || 3) : n;
-  status.textContent = charge > left ? 'Melewati sisa anggaran kategori' : '✓ Sesuai pos anggaran bulanan'; status.classList.toggle('m-out', charge > left);
+  scheduleBudget();
  };
- toggle?.addEventListener('change', () => { fields.hidden = !toggle.checked; $$('input,select', fields).forEach(input => input.disabled = !toggle.checked); update(); });
+ toggle?.addEventListener('change', () => { fields.hidden = !toggle.checked; fields.closest('.installment-card').hidden = !toggle.checked; $$('input,select', fields).forEach(input => input.disabled = !toggle.checked); update(); });
  $$('[data-add-amount]', form).forEach(button => button.addEventListener('click', () => { amount.value = fmtPlain((parseNum(amount.value) || 0) + Number(button.dataset.addAmount), currency()); amount.dispatchEvent(new Event('input', { bubbles: true })); }));
- form.addEventListener('input', update); form.addEventListener('change', update); update();
+ const recorder = () => { const selected = $('[name="pencatat"]:checked', form); const label = $('[data-recorder-label]', form); if (selected && label) label.textContent = $('strong', selected.closest('label')).textContent.replace(' (Saya)', ''); };
+ form.addEventListener('input', update); form.addEventListener('change', () => { recorder(); update(); }); recorder(); update();
 })();
 (() => {
  const form = $('#transfer-form'); if (!form) return;
