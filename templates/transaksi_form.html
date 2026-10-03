@@ -28,7 +28,9 @@
   </div>
  </section>
  {{end}}
+ {{if or (eq .Kind "expense") (eq .Kind "income")}}
  <div class="field"><div class="sec-head"><label>Kategori {{.KindLabel}}</label><span class="small text-muted">{{len .Categories}} Kategori</span></div><div class="chips category-tiles">{{range .Categories}}<label class="chip"><input type="radio" name="kategori" value="{{.}}" required {{if eq $.Form.kategori .}}checked{{end}}><span class="tag"><span class="category-icon">{{di (categoryIcon .)}}</span><span>{{.}}</span></span></label>{{end}}<a class="category-more" href="/kategori/baru?jenis={{.Kind}}">{{di "plus"}}<span>Lainnya</span></a></div></div>
+ {{end}}
  <section class="card expense-context">{{template "date-time" .}}<details class="expense-recorder"><summary>Dicatat: <strong data-recorder-label>{{.User.Name}}</strong><span>Ubah</span></summary>{{template "recorder-picker" .}}</details></section>
  <div class="field"><label for="catatan">Catatan / Keterangan</label><div class="expense-note"><input class="input" name="catatan" id="catatan" value="{{.Form.catatan}}" placeholder="Misal: Makan siang soto bareng anak-anak"><label class="receipt-upload receipt-inline" title="Lampirkan struk belanja">{{di "camera"}}<span class="sr-only">Lampirkan Struk Belanja (Opsional)</span><input name="struk" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" data-receipt-input><span class="sr-only" data-receipt-name>Foto dikompres otomatis · PDF maksimal 2 MB</span></label></div><small class="text-muted" data-receipt-summary hidden></small></div>
 

@@ -1,11 +1,36 @@
 package main
 
 import (
+	"bytes"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestTxFormDebtHasNoCategory(t *testing.T) {
+	page := parsePages()["transaksi_form.html"]
+	for _, kind := range []string{"debt_in", "debt_pay", "loan_out", "loan_in", "expense", "income"} {
+		t.Run(kind, func(t *testing.T) {
+			var body bytes.Buffer
+			err := page.ExecuteTemplate(&body, "content", map[string]any{
+				"ID": int64(1), "Kind": kind, "KindLabel": kindLabel[kind],
+				"Form": map[string]string{}, "Categories": []string{"Lainnya"},
+				"User": User{},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantCategory := kind == "expense" || kind == "income"
+			for _, marker := range []string{`name="kategori"`, `/kategori/baru`} {
+				if got := strings.Contains(body.String(), marker); got != wantCategory {
+					t.Errorf("form %s: %s present = %v, want %v", kind, marker, got, wantCategory)
+				}
+			}
+		})
+	}
+}
 
 // Daftar transaksi dibatasi bulan berjalan secara bawaan, dan seluruh
 // perpindahannya lewat satu terjemahan ini. Salah di sini berarti daftar yang

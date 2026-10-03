@@ -382,7 +382,7 @@ func (a *App) renderTxForm(w http.ResponseWriter, r *http.Request, kind string, 
 		}
 	}
 
-	if kind != "transfer" {
+	if kind == "expense" || kind == "income" {
 		cats, err := a.store.CategoryNames(ctx, family(r), kind)
 		if err != nil {
 			a.fail(w, r, err)
@@ -541,12 +541,16 @@ func (a *App) readTx(r *http.Request, kind string) (Tx, map[string]string, error
 	t.WalletCur = from.Currency
 
 	if kind != "transfer" {
-		known, err := a.store.CategoryNames(ctx, family(r), kind)
-		if err != nil {
-			return t, f, errors.New("Gagal membaca daftar kategori.")
-		}
-		if !slicesContains(known, t.Category) {
-			return t, f, errors.New("Kategori belum dipilih.")
+		if kind == "expense" || kind == "income" {
+			known, err := a.store.CategoryNames(ctx, family(r), kind)
+			if err != nil {
+				return t, f, errors.New("Gagal membaca daftar kategori.")
+			}
+			if !slicesContains(known, t.Category) {
+				return t, f, errors.New("Kategori belum dipilih.")
+			}
+		} else {
+			t.Category = ""
 		}
 		amount, err := ParseAmount(f["nominal"], from.Currency)
 		if err != nil || amount <= 0 {
@@ -656,7 +660,7 @@ func (a *App) checkBalance(r *http.Request, t Tx, excludeTxID int64) error {
 	if err != nil {
 		return err
 	}
-	if t.Kind == "income" {
+	if t.AddsBalance() {
 		return nil
 	}
 	// Bertanggal maju: belum menyentuh saldo hari ini, jadi belum ada yang bisa
@@ -758,6 +762,8 @@ func (a *App) txUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t.ID = id
+	// Pihak hutang/piutang tetap mengikuti transaksi asli saat diedit.
+	t.PartyID = old.PartyID
 	if err := a.checkBalance(r, t, id); err != nil {
 		a.renderTxForm(w, r, old.Kind, id, f, err.Error())
 		return

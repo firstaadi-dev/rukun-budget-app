@@ -4,7 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http/httptest"
+	"net/url"
 	"os"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -106,6 +110,44 @@ func TestDatabaseMoneyFlows(t *testing.T) {
 	parties, err := s.Parties(ctx, f.ID)
 	if err != nil || len(parties) != 1 || parties[0].ID != partyID {
 		t.Fatalf("party with no balance: %+v %v", parties, err)
+	}
+	app := &App{store: s, loc: time.UTC, base: "IDR", pages: parsePages()}
+	for _, kind := range []string{"debt_in", "debt_pay", "loan_out", "loan_in"} {
+		t.Run("edit_"+kind, func(t *testing.T) {
+			initial := int64(1000)
+			if kindMenambahSaldo[kind] {
+				initial = 0
+			}
+			walletID, err := s.CreateWallet(ctx, f.ID, Wallet{Name: kind, Type: "cash", Currency: "IDR", InitialMinor: initial})
+			if err != nil {
+				t.Fatal(err)
+			}
+			txID, err := s.CreateTx(ctx, f.ID, Tx{Kind: kind, Date: today, WalletID: walletID, WalletCur: "IDR", AmountMinor: 100, PartyID: partyID}, u.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer s.DeleteTx(ctx, f.ID, txID)
+			values := url.Values{
+				"tanggal": {today.Format(formatTanggal)}, "dompet": {strconv.FormatInt(walletID, 10)},
+				"nominal": {"200"}, "catatan": {"Diperbarui"}, "party_id": {"999999"},
+			}
+			r := httptest.NewRequest("POST", "/transaksi/"+strconv.FormatInt(txID, 10)+"/ubah", strings.NewReader(values.Encode()))
+			r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			r.SetPathValue("id", strconv.FormatInt(txID, 10))
+			r = r.WithContext(context.WithValue(r.Context(), ctxKey{}, u))
+			w := httptest.NewRecorder()
+			app.txUpdate(w, r)
+			if w.Code != 303 {
+				t.Fatalf("edit without category: status %d, body %s", w.Code, w.Body.String())
+			}
+			updated, err := s.Transaction(ctx, f.ID, txID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if updated.Category != "" || updated.PartyID != partyID || updated.Kind != kind || updated.AmountMinor != 200 || updated.Note != "Diperbarui" {
+				t.Fatalf("updated debt transaction: %+v", updated)
+			}
+		})
 	}
 	if err := s.DeleteParty(ctx, f.ID, partyID); err != nil {
 		t.Fatal(err)
