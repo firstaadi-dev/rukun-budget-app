@@ -131,9 +131,10 @@ $$('[data-receipt-input]').forEach(input => {
  };
  const update = () => {
   const n = parseNum(amount.value) || 0;
+  amount.style.width = `${Math.max(1, (amount.value || amount.placeholder || '0').length) + .5}ch`;
   const formatted = `${symbol()} ${fmtPlain(n, currency())}`;
   $('[data-live-amount]', form).textContent = formatted;
-  if (toggle?.checked) { const months = Math.max(2, Number(duration.value) || 3); $('[data-installment-preview]', form).textContent = `(${symbol()} ${fmtPlain(mode.value === 'ulang' ? n : n / months, currency())} / bln)`; $('[data-installment-help]', form).textContent = mode.value === 'ulang' ? 'Nominal penuh dicatat setiap bulan sesuai durasi yang dipilih.' : 'Pencatatan dibagi rata per bulan ke kategori terkait tanpa membebani arus kas bulan ini sekaligus.'; }
+  if (toggle?.checked) { const months = Math.max(2, Number(duration.value) || 3); $('[data-installment-preview]', form).textContent = `${symbol()} ${fmtPlain(mode.value === 'ulang' ? n : n / months, currency())}`; $('[data-installment-help]', form).textContent = mode.value === 'ulang' ? 'Nominal penuh dicatat setiap bulan sesuai durasi yang dipilih.' : 'Pencatatan dibagi rata per bulan ke kategori terkait tanpa membebani arus kas bulan ini sekaligus.'; }
   scheduleBudget();
  };
  toggle?.addEventListener('change', () => { fields.hidden = !toggle.checked; fields.closest('.installment-card').hidden = !toggle.checked; $$('input,select', fields).forEach(input => input.disabled = !toggle.checked); update(); });
