@@ -54,6 +54,7 @@ type Party struct {
 	CreatedAt       pgtype.Timestamptz
 	DueOn           pgtype.Date
 	PaymentWalletID pgtype.Int8
+	Hidden          bool
 }
 
 type Quote struct {

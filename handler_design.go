@@ -256,7 +256,7 @@ func (a *App) designData(r *http.Request, page string, d map[string]any) error {
 			}
 			cards := viewDebtCards(summary.Parties, all)
 			d["DebtCards"] = cards
-			counts := map[string]int{"hutang": 0, "piutang": 0}
+			counts := map[string]int{"hutang": 0, "piutang": 0, "lunas": 0}
 			for _, card := range cards {
 				counts[card.Direction]++
 			}
@@ -581,10 +581,23 @@ func (a *App) savingTarget(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/pengaturan", http.StatusSeeOther)
 }
 
-// viewDebtCards preserves every nonzero balance, including overpayments.
+// viewDebtCards keeps settled parties visible until explicitly hidden.
 func viewDebtCards(parties []PartyView, txs []Tx) []debtCard {
 	var cards []debtCard
 	for _, party := range parties {
+		if party.Kosong {
+			if !party.Hidden {
+				last := ""
+				for _, tx := range txs {
+					if tx.PartyID == party.ID {
+						last = kindLabel[tx.Kind] + " " + Format(tx.AmountMinor, tx.WalletCur) + " · " + tanggalPendek(tx.Date)
+						break
+					}
+				}
+				cards = append(cards, debtCard{PartyView: party, Direction: "lunas", Remaining: "0", Last: last, Action: "Lihat riwayat", PaidPercent: 100})
+			}
+			continue
+		}
 		for _, bal := range party.Saldo {
 			for _, direction := range []string{"hutang", "piutang"} {
 				remaining, kind, action := bal.HutangMinor, "debt_in", "Bayar Hutang"

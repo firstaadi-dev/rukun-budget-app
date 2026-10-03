@@ -807,6 +807,7 @@ type DebtSummary struct {
 	Net                           string
 	NetTone                       string
 	Parties                       []PartyView
+	HiddenParties                 []PartyView
 	Unconverted                   []string
 }
 
@@ -821,8 +822,13 @@ func summarizeDebts(parties []Party, rates map[string]Rate, base string) DebtSum
 	var missing []string
 
 	views := make([]PartyView, 0, len(parties))
+	var hiddenParties []PartyView
 	for _, p := range parties {
-		views = append(views, viewParty(p))
+		v := viewParty(p)
+		views = append(views, v)
+		if v.Hidden && v.Kosong {
+			hiddenParties = append(hiddenParties, v)
+		}
 		hasHutang, hasPiutang := false, false
 		for _, b := range p.Saldo {
 			hasHutang = hasHutang || b.HutangMinor != 0
@@ -864,6 +870,6 @@ func summarizeDebts(parties []Party, rates map[string]Rate, base string) DebtSum
 		Base: base, TotalHutang: Format(hutang, base), TotalPiutang: Format(piutang, base),
 		HutangParties: hutangParties, PiutangParties: piutangParties,
 		Net: Format(net, base), NetTone: tone,
-		Parties: views, Unconverted: missing,
+		Parties: views, HiddenParties: hiddenParties, Unconverted: missing,
 	}
 }

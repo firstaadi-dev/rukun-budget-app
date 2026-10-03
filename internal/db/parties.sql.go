@@ -95,7 +95,7 @@ func (q *Queries) GetCardBalances(ctx context.Context, arg GetCardBalancesParams
 }
 
 const getParties = `-- name: GetParties :many
-SELECT p.id, p.name, p.note, p.due_on, COALESCE(p.payment_wallet_id,0)::bigint AS payment_wallet_id, COALESCE(pw.name,'') AS payment_wallet_name, COALESCE(b.cur, '') AS cur,
+SELECT p.id, p.name, p.note, p.hidden, p.due_on, COALESCE(p.payment_wallet_id,0)::bigint AS payment_wallet_id, COALESCE(pw.name,'') AS payment_wallet_name, COALESCE(b.cur, '') AS cur,
        COALESCE(b.hutang, 0)::bigint AS hutang,
        COALESCE(b.piutang, 0)::bigint AS piutang
 FROM parties p
@@ -119,6 +119,7 @@ type GetPartiesRow struct {
 	ID                int64
 	Name              string
 	Note              string
+	Hidden            bool
 	DueOn             pgtype.Date
 	PaymentWalletID   int64
 	PaymentWalletName string
@@ -140,6 +141,7 @@ func (q *Queries) GetParties(ctx context.Context, familyID int64) ([]GetPartiesR
 			&i.ID,
 			&i.Name,
 			&i.Note,
+			&i.Hidden,
 			&i.DueOn,
 			&i.PaymentWalletID,
 			&i.PaymentWalletName,

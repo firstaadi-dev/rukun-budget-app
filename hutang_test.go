@@ -81,8 +81,8 @@ func TestDebtCardsKeepNegativeBalances(t *testing.T) {
 	}
 	summary := summarizeDebts(parties, nil, "IDR")
 	cards := viewDebtCards(summary.Parties, []Tx{{PartyID: 1, WalletCur: "IDR", Kind: "loan_out", AmountMinor: 100_000}, {PartyID: 1, WalletCur: "IDR", Kind: "loan_in", AmountMinor: 125_000}})
-	if len(cards) != 4 {
-		t.Fatalf("kartu = %+v, mau empat saldo nonzero", cards)
+	if len(cards) != 5 {
+		t.Fatalf("kartu = %+v, mau empat saldo nonzero dan satu pihak lunas", cards)
 	}
 	if cards[0].Direction != "piutang" || !cards[0].Overpaid || cards[0].Remaining != Format(-25_000, "IDR") || cards[0].PaidPercent != 100 {
 		t.Fatalf("kartu lebih bayar = %+v", cards[0])
@@ -95,18 +95,53 @@ func TestDebtCardsKeepNegativeBalances(t *testing.T) {
 	}
 	var output bytes.Buffer
 	err := parsePages()["hutang.html"].ExecuteTemplate(&output, "layout.html", map[string]any{
-		"Summary": summary, "DebtCards": cards, "DebtCounts": map[string]int{"hutang": 2, "piutang": 2}, "Nav": "hutang", "Family": "Keluarga",
+		"Summary": summary, "DebtCards": cards, "DebtCounts": map[string]int{"hutang": 2, "piutang": 2, "lunas": 1}, "Nav": "hutang", "Family": "Keluarga",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	html := output.String()
-	for _, want := range []string{"Lebih bayar", cards[0].Remaining, `data-filter-value="piutang"`, `href="/hutang/pihak/1"`, "Semua (4)", "Orang Berhutang (2)"} {
+	for _, want := range []string{"Lebih bayar", cards[0].Remaining, `data-filter-value="piutang"`, `href="/hutang/pihak/1"`, "Semua (5)", "Orang Berhutang (2)"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("halaman tidak memuat %q", want)
 		}
 	}
 	if strings.Contains(html, `href="/hutang/pihak/1/bayar?arah=piutang" aria-label="Lihat riwayat`) {
 		t.Error("lebih bayar masih menawarkan penerimaan dana")
+	}
+}
+
+func TestSettledPartyVisibility(t *testing.T) {
+	parties := []Party{
+		{ID: 1, Name: "Lunas Terlihat", Saldo: []PartyBalance{{Currency: "IDR"}, {Currency: "USD"}}},
+		{ID: 2, Name: "Lunas Tersembunyi", Hidden: true},
+		{ID: 3, Name: "Saldo Baru", Hidden: true, Saldo: []PartyBalance{{Currency: "USD", PiutangMinor: 100}}},
+		{ID: 4, Name: "Dua Arah", Saldo: []PartyBalance{{Currency: "IDR", HutangMinor: 100, PiutangMinor: 100}}},
+	}
+	summary := summarizeDebts(parties, nil, "IDR")
+	cards := viewDebtCards(summary.Parties, nil)
+	if len(cards) != 4 || cards[0].ID != 1 || cards[0].Direction != "lunas" || !cards[0].Kosong || cards[0].Remaining != "0" {
+		t.Fatalf("kartu terlihat = %+v", cards)
+	}
+	if cards[1].ID != 3 || cards[1].Kosong || len(summary.HiddenParties) != 1 || summary.HiddenParties[0].ID != 2 {
+		t.Fatalf("saldo aktif tersembunyi atau daftar tersembunyi salah: %+v, %+v", cards, summary.HiddenParties)
+	}
+	var out bytes.Buffer
+	err := parsePages()["hutang.html"].ExecuteTemplate(&out, "layout.html", map[string]any{
+		"Summary": summary, "DebtCards": cards, "DebtCounts": map[string]int{"lunas": 1, "hutang": 1, "piutang": 2}, "Family": "Keluarga", "Nav": "hutang",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	html := out.String()
+	for _, want := range []string{`data-filter-value="lunas"`, "Lunas (1)", `action="/hutang/pihak/1/sembunyikan"`, "Sembunyikan dari daftar", "Pihak disembunyikan (1)", `action="/hutang/pihak/2/tampilkan"`, "Tampilkan kembali"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("halaman tidak memuat %q", want)
+		}
+	}
+	for _, unwanted := range []string{`/hutang/pihak/1/bayar`, `action="/hutang/pihak/3/sembunyikan"`, `action="/hutang/pihak/4/sembunyikan"`} {
+		if strings.Contains(html, unwanted) {
+			t.Errorf("aksi yang tidak sesuai status: %s", unwanted)
+		}
 	}
 }

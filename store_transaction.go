@@ -214,6 +214,12 @@ func insertTx(ctx context.Context, q sqlcdb.DBTX, familyID int64, t Tx, userID i
 	if err != nil {
 		return 0, err
 	}
+	// A new loan explicitly brings a previously hidden contact back to the list.
+	if t.Kind == "debt_in" || t.Kind == "loan_out" {
+		if _, err = q.Exec(ctx, `UPDATE parties SET hidden=FALSE WHERE family_id=$1 AND id=$2 AND hidden`, familyID, t.PartyID); err != nil {
+			return 0, err
+		}
+	}
 	if t.SetPartyPlan {
 		_, err = q.Exec(ctx, `UPDATE parties SET due_on=$1,payment_wallet_id=NULLIF($2,0) WHERE id=$3 AND family_id=$4`, t.PartyDueOn, t.PartyPaymentWalletID, t.PartyID, familyID)
 	}

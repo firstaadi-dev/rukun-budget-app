@@ -16,6 +16,7 @@ type Party struct {
 	ID                int64
 	Name              string
 	Note              string
+	Hidden            bool
 	DueOn             pgtype.Date
 	PaymentWalletID   int64
 	PaymentWalletName string
@@ -43,7 +44,7 @@ func (s *Store) Parties(ctx context.Context, familyID int64) ([]Party, error) {
 	var out []Party
 	for _, row := range rows {
 		if n := len(out); n == 0 || out[n-1].ID != row.ID {
-			out = append(out, Party{ID: row.ID, Name: row.Name, Note: row.Note, DueOn: row.DueOn, PaymentWalletID: row.PaymentWalletID, PaymentWalletName: row.PaymentWalletName})
+			out = append(out, Party{ID: row.ID, Name: row.Name, Note: row.Note, Hidden: row.Hidden, DueOn: row.DueOn, PaymentWalletID: row.PaymentWalletID, PaymentWalletName: row.PaymentWalletName})
 		}
 		if row.Cur != "" && (row.Hutang != 0 || row.Piutang != 0) {
 			p := &out[len(out)-1]
@@ -150,4 +151,34 @@ func (s *Store) CardBalances(ctx context.Context, familyID, walletID int64, sett
 		Today:      pgtype.Date{Time: s.today(), Valid: true},
 	})
 	return row.AtSettlement, row.CreditsSince, err
+}
+
+var ErrPartyUnsettled = errors.New("Pihak yang masih memiliki saldo hutang atau piutang belum bisa disembunyikan.")
+
+// SetPartyHidden checks every currency and direction before hiding a party.
+// History remains available, and a nonzero balance is never hidden.
+func (s *Store) SetPartyHidden(ctx context.Context, familyID, id int64, hidden bool) error {
+	result, err := s.db.Exec(ctx, `
+		UPDATE parties p SET hidden=$3
+		WHERE p.family_id=$1 AND p.id=$2 AND (
+			NOT $3 OR NOT EXISTS (
+				SELECT COALESCE(w.currency,t.currency)
+				FROM transactions t
+				LEFT JOIN wallets w ON w.id=t.wallet_id AND w.family_id=t.family_id
+				WHERE t.family_id=$1 AND t.party_id=$2
+				GROUP BY COALESCE(w.currency,t.currency)
+				HAVING SUM(CASE t.kind WHEN 'debt_in' THEN t.amount_minor WHEN 'debt_pay' THEN -t.amount_minor ELSE 0 END) <> 0
+				OR SUM(CASE t.kind WHEN 'loan_out' THEN t.amount_minor WHEN 'loan_in' THEN -t.amount_minor ELSE 0 END) <> 0
+			)
+		)`, familyID, id, hidden)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		if _, err := s.Party(ctx, familyID, id); err != nil {
+			return err
+		}
+		return ErrPartyUnsettled
+	}
+	return nil
 }

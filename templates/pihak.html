@@ -26,6 +26,9 @@
       {{if .Note}}<p class="hint">{{.Note}}</p>{{end}}
     </div>
 
+    {{if .Kosong}}
+    <div class="card"><span class="tag tag-accent-2">Lunas</span><form method="post" action="/hutang/pihak/{{.ID}}/{{if .Hidden}}tampilkan{{else}}sembunyikan{{end}}"><button type="submit" class="btn btn-secondary btn-block">{{if .Hidden}}Tampilkan kembali di daftar{{else}}Sembunyikan dari daftar{{end}}</button></form></div>
+    {{end}}
     <div class="aksi-pihak">
       <a class="btn btn-primary" href="/hutang/pihak/{{.ID}}/bayar?arah=hutang">Bayar Hutang</a>
       <a class="btn btn-secondary" href="/hutang/pihak/{{.ID}}/bayar?arah=piutang">Terima Piutang</a>

@@ -16,11 +16,12 @@
   </section>
   {{end}}
   <section class="debt-contacts stack-sm">
-    <div class="sec-head"><h5>Daftar Pihak &amp; Kontak</h5><span class="small text-muted">{{len .DebtCards}} Catatan Aktif</span></div>
+    <div class="sec-head"><h5>Daftar Pihak &amp; Kontak</h5><span class="small text-muted">{{len .DebtCards}} Catatan</span></div>
     <nav class="filter-pills" data-filter-group="debts" aria-label="Jenis hutang">
       <button type="button" class="active" data-filter="all">Semua ({{len .DebtCards}})</button>
       <button type="button" data-filter="hutang">Saya Berhutang ({{with .DebtCounts}}{{index . "hutang"}}{{else}}0{{end}})</button>
       <button type="button" data-filter="piutang">Orang Berhutang ({{with .DebtCounts}}{{index . "piutang"}}{{else}}0{{end}})</button>
+      <button type="button" data-filter="lunas">Lunas ({{with .DebtCounts}}{{index . "lunas"}}{{else}}0{{end}})</button>
     </nav>
     <div class="debt-contact-list stack-sm">
       {{range .DebtCards}}
@@ -28,22 +29,27 @@
         <div class="debt-contact-row">
           <span class="avatar {{if eq .Direction "hutang"}}t-out{{end}}">{{initials .Name}}</span>
           <a class="row-main party-link" href="/hutang/pihak/{{.ID}}">
-            <span class="debt-contact-title"><strong title="{{.Name}}">{{.Name}}</strong><span class="debt-direction {{if eq .Direction "hutang"}}t-out{{else}}tag-accent-2{{end}}">{{if eq .Direction "hutang"}}Hutang{{else}}Piutang{{end}}</span></span>
-            <span class="small text-muted" title="{{.Note}}{{with .PaymentWalletName}} · {{.}}{{end}}">{{if .Note}}{{.Note}}{{else}}{{if eq .Direction "hutang"}}Pinjaman diterima{{else}}Pinjaman diberikan{{end}}{{end}}{{with .PaymentWalletName}} · {{.}}{{end}}</span>
+            <span class="debt-contact-title"><strong title="{{.Name}}">{{.Name}}</strong><span class="debt-direction {{if eq .Direction "hutang"}}t-out{{else}}tag-accent-2{{end}}">{{if .Kosong}}Lunas{{else if eq .Direction "hutang"}}Hutang{{else}}Piutang{{end}}</span></span>
+            <span class="small text-muted" title="{{.Note}}{{with .PaymentWalletName}} · {{.}}{{end}}">{{if .Note}}{{.Note}}{{else}}{{if .Kosong}}Seluruh saldo sudah lunas{{else if eq .Direction "hutang"}}Pinjaman diterima{{else}}Pinjaman diberikan{{end}}{{end}}{{with .PaymentWalletName}} · {{.}}{{end}}</span>
           </a>
-          <div class="debt-contact-amount"><span class="text-muted">{{if .Overpaid}}Lebih bayar{{else if eq .Direction "hutang"}}Tagihan{{else}}Sisa{{end}}</span><strong class="{{if or .Overpaid (eq .Direction "hutang")}}m-out{{else}}m-in{{end}}">{{.Remaining}}</strong></div>
-          <a class="debt-payment {{if eq .Direction "hutang"}}m-out{{else}}m-in{{end}}" href="/hutang/pihak/{{.ID}}{{if not .Overpaid}}/bayar?arah={{.Direction}}{{end}}" aria-label="{{.Action}}: {{.Name}}" title="{{.Action}}">{{if .Overpaid}}{{di "history"}}{{else if eq .Direction "hutang"}}{{di "check"}}{{else}}{{di "cash"}}{{end}}</a>
+          <div class="debt-contact-amount"><span class="text-muted">{{if .Kosong}}Sisa{{else if .Overpaid}}Lebih bayar{{else if eq .Direction "hutang"}}Tagihan{{else}}Sisa{{end}}</span><strong class="{{if or .Overpaid (eq .Direction "hutang")}}m-out{{else}}m-in{{end}}">{{.Remaining}}</strong></div>
+          <a class="debt-payment {{if eq .Direction "hutang"}}m-out{{else}}m-in{{end}}" href="/hutang/pihak/{{.ID}}{{if and (not .Overpaid) (not .Kosong)}}/bayar?arah={{.Direction}}{{end}}" aria-label="{{.Action}}: {{.Name}}" title="{{.Action}}">{{if or .Overpaid .Kosong}}{{di "history"}}{{else if eq .Direction "hutang"}}{{di "check"}}{{else}}{{di "cash"}}{{end}}</a>
         </div>
         <div class="debt-contact-footer">
-          {{if .Overpaid}}<span class="m-out">{{di "info"}} Saldo {{.Direction}} negatif karena lebih bayar</span>
+          {{if .Kosong}}<span class="m-in">{{di "check"}} Semua saldo lunas</span><form method="post" action="/hutang/pihak/{{.ID}}/sembunyikan"><button type="submit" class="debt-hide">Sembunyikan dari daftar</button></form>
+          {{else if .Overpaid}}<span class="m-out">{{di "info"}} Saldo {{.Direction}} negatif karena lebih bayar</span>
           {{else if .Due}}<span class="m-out">{{di "calendar"}} Jatuh tempo: {{.Due}}</span>
           {{else}}<progress value="{{.PaidPercent}}" max="100" aria-label="Pelunasan {{.Direction}} {{.Name}}"></progress><span>{{.PaidPercent}}% dari {{.Original}}</span>{{end}}
         </div>
         {{with .Last}}<span class="debt-last text-muted">{{.}}</span>{{end}}
       </article>
-      {{else}}<p class="empty">Belum ada hutang atau piutang yang belum lunas.</p>{{end}}
+      {{else}}<p class="empty">Belum ada pihak yang ditampilkan.</p>{{end}}
     </div>
-    <details class="card debt-history"><summary>Pihak &amp; riwayat yang sudah lunas</summary>{{range .Summary.Parties}}{{if .Kosong}}<a class="btn btn-ghost" href="/hutang/pihak/{{.ID}}">{{.Name}}</a>{{end}}{{end}}</details>
+    {{with .Summary.HiddenParties}}
+    <details class="card debt-history"><summary>Pihak disembunyikan ({{len .}})</summary>
+      {{range .}}<div class="sec-head"><a class="party-link" href="/hutang/pihak/{{.ID}}">{{.Name}}</a><form method="post" action="/hutang/pihak/{{.ID}}/tampilkan"><button type="submit" class="btn btn-secondary">Tampilkan kembali</button></form></div>{{end}}
+    </details>
+    {{end}}
   </section>
   <div class="sticky-actions"><a class="btn btn-primary btn-block" href="/hutang/baru">{{di "plus"}} Catat Hutang / Piutang Baru</a></div>
 </div>

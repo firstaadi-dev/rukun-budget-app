@@ -279,6 +279,8 @@ func (a *App) routes() http.Handler {
 	auth("GET /hutang/pihak/{id}", a.partyDetail)
 	auth("POST /hutang/pihak/{id}/ubah", a.partyUpdate)
 	auth("POST /hutang/pihak/{id}/hapus", a.partyDelete)
+	auth("POST /hutang/pihak/{id}/sembunyikan", a.partyHide)
+	auth("POST /hutang/pihak/{id}/tampilkan", a.partyShow)
 	auth("GET /hutang/pihak/{id}/bayar", a.payForm)
 	auth("POST /hutang/pihak/{id}/bayar", a.payCreate)
 

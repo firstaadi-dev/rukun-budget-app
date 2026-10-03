@@ -175,4 +175,67 @@ func TestDatabaseMoneyFlows(t *testing.T) {
 	if manual != 9 {
 		t.Fatalf("adjustment in spending: %d, want 9", manual)
 	}
+	t.Run("settled party visibility", func(t *testing.T) {
+		pid, err := s.EnsureParty(ctx, f.ID, "Settled contact")
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertVisibility := func(hidden bool) {
+			t.Helper()
+			p, err := s.Party(ctx, f.ID, pid)
+			if err != nil || p.Hidden != hidden {
+				t.Fatalf("party visibility = %+v, %v; want hidden %v", p, err, hidden)
+			}
+		}
+		if err := s.SetPartyHidden(ctx, f.ID, pid, true); err != nil {
+			t.Fatal(err)
+		}
+		assertVisibility(true)
+		if err := s.SetPartyHidden(ctx, 0, pid, false); !errors.Is(err, ErrNotFound) {
+			t.Fatalf("cross-family visibility: %v", err)
+		}
+		assertVisibility(true)
+		if err := s.SetPartyHidden(ctx, f.ID, pid, false); err != nil {
+			t.Fatal(err)
+		}
+		assertVisibility(false)
+		if err := s.SetPartyHidden(ctx, f.ID, pid, true); err != nil {
+			t.Fatal(err)
+		}
+		create := func(kind, currency string, amount int64) {
+			t.Helper()
+			_, err := s.CreateTx(ctx, f.ID, Tx{Kind: kind, Date: today, WalletCur: currency, AmountMinor: amount, PartyID: pid}, u.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		create("loan_out", "IDR", 100)
+		assertVisibility(false)
+		if err := s.SetPartyHidden(ctx, f.ID, pid, true); !errors.Is(err, ErrPartyUnsettled) {
+			t.Fatalf("hide outstanding balance: %v", err)
+		}
+		create("loan_in", "IDR", 100)
+		if err := s.SetPartyHidden(ctx, f.ID, pid, true); err != nil {
+			t.Fatal(err)
+		}
+		assertVisibility(true)
+		create("debt_in", "USD", 100)
+		assertVisibility(false)
+		if err := s.SetPartyHidden(ctx, f.ID, pid, true); !errors.Is(err, ErrPartyUnsettled) {
+			t.Fatalf("hide outstanding USD with settled IDR: %v", err)
+		}
+		create("debt_pay", "USD", 100)
+		p, err := s.Party(ctx, f.ID, pid)
+		if err != nil || !viewParty(p).Kosong || p.Hidden {
+			t.Fatalf("settled party disappeared: %+v, %v", p, err)
+		}
+		if cards := viewDebtCards([]PartyView{viewParty(p)}, nil); len(cards) != 1 || cards[0].Direction != "lunas" {
+			t.Fatalf("settled cards: %+v", cards)
+		}
+		create("loan_in", "IDR", 20)
+		if err := s.SetPartyHidden(ctx, f.ID, pid, true); !errors.Is(err, ErrPartyUnsettled) {
+			t.Fatalf("hide negative piutang: %v", err)
+		}
+	})
+
 }

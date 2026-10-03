@@ -34,6 +34,10 @@ var arahPembayaran = map[string]string{
 // ---------- daftar dan ringkasan ----------
 
 func (a *App) debtList(w http.ResponseWriter, r *http.Request) {
+	a.renderDebtList(w, r, "")
+}
+
+func (a *App) renderDebtList(w http.ResponseWriter, r *http.Request, errMsg string) {
 	ctx := r.Context()
 	parties, err := a.store.Parties(ctx, family(r))
 	if err != nil {
@@ -46,7 +50,7 @@ func (a *App) debtList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.render(w, r, "hutang.html", map[string]any{
-		"Title": "Hutang & Piutang", "Nav": "hutang",
+		"Title": "Hutang & Piutang", "Nav": "hutang", "Error": errMsg,
 		"Summary": summarizeDebts(parties, rates, a.base),
 	})
 }
@@ -401,6 +405,32 @@ func (a *App) partyDelete(w http.ResponseWriter, r *http.Request) {
 			"Title": "Hutang & Piutang", "Nav": "hutang",
 			"Summary": summarizeDebts(parties, rates, a.base), "Error": err.Error(),
 		})
+		return
+	}
+	http.Redirect(w, r, "/hutang", http.StatusSeeOther)
+}
+
+func (a *App) partyHide(w http.ResponseWriter, r *http.Request) {
+	a.partyVisibility(w, r, true)
+}
+
+func (a *App) partyShow(w http.ResponseWriter, r *http.Request) {
+	a.partyVisibility(w, r, false)
+}
+
+func (a *App) partyVisibility(w http.ResponseWriter, r *http.Request, hidden bool) {
+	err := a.store.SetPartyHidden(r.Context(), family(r), pathID(r), hidden)
+	if errors.Is(err, ErrNotFound) {
+		a.notFound(w)
+		return
+	}
+	if errors.Is(err, ErrPartyUnsettled) {
+		w.WriteHeader(http.StatusConflict)
+		a.renderDebtList(w, r, err.Error())
+		return
+	}
+	if err != nil {
+		a.fail(w, r, err)
 		return
 	}
 	http.Redirect(w, r, "/hutang", http.StatusSeeOther)

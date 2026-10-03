@@ -380,7 +380,7 @@ func TestPagesRender(t *testing.T) {
 		if c.page == "hutang.html" {
 			summary := c.data["Summary"].(DebtSummary)
 			c.data["DebtCards"] = viewDebtCards(summary.Parties, nil)
-			c.data["DebtCounts"] = map[string]int{"hutang": 1, "piutang": 1}
+			c.data["DebtCounts"] = map[string]int{"hutang": 1, "piutang": 1, "lunas": 1}
 		}
 
 		var buf bytes.Buffer
