@@ -102,7 +102,16 @@
 {{end}}
 
 {{define "cycle-tx-row"}}
-<a class="card cycle-tx-row" href="/transaksi/{{.ID}}"><span class="row-ic t-{{.Tone}}">{{if .Category}}{{di (categoryIcon .Category)}}{{else}}{{template "tx-icon" .Kind}}{{end}}</span><span class="row-main"><strong class="row-title">{{if .Note}}{{.Note}}{{else}}{{.ShortDesc}}{{end}}</strong><span class="small text-muted">{{if .Category}}{{.Category}} · {{end}}{{.WalletLabel}}</span>{{with .SeriesLabel}}<span class="cycle-installment">{{.}}</span>{{end}}{{with .CreatedBy}}<span class="recorded-by"><span class="status-dot"></span> Dicatat {{.}}</span>{{end}}</span><span class="row-amount"><strong class="row-amt m-{{.Tone}}">{{.Amount}}</strong>{{with .OccurredTime}}<small class="text-muted">{{.}} WIB</small>{{end}}{{if .IsTransfer}}<small class="text-muted">Pindah Saldo</small>{{end}}</span></a>
+<a class="card cycle-tx-row" href="/transaksi/{{.ID}}">
+  <span class="row-ic t-{{.Tone}}">{{if .Category}}{{di (categoryIcon .Category)}}{{else}}{{template "tx-icon" .Kind}}{{end}}</span>
+  <span class="cycle-tx-content">
+    <span class="cycle-tx-heading"><strong class="row-title" title="{{if .Note}}{{.Note}}{{else}}{{.ShortDesc}}{{end}}">{{if .Note}}{{.Note}}{{else}}{{.ShortDesc}}{{end}}</strong><strong class="row-amt m-{{.Tone}}">{{.Amount}}</strong></span>
+    <span class="cycle-tx-details">
+      <span class="cycle-tx-metadata"><span class="cycle-tx-wallet text-muted" title="{{if .Category}}{{.Category}} · {{end}}{{.WalletLabel}}">{{if .Category}}{{.Category}} · {{end}}{{.WalletLabel}}</span>{{with .SeriesLabel}}<span class="cycle-installment" title="{{.}}">{{if eq $.SeriesKind "cicil"}}{{$.SeriesSeq}}/{{$.SeriesN}}{{else}}{{.}}{{end}}</span>{{end}}{{with .CreatedBy}}<span class="recorded-by" title="Dicatat {{.}}"><span class="status-dot"></span> {{.}}</span>{{end}}{{if .IsTransfer}}<span class="cycle-installment">Pindah Saldo</span>{{end}}</span>
+      {{with .OccurredTime}}<small class="cycle-tx-time text-muted">{{.}} WIB</small>{{end}}
+    </span>
+  </span>
+</a>
 {{end}}
 {{define "period-picker"}}
 <dialog id="period-dialog" class="bottom-sheet period-picker">

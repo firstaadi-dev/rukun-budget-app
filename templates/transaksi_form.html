@@ -10,5 +10,7 @@
  <label class="receipt-upload">{{di "camera"}}<strong>Lampirkan Struk Belanja (Opsional)</strong><small class="text-muted" data-receipt-name>JPG, PNG, WebP atau PDF · maksimal 2 MB</small><input name="struk" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" data-receipt-input></label>
  {{with .Series}}<label class="checkline"><input type="checkbox" name="seluruh" value="1">Terapkan kategori dan catatan ke seluruh {{.SeriesN}} transaksi dalam rangkaian</label>{{end}}
  <div class="sticky-actions save-footer"><div class="footer-summary"><span>{{.KindLabel}} <strong data-live-amount>—</strong></span><span class="m-in"><span class="status-dot"></span><span data-connection-label>Siap dibagikan</span></span></div><button class="btn btn-primary btn-block" type="submit">{{di "check"}} Simpan Transaksi</button></div>
-</form><span data-budget-json="{{.BudgetJSON}}" hidden></span>
+</form>
+{{with .Series}}{{template "delete-series" .}}{{end}}
+<span data-budget-json="{{.BudgetJSON}}" hidden></span>
 {{end}}

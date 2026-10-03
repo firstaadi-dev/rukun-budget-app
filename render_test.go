@@ -236,7 +236,7 @@ func TestPagesRender(t *testing.T) {
 			"Action": "/transaksi/7/ubah", "Kind": "expense", "KindLabel": "Pengeluaran", "ID": int64(7),
 			"Form": form, "Wallets": viewWallets(wallets), "Categories": []string{"Belanja"},
 			"Modes": modeCicilan, "ModeLabel": modeLabel(""), "CicilanMaks": cicilanMaks,
-			"Series": Tx{SeriesID: 3, SeriesSeq: 2, SeriesN: 12, SeriesKind: "cicil"},
+			"Series": Tx{ID: 7, SeriesID: 3, SeriesSeq: 2, SeriesN: 12, SeriesKind: "cicil"},
 		}, "Hapus seluruh rangkaian"},
 
 		// Mode cicilan: kolom jumlah bulan hanya ada di sini, dan jalur biasa di
@@ -248,7 +248,7 @@ func TestPagesRender(t *testing.T) {
 			"Wallets": viewWallets(wallets), "Categories": []string{"Belanja"},
 			"Modes": modeCicilan, "ModeLabel": modeLabel("cicil"),
 			"ModeHint": modeHint("cicil"), "CicilanMaks": cicilanMaks,
-		}, "dibagi rata ke sekian bulan"},
+		}, "Pencatatan akan dibagi rata per bulan"},
 
 		{"transfer_form.html", map[string]any{
 			"Title": "Transfer Antar Dompet", "Nav": "transaksi", "Back": "/transaksi",
@@ -337,7 +337,7 @@ func TestPagesRender(t *testing.T) {
 			},
 		}, "112%"},
 		{"subscription.html", map[string]any{
-			"Nav": "subscription", "Items": []Subscription{
+			"Nav": "subscription", "Today": today, "Items": []Subscription{
 				{ID: 1, Name: "Netflix", WalletName: "BCA", Category: "Hiburan", Amount: "Rp186.000", NextLabel: "2 Oktober 2026", IntervalMonths: 1, Active: true},
 				{ID: 2, Name: "Cloud", Amount: "Rp135.000", IntervalMonths: 12},
 			},
@@ -375,6 +375,23 @@ func TestPagesRender(t *testing.T) {
 		}
 		if _, ok := c.data["Family"]; !ok {
 			c.data["Family"] = "Keluarga Santoso"
+		}
+
+		if _, ok := c.data["Today"]; !ok {
+			c.data["Today"] = today
+		}
+		if c.page == "dompet.html" {
+			var debit []WalletView
+			for _, wallet := range c.data["Wallets"].([]WalletView) {
+				if !wallet.IsCredit() {
+					debit = append(debit, wallet)
+				}
+			}
+			c.data["DebitWallets"] = debit
+			c.data["WalletSummary"] = summarize(wallets, rates, "IDR")
+		}
+		if c.page == "investasi.html" {
+			c.data["PositionCount"] = len(invViews)
 		}
 
 		if c.page == "hutang.html" {
@@ -463,5 +480,49 @@ func TestGroupTxs(t *testing.T) {
 	}
 	if groups[2].Label != "4 Agustus 2026" {
 		t.Errorf("grup ketiga = %s, mau 4 Agustus 2026", groups[2].Label)
+	}
+}
+
+// The whole-series action must submit the explicit scope flag to the existing
+// delete handler, and must never appear for a standalone transaction.
+func TestDeleteSeriesActions(t *testing.T) {
+	pages := parsePages()
+	today := time.Date(2026, 8, 7, 0, 0, 0, 0, time.UTC)
+	for _, kind := range []string{"", "cicil", "ulang"} {
+		for _, page := range []string{"transaksi_form.html", "detail.html"} {
+			t.Run(page+"/"+kind, func(t *testing.T) {
+				tx := Tx{ID: 7, Kind: "expense", WalletCur: "IDR", AmountMinor: 10000, Date: today, CreatedAt: today, CreatedBy: "Ayu"}
+				data := map[string]any{
+					"ID": tx.ID, "Nav": "transaksi", "Family": "Keluarga", "User": User{ID: 1},
+					"Action": "/transaksi/7/ubah", "Kind": "expense", "KindLabel": "Pengeluaran",
+					"Form": map[string]string{}, "Categories": []string{},
+				}
+				if kind != "" {
+					tx.SeriesID, tx.SeriesKind, tx.SeriesN, tx.SeriesSeq = 3, kind, 12, 2
+					data["Series"] = tx
+				}
+				data["Tx"] = viewTx(tx, today)
+				var out bytes.Buffer
+				if err := pages[page].ExecuteTemplate(&out, "layout.html", data); err != nil {
+					t.Fatal(err)
+				}
+				html := out.String()
+				for _, fragment := range []string{`<input type="hidden" name="seluruh" value="1">`, "Hapus seluruh rangkaian (12 transaksi)", "Hapus seluruh 12 transaksi dalam rangkaian ini?"} {
+					if strings.Contains(html, fragment) != (kind != "") {
+						t.Errorf("rangkaian %q: status aksi %q salah", kind, fragment)
+					}
+				}
+				wantForms := 0
+				if page == "detail.html" {
+					wantForms++
+				}
+				if kind != "" {
+					wantForms++
+				}
+				if got := strings.Count(html, `action="/transaksi/7/hapus"`); got != wantForms {
+					t.Errorf("form hapus = %d, mau %d", got, wantForms)
+				}
+			})
+		}
 	}
 }

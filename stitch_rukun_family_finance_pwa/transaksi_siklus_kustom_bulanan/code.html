@@ -1,16 +1,14 @@
-<!DOCTYPE html>
-
-<html lang="id"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<!DOCTYPE html><html lang="id"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
 <title>Rukun - Transaksi Siklus Kustom</title>
 <!-- Google Fonts: Plus Jakarta Sans & Inter -->
-<link href="https://fonts.googleapis.com" rel="preconnect"/>
-<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
 <!-- Material Symbols Outlined -->
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
 <!-- Tailwind CSS v3 with Container Queries -->
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <script id="tailwind-config">
@@ -138,7 +136,12 @@
       scrollbar-width: none;
     }
   </style>
-</head>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
 <body class="bg-[#121a19] text-on-surface font-body-md antialiased min-h-screen flex justify-center py-0 sm:py-6 selection:bg-primary-container selection:text-on-primary">
 <!-- Mobile Viewport Shell (390px default, max 430px) -->
 <div class="w-full max-w-[430px] min-h-screen bg-background relative shadow-2xl flex flex-col justify-between overflow-x-hidden border-x border-outline-variant/10">
@@ -186,12 +189,12 @@
 <!-- Cycle Pill Tag -->
 <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary-container/10 text-primary font-label-sm text-label-sm font-semibold">
 <span class="material-symbols-outlined text-sm font-bold" data-icon="event_repeat">event_repeat</span>
-<span>Siklus Gajian (Tgl 28)</span>
+<span class="">Siklus Gajian (Tgl 28)</span>
 </div>
 <!-- Mini Action: Quick Jump to Today/Full Calendar -->
 <button class="flex items-center gap-1 text-primary hover:text-primary-container font-label-sm text-label-sm font-medium px-2 py-1 rounded-lg hover:bg-surface-container-low transition-colors">
 <span class="material-symbols-outlined text-[18px]" data-icon="calendar_month">calendar_month</span>
-<span>Ubah</span>
+<span class="">Ubah</span>
 </button>
 </div>
 <!-- Date Display Range Header with Sleek Touch Navigation -->
@@ -202,7 +205,7 @@
 <!-- Resolved Range Label (Shortened Month Format to prevent wrap) -->
 <div class="text-center flex-1 cursor-pointer group">
 <div class="inline-flex items-center justify-center gap-1.5 font-headline-md text-headline-md font-bold text-on-surface group-hover:text-primary transition-colors">
-<span>28 Sep – 27 Okt 2026</span>
+<span class="">28 Sep – 27 Okt 2026</span>
 <span class="material-symbols-outlined text-sm text-outline group-hover:text-primary transition-colors" data-icon="expand_more">expand_more</span>
 </div>
 <!-- Temporal Velocity Indicator -->
@@ -215,38 +218,36 @@
 </button>
 </div>
 <!-- Balance Metrics: 3 Balanced Cards Grid -->
-<div class="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-surface-container/60">
-<!-- Masuk -->
-<div class="bg-surface-container-low/70 rounded-xl p-2.5 flex flex-col">
-<div class="flex items-center gap-1 text-secondary font-label-sm text-label-sm font-semibold mb-1">
-<span class="material-symbols-outlined text-[15px]" data-icon="arrow_downward">arrow_downward</span>
-<span>Masuk</span>
-</div>
-<span class="font-currency-sm text-currency-sm font-bold text-secondary tracking-tight">
-              Rp8.923.200
-            </span>
+<div class="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-surface-container/60"><!-- Masuk -->
+<div class="bg-surface-container-low/70 rounded-lg px-2 py-2 flex flex-col">
+  <div class="flex items-center gap-1 text-secondary font-label-sm text-[11px] font-semibold mb-0.5">
+    <span class="material-symbols-outlined text-[14px]" data-icon="arrow_downward">arrow_downward</span>
+    <span class="">Masuk</span>
+  </div>
+  <span class="font-currency-sm text-[13px] font-bold text-secondary tracking-tight">
+    Rp8.923.200
+  </span>
 </div>
 <!-- Keluar -->
-<div class="bg-surface-container-low/70 rounded-xl p-2.5 flex flex-col">
-<div class="flex items-center gap-1 text-tertiary-container font-label-sm text-label-sm font-semibold mb-1">
-<span class="material-symbols-outlined text-[15px]" data-icon="arrow_upward">arrow_upward</span>
-<span>Keluar</span>
-</div>
-<span class="font-currency-sm text-currency-sm font-bold text-tertiary-container tracking-tight">
-              Rp4.220.900
-            </span>
+<div class="bg-surface-container-low/70 rounded-lg px-2 py-2 flex flex-col">
+  <div class="flex items-center gap-1 text-tertiary-container font-label-sm text-[11px] font-semibold mb-0.5">
+    <span class="material-symbols-outlined text-[14px]" data-icon="arrow_upward">arrow_upward</span>
+    <span class="">Keluar</span>
+  </div>
+  <span class="font-currency-sm text-[13px] font-bold text-tertiary-container tracking-tight">
+    Rp4.220.900
+  </span>
 </div>
 <!-- Selisih Kas -->
-<div class="bg-primary-container/5 border border-primary-container/15 rounded-xl p-2.5 flex flex-col">
-<div class="flex items-center gap-1 text-primary font-label-sm text-label-sm font-semibold mb-1">
-<span class="material-symbols-outlined text-[15px]" data-icon="balance">balance</span>
-<span>Selisih</span>
-</div>
-<span class="font-currency-sm text-currency-sm font-bold text-primary tracking-tight">
-              +Rp4.702.300
-            </span>
-</div>
-</div>
+<div class="bg-primary-container/5 border border-primary-container/15 rounded-lg px-2 py-2 flex flex-col">
+  <div class="flex items-center gap-1 text-primary font-label-sm text-[11px] font-semibold mb-0.5">
+    <span class="material-symbols-outlined text-[14px]" data-icon="balance">balance</span>
+    <span class="">Selisih</span>
+  </div>
+  <span class="font-currency-sm text-[13px] font-bold text-primary tracking-tight">
+    +Rp4.702.300
+  </span>
+</div></div>
 <!-- Cycle Spending Pace Progress Bar -->
 <div class="mt-3.5 pt-2 flex flex-col gap-1.5">
 <div class="flex justify-between items-center text-label-sm font-label-sm">
@@ -265,7 +266,7 @@
 <section class="relative">
 <div class="flex items-center bg-surface-container-lowest border border-outline-variant/40 rounded-xl px-3.5 h-12 shadow-xs focus-within:border-primary-container focus-within:ring-2 focus-within:ring-primary-container/20 transition-all">
 <span class="material-symbols-outlined text-outline text-[20px] mr-2.5" data-icon="search">search</span>
-<input class="w-full bg-transparent border-none p-0 text-on-surface placeholder:text-outline text-body-md font-body-md focus:ring-0 focus:outline-none" placeholder="Cari transaksi, toko, cicilan..." type="text"/>
+<input class="w-full bg-transparent border-none p-0 text-on-surface placeholder:text-outline text-body-md font-body-md focus:ring-0 focus:outline-none" placeholder="Cari transaksi, toko, cicilan..." type="text">
 <button aria-label="Pencarian Suara" class="text-outline hover:text-primary p-1 active:scale-95 transition-transform">
 <span class="material-symbols-outlined text-[20px]" data-icon="mic">mic</span>
 </button>
@@ -275,22 +276,22 @@
 <section class="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 -mx-margin px-margin">
 <!-- Filter Active: Jenis -->
 <button class="flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-primary-container/10 border border-primary-container text-primary font-label-md text-label-md font-bold whitespace-nowrap active:scale-95 transition-transform">
-<span>Semua Jenis</span>
+<span class="">Semua Jenis</span>
 <span class="material-symbols-outlined text-[16px]" data-icon="keyboard_arrow_down">keyboard_arrow_down</span>
 </button>
 <!-- Filter Inactive: Dompet / Rekening -->
 <button class="flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-surface-container-lowest border border-outline-variant/60 text-on-surface-variant font-label-md text-label-md font-medium whitespace-nowrap hover:bg-surface-container-low active:scale-95 transition-transform">
-<span>BCA &amp; Kartu</span>
+<span class="">BCA &amp; Kartu</span>
 <span class="material-symbols-outlined text-[16px]" data-icon="keyboard_arrow_down">keyboard_arrow_down</span>
 </button>
 <!-- Filter Inactive: Kategori -->
 <button class="flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-surface-container-lowest border border-outline-variant/60 text-on-surface-variant font-label-md text-label-md font-medium whitespace-nowrap hover:bg-surface-container-low active:scale-95 transition-transform">
-<span>Kategori</span>
+<span class="">Kategori</span>
 <span class="material-symbols-outlined text-[16px]" data-icon="tune">tune</span>
 </button>
 <!-- Filter Inactive: Anggota Pencatat -->
 <button class="flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-surface-container-lowest border border-outline-variant/60 text-on-surface-variant font-label-md text-label-md font-medium whitespace-nowrap hover:bg-surface-container-low active:scale-95 transition-transform">
-<span>Oleh: Semua</span>
+<span class="">Oleh: Semua</span>
 <span class="material-symbols-outlined text-[16px]" data-icon="keyboard_arrow_down">keyboard_arrow_down</span>
 </button>
 </section>
@@ -304,34 +305,31 @@
 <span class="font-currency-sm text-currency-sm font-semibold text-outline">-Rp866.666</span>
 </div>
 <!-- Card Item: Retainer Gigi -->
-<div class="bg-surface-container-lowest rounded-2xl p-space-md border border-primary-container/5 shadow-sm hover:border-primary-container/20 transition-all flex items-center justify-between gap-3">
-<div class="flex items-center gap-3 min-w-0">
-<!-- Category Icon Badge (Kesehatan: Coral/Red soft) -->
-<div class="w-11 h-11 rounded-full bg-[#FFF0F0] text-tertiary flex items-center justify-center shrink-0">
-<span class="material-symbols-outlined text-[22px]" data-icon="medical_services">medical_services</span>
-</div>
-<div class="min-w-0">
-<h2 class="font-body-md text-body-md font-bold text-on-surface truncate">Retainer Gigi Ayu</h2>
-<div class="flex items-center gap-1.5 flex-wrap text-body-sm font-body-sm text-outline mt-0.5">
-<span>Kesehatan</span>
-<span>•</span>
-<span>BCA Platinum</span>
-<span class="px-1.5 py-0.2 bg-surface-container rounded text-[11px] font-medium text-on-surface-variant">Cicilan 3/3</span>
-</div>
-<!-- Partner Badge -->
-<div class="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-secondary-container/40 text-on-secondary-container font-label-sm text-[10.5px]">
-<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-<span>Dicatat Ayu</span>
-</div>
-</div>
-</div>
-<!-- Amount -->
-<div class="text-right shrink-0">
-<span class="font-currency-md text-currency-md font-bold text-tertiary tracking-tight block">
-                -Rp866.666
-              </span>
-<span class="font-label-sm text-[11px] text-outline font-medium">14:20 WIB</span>
-</div>
+<div class="bg-surface-container-lowest rounded-xl px-3 py-2.5 border border-primary-container/5 shadow-xs hover:border-primary-container/20 transition-all flex items-center gap-3">
+  <!-- Category Icon Badge (Kesehatan) -->
+  <div class="w-9 h-9 rounded-full bg-[#FFF0F0] text-tertiary flex items-center justify-center shrink-0">
+    <span class="material-symbols-outlined text-[18px]" data-icon="medical_services">medical_services</span>
+  </div>
+  <!-- Main Content & Details -->
+  <div class="flex-1 min-w-0">
+    <div class="flex items-center justify-between gap-2">
+      <h2 class="font-body-md text-sm font-semibold text-on-surface truncate">Retainer Gigi Ayu</h2>
+      <span class="font-currency-md text-sm font-bold text-tertiary tracking-tight shrink-0">-Rp866.666</span>
+    </div>
+    <div class="flex items-center justify-between gap-2 mt-1 text-[11px] text-outline font-medium">
+      <div class="flex items-center gap-1.5 flex-wrap min-w-0 truncate">
+        <span class="">Kesehatan</span>
+        <span class="">•</span>
+        <span class="">BCA Platinum</span>
+        <span class="px-1 py-0.2 bg-surface-container rounded text-[10.5px] text-on-surface-variant font-medium">3/3</span>
+        <span class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-secondary-container/40 text-on-secondary-container text-[10.5px]">
+          <span class="w-1 h-1 rounded-full bg-secondary"></span>
+          <span class="">Ayu</span>
+        </span>
+      </div>
+      <span class="shrink-0 text-outline text-[11px]">14:20 WIB</span>
+    </div>
+  </div>
 </div>
 </section>
 <!-- Group 2: 7 Oktober 2026 -->
@@ -342,102 +340,87 @@
 <span class="font-currency-sm text-currency-sm font-semibold text-outline">-Rp1.115.000</span>
 </div>
 <!-- Card Item: Lemari Anak -->
-<div class="bg-surface-container-lowest rounded-2xl p-space-md border border-primary-container/5 shadow-sm hover:border-primary-container/20 transition-all flex items-center justify-between gap-3">
-<div class="flex items-center gap-3 min-w-0">
-<!-- Category Icon Badge (Home/Perabot: Amber Soft) -->
-<div class="w-11 h-11 rounded-full bg-[#FFFBEB] text-[#B45309] flex items-center justify-center shrink-0">
-<span class="material-symbols-outlined text-[22px]" data-icon="chair">chair</span>
-</div>
-<div class="min-w-0">
-<h2 class="font-body-md text-body-md font-bold text-on-surface truncate">Lemari Anak &amp; Meja</h2>
-<div class="flex items-center gap-1.5 flex-wrap text-body-sm font-body-sm text-outline mt-0.5">
-<span>Rumah Tangga</span>
-<span>•</span>
-<span>BCA Platinum</span>
-<span class="px-1.5 py-0.2 bg-surface-container rounded text-[11px] font-medium text-on-surface-variant">Cicilan 2/3</span>
-</div>
-<!-- Partner Badge -->
-<div class="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-secondary-container/40 text-on-secondary-container font-label-sm text-[10.5px]">
-<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-<span>Dicatat Ayu</span>
-</div>
-</div>
-</div>
-<!-- Amount -->
-<div class="text-right shrink-0">
-<span class="font-currency-md text-currency-md font-bold text-tertiary tracking-tight block">
-                -Rp1.115.000
-              </span>
-<span class="font-label-sm text-[11px] text-outline font-medium">19:45 WIB</span>
-</div>
+<div class="bg-surface-container-lowest rounded-xl px-3 py-2.5 border border-primary-container/5 shadow-xs hover:border-primary-container/20 transition-all flex items-center gap-3">
+  <!-- Category Icon Badge (Rumah Tangga) -->
+  <div class="w-9 h-9 rounded-full bg-[#FFFBEB] text-[#B45309] flex items-center justify-center shrink-0">
+    <span class="material-symbols-outlined text-[18px]" data-icon="chair">chair</span>
+  </div>
+  <!-- Main Content & Details -->
+  <div class="flex-1 min-w-0">
+    <div class="flex items-center justify-between gap-2">
+      <h2 class="font-body-md text-sm font-semibold text-on-surface truncate">Lemari Anak &amp; Meja</h2>
+      <span class="font-currency-md text-sm font-bold text-tertiary tracking-tight shrink-0">-Rp1.115.000</span>
+    </div>
+    <div class="flex items-center justify-between gap-2 mt-1 text-[11px] text-outline font-medium">
+      <div class="flex items-center gap-1.5 flex-wrap min-w-0 truncate">
+        <span class="">Rumah Tangga</span>
+        <span class="">•</span>
+        <span class="">BCA Platinum</span>
+        <span class="px-1 py-0.2 bg-surface-container rounded text-[10.5px] text-on-surface-variant font-medium">2/3</span>
+        <span class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-secondary-container/40 text-on-secondary-container text-[10.5px]">
+          <span class="w-1 h-1 rounded-full bg-secondary"></span>
+          <span class="">Ayu</span>
+        </span>
+      </div>
+      <span class="shrink-0 text-outline text-[11px]">19:45 WIB</span>
+    </div>
+  </div>
 </div>
 </section>
 <!-- Group 3: 29 September 2026 (Awal Siklus Baru) -->
-<section class="space-y-2">
-<!-- Day Header & Total Daily Spent -->
+<section class="space-y-2"><!-- Day Header & Total Daily Spent -->
 <div class="flex items-center justify-between px-1">
-<span class="font-label-md text-label-md font-bold text-on-surface">Selasa, 29 September 2026</span>
-<span class="font-currency-sm text-currency-sm font-semibold text-secondary">+Rp14.879.100</span>
+  <span class="font-label-md text-label-md font-bold text-on-surface">Selasa, 29 September 2026</span>
+  <span class="font-currency-sm text-currency-sm font-semibold text-secondary">+Rp14.879.100</span>
 </div>
 <!-- Card Item: Pemasukan Gaji Bersama -->
-<div class="bg-surface-container-lowest rounded-2xl p-space-md border border-primary-container/5 shadow-sm hover:border-primary-container/20 transition-all flex items-center justify-between gap-3">
-<div class="flex items-center gap-3 min-w-0">
-<!-- Category Icon Badge (Gaji: Mint/Green Soft) -->
-<div class="w-11 h-11 rounded-full bg-[#E8F5F1] text-secondary flex items-center justify-center shrink-0">
-<span class="material-symbols-outlined text-[22px]" data-icon="account_balance_wallet">account_balance_wallet</span>
-</div>
-<div class="min-w-0">
-<h2 class="font-body-md text-body-md font-bold text-on-surface truncate">Gaji Bulanan &amp; Bonus</h2>
-<div class="flex items-center gap-1.5 flex-wrap text-body-sm font-body-sm text-outline mt-0.5">
-<span>Pemasukan Siklus</span>
-<span>•</span>
-<span>Rekening Utama BCA</span>
-</div>
-<!-- Shared Badge -->
-<div class="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-primary-container/15 text-primary font-label-sm text-[10.5px]">
-<span class="material-symbols-outlined text-[12px] font-bold" data-icon="diversity_1">diversity_1</span>
-<span>Pemasukan Bersama</span>
-</div>
-</div>
-</div>
-<!-- Amount -->
-<div class="text-right shrink-0">
-<span class="font-currency-md text-currency-md font-bold text-secondary tracking-tight block">
-                +Rp15.000.000
-              </span>
-<span class="font-label-sm text-[11px] text-outline font-medium">08:00 WIB</span>
-</div>
+<div class="bg-surface-container-lowest rounded-xl px-3 py-2.5 border border-primary-container/5 shadow-xs hover:border-primary-container/20 transition-all flex items-center gap-3">
+  <div class="w-9 h-9 rounded-full bg-[#E8F5F1] text-secondary flex items-center justify-center shrink-0">
+    <span class="material-symbols-outlined text-[18px]" data-icon="account_balance_wallet">account_balance_wallet</span>
+  </div>
+  <div class="flex-1 min-w-0">
+    <div class="flex items-center justify-between gap-2">
+      <h2 class="font-body-md text-sm font-semibold text-on-surface truncate">Gaji Bulanan &amp; Bonus</h2>
+      <span class="font-currency-md text-sm font-bold text-secondary tracking-tight shrink-0">+Rp15.000.000</span>
+    </div>
+    <div class="flex items-center justify-between gap-2 mt-1 text-[11px] text-outline font-medium">
+      <div class="flex items-center gap-1.5 flex-wrap min-w-0 truncate">
+        <span class="">Pemasukan Siklus</span>
+        <span class="">•</span>
+        <span class="">Rek. BCA</span>
+        <span class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-primary-container/15 text-primary text-[10.5px]">
+          <span class="material-symbols-outlined text-[11px] font-bold" data-icon="diversity_1">diversity_1</span>
+          <span class="">Bersama</span>
+        </span>
+      </div>
+      <span class="shrink-0 text-outline text-[11px]">08:00 WIB</span>
+    </div>
+  </div>
 </div>
 <!-- Card Item: Kapasitor AC Rumah -->
-<div class="bg-surface-container-lowest rounded-2xl p-space-md border border-primary-container/5 shadow-sm hover:border-primary-container/20 transition-all flex items-center justify-between gap-3">
-<div class="flex items-center gap-3 min-w-0">
-<!-- Category Icon Badge (Perbaikan: Rose Soft) -->
-<div class="w-11 h-11 rounded-full bg-[#FFF0F0] text-tertiary flex items-center justify-center shrink-0">
-<span class="material-symbols-outlined text-[22px]" data-icon="build">build</span>
-</div>
-<div class="min-w-0">
-<h2 class="font-body-md text-body-md font-bold text-on-surface truncate">Kapasitor AC Kamar</h2>
-<div class="flex items-center gap-1.5 flex-wrap text-body-sm font-body-sm text-outline mt-0.5">
-<span>Perbaikan Rumah</span>
-<span>•</span>
-<span>QRIS BCA</span>
-</div>
-<!-- Partner Badge: Bima -->
-<div class="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-[10.5px]">
-<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
-<span>Dicatat Bima</span>
-</div>
-</div>
-</div>
-<!-- Amount -->
-<div class="text-right shrink-0">
-<span class="font-currency-md text-currency-md font-bold text-tertiary tracking-tight block">
-                -Rp120.900
-              </span>
-<span class="font-label-sm text-[11px] text-outline font-medium">16:15 WIB</span>
-</div>
-</div>
-</section>
+<div class="bg-surface-container-lowest rounded-xl px-3 py-2.5 border border-primary-container/5 shadow-xs hover:border-primary-container/20 transition-all flex items-center gap-3">
+  <div class="w-9 h-9 rounded-full bg-[#FFF0F0] text-tertiary flex items-center justify-center shrink-0">
+    <span class="material-symbols-outlined text-[18px]" data-icon="build">build</span>
+  </div>
+  <div class="flex-1 min-w-0">
+    <div class="flex items-center justify-between gap-2">
+      <h2 class="font-body-md text-sm font-semibold text-on-surface truncate">Kapasitor AC Kamar</h2>
+      <span class="font-currency-md text-sm font-bold text-tertiary tracking-tight shrink-0">-Rp120.900</span>
+    </div>
+    <div class="flex items-center justify-between gap-2 mt-1 text-[11px] text-outline font-medium">
+      <div class="flex items-center gap-1.5 flex-wrap min-w-0 truncate">
+        <span class="">Perbaikan Rumah</span>
+        <span class="">•</span>
+        <span class="">QRIS BCA</span>
+        <span class="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-surface-container-high text-on-surface-variant text-[10.5px]">
+          <span class="w-1 h-1 rounded-full bg-primary"></span>
+          <span class="">Bima</span>
+        </span>
+      </div>
+      <span class="shrink-0 text-outline text-[11px]">16:15 WIB</span>
+    </div>
+  </div>
+</div></section>
 <!-- Subtle Feedback / End of Cycle Marker -->
 <div class="pt-4 pb-2 text-center">
 <p class="font-label-sm text-label-sm text-outline">
@@ -478,4 +461,6 @@
 </a>
 </nav>
 </div>
+
+
 </body></html>
