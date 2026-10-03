@@ -144,6 +144,10 @@ progress {appearance:none;width:100%;height:9px;border:0;border-radius:999px;ove
 .expense-form .switch input:checked+span{background:var(--entry-primary);border-color:var(--entry-primary)}
 .expense-form .input{border-color:var(--entry-border);border-radius:12px}
 .expense-form .input:focus-visible{outline:2px solid var(--entry-primary);outline-offset:2px}
+.expense-form .amount-entry .input-affix:focus-within{outline:none;box-shadow:none}
+.expense-form .amount-entry .input-affix .affix{border:0}
+.expense-form .amount-entry .input-affix .input:focus-visible{outline:none;border:0;box-shadow:none}
+.expense-form .amount-entry:has(#nominal:focus){border-color:rgb(13 110 110 / 35%);box-shadow:0 0 0 3px rgb(13 110 110 / 6%)}
 .expense-form .wallet-picker{border-radius:12px;min-height:64px;padding:12px;border-color:var(--entry-border)}
 .expense-form .wallet-picker>.ic:first-child{background:#f4f4f1;color:var(--entry-primary);border-radius:12px}
 .expense-form .wallet-picker [data-wallet-balance]{color:var(--entry-primary)}
