@@ -1,4 +1,23 @@
 // UI enhancements for Stitch compositions; money is validated by the server.
+// Setelah edit, Back browser harus membuka beranda, bukan form yang baru disimpan.
+(() => {
+ const detail = $('[data-tx-detail]'); if (!detail) return;
+ const id = detail.dataset.txDetail;
+ if (!detail.hasAttribute('data-after-edit') && history.state?.rukunAfterEdit !== id) return;
+ const url = new URL(location.href); url.searchParams.delete('diubah');
+ const destination = url.pathname + url.search + url.hash;
+ if (history.state?.rukunAfterEdit !== id) {
+  history.replaceState({ rukunAfterEditHome: id }, '', '/');
+  history.pushState({ rukunAfterEdit: id }, '', destination);
+ } else {
+  history.replaceState(history.state, '', destination);
+ }
+ const back = $('a[aria-label="Kembali"]'); if (back) back.href = '/';
+ window.addEventListener('popstate', event => {
+  if (event.state?.rukunAfterEditHome === id) location.replace('/');
+ });
+})();
+
 function toast(message) { const el = $('.toast'); if (!el) return; el.textContent = message; el.hidden = false; clearTimeout(el.hideTimer); el.hideTimer = setTimeout(() => { el.hidden = true; }, 3500); }
 let dialogOpener = null;
 $$('[data-open-dialog]').forEach(button => button.addEventListener('click', () => {

@@ -230,8 +230,13 @@ func (a *App) txDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	v := viewTx(t, a.today())
+	afterEdit := r.URL.Query().Get("diubah") == "1"
+	back := "/transaksi"
+	if afterEdit {
+		back = "/"
+	}
 	data := map[string]any{
-		"Title": "Detail Transaksi", "Nav": "transaksi", "Back": "/transaksi",
+		"Title": "Detail Transaksi", "Nav": "transaksi", "Back": back, "AfterEdit": afterEdit,
 		"Tx": v, "KindLabel": kindLabel[t.Kind],
 		"Waktu":       tanggalPendek(t.Date) + ", " + t.CreatedAt.In(a.loc).Format("15:04"),
 		"InvestTrade": t.Kind == "invest_buy" || t.Kind == "invest_sell",
@@ -797,7 +802,7 @@ func (a *App) txUpdate(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, err)
 		return
 	}
-	http.Redirect(w, r, "/transaksi/"+strconv.FormatInt(id, 10), http.StatusSeeOther)
+	http.Redirect(w, r, "/transaksi/"+strconv.FormatInt(id, 10)+"?diubah=1", http.StatusSeeOther)
 }
 
 func (a *App) txDelete(w http.ResponseWriter, r *http.Request) {
