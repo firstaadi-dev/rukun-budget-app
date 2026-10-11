@@ -11,12 +11,13 @@ import (
 
 func TestTxFormDebtHasNoCategory(t *testing.T) {
 	page := parsePages()["transaksi_form.html"]
-	for _, kind := range []string{"debt_in", "debt_pay", "loan_out", "loan_in", "expense", "income"} {
+	for _, kind := range []string{"debt_in", "debt_pay", "loan_out", "loan_in", "expense", "income", "transfer"} {
 		t.Run(kind, func(t *testing.T) {
 			var body bytes.Buffer
 			err := page.ExecuteTemplate(&body, "content", map[string]any{
 				"ID": int64(1), "Kind": kind, "KindLabel": kindLabel[kind],
-				"Form": map[string]string{}, "Categories": []string{"Lainnya"},
+				"Form": map[string]string{"dompet": "0", "mata_uang": "USD"}, "Categories": []string{"Lainnya"},
+				"IsDebt": kindHutangPiutang[kind], "Currencies": Currencies,
 				"User": User{},
 			})
 			if err != nil {
@@ -28,7 +29,53 @@ func TestTxFormDebtHasNoCategory(t *testing.T) {
 					t.Errorf("form %s: %s present = %v, want %v", kind, marker, got, wantCategory)
 				}
 			}
+			for _, marker := range []string{`>Tanpa dompet</option>`, `name="mata_uang"`, `data-debt-form`} {
+				if got := strings.Contains(body.String(), marker); got != kindHutangPiutang[kind] {
+					t.Errorf("form %s: %s present = %v, want %v", kind, marker, got, kindHutangPiutang[kind])
+				}
+			}
 		})
+	}
+}
+
+func TestTransferFormUsesTransactionLayout(t *testing.T) {
+	page := parsePages()["transaksi_form.html"]
+	for _, id := range []int64{0, 7} {
+		var body bytes.Buffer
+		err := page.ExecuteTemplate(&body, "content", map[string]any{
+			"ID": id, "Kind": "transfer", "KindLabel": "Transfer", "User": User{},
+			"Form": map[string]string{"nominal_keluar": "1.000.000", "nominal_diterima": "60", "biaya_admin": "5.000"},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		html := body.String()
+		if got := strings.Contains(html, `aria-label="Jenis transaksi"`); got != (id == 0) {
+			t.Errorf("id %d: kind switch present = %v", id, got)
+		}
+		if id == 0 && !strings.Contains(html, `class="seg-opt on" href="/transaksi/baru?jenis=transfer"`) {
+			t.Error("tab transfer tidak aktif")
+		}
+		for _, marker := range []string{`name="dompet"`, `name="ke_dompet"`, `name="nominal_keluar"`, `name="nominal_diterima"`, `name="biaya_admin"`, `name="tanggal"`, `name="catatan"`, `name="struk"`, `data-recorder-label`, `data-live-amount`, `Simpan Transaksi`} {
+			if got := strings.Count(html, marker); got != 1 {
+				t.Errorf("id %d: %s count = %d, want 1", id, marker, got)
+			}
+		}
+		for _, marker := range []string{`name="nominal"`, `name="kategori"`, `name="cicilan"`, `data-amount-form`} {
+			if strings.Contains(html, marker) {
+				t.Errorf("transfer masih memuat %s", marker)
+			}
+		}
+	}
+}
+
+func TestBalanceCheckDebtWithoutWallet(t *testing.T) {
+	app := &App{}
+	r := httptest.NewRequest("POST", "/transaksi/1/ubah", nil)
+	for kind := range kindHutangPiutang {
+		if err := app.checkBalance(r, Tx{Kind: kind, WalletCur: "USD", AmountMinor: 100}, 1); err != nil {
+			t.Errorf("%s tanpa dompet: %v", kind, err)
+		}
 	}
 }
 

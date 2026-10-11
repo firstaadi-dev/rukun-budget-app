@@ -327,6 +327,7 @@ func (a *App) txForm(w http.ResponseWriter, r *http.Request) {
 	}
 	if id != 0 {
 		f["dompet"] = strconv.FormatInt(t.WalletID, 10)
+		f["mata_uang"] = t.WalletCur
 		f["nominal"] = FormatPlain(t.AmountMinor, t.WalletCur)
 		f["nominal_keluar"] = f["nominal"]
 		if t.IsTransfer() {
@@ -345,7 +346,7 @@ func (a *App) renderTxForm(w http.ResponseWriter, r *http.Request, kind string, 
 		a.fail(w, r, err)
 		return
 	}
-	if len(wallets) == 0 {
+	if len(wallets) == 0 && !kindHutangPiutang[kind] {
 		http.Redirect(w, r, "/dompet/baru", http.StatusSeeOther)
 		return
 	}
@@ -368,10 +369,10 @@ func (a *App) renderTxForm(w http.ResponseWriter, r *http.Request, kind string, 
 		"Action": action, "Kind": kind, "KindLabel": kindLabel[kind], "ID": id,
 		"Form": f, "Error": errMsg,
 		"Wallets": viewWallets(wallets),
-		"Modes":   modeCicilan, "ModeLabel": modeLabel(f["mode"]),
+		"IsDebt":  kindHutangPiutang[kind], "Currencies": Currencies,
+		"Modes": modeCicilan, "ModeLabel": modeLabel(f["mode"]),
 		"ModeHint": modeHint(f["mode"]), "CicilanMaks": cicilanMaks,
 	}
-	page := "transaksi_form.html"
 
 	// Dibaca ulang di sini, bukan dititipkan lewat f: form yang tergambar ulang
 	// setelah isian ditolak harus tetap menawarkan edit massal, dan f saat itu
@@ -418,12 +419,11 @@ func (a *App) renderTxForm(w http.ResponseWriter, r *http.Request, kind string, 
 		if fetched, _ := a.rateSrc.status(); !fetched.IsZero() {
 			data["RateUpdated"] = tanggalPendek(fetched.In(a.loc))
 		}
-		page = "transfer_form.html"
 	}
 	if errMsg != "" {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 	}
-	a.render(w, r, page, data)
+	a.render(w, r, "transaksi_form.html", data)
 }
 
 // firstOtherWallet memilih dompet mana pun selain yang sudah jadi sumber,
@@ -497,6 +497,7 @@ func (a *App) readTx(r *http.Request, kind string) (Tx, map[string]string, error
 	ctx := r.Context()
 	f := map[string]string{
 		"dompet":           r.FormValue("dompet"),
+		"mata_uang":        r.FormValue("mata_uang"),
 		"ke_dompet":        r.FormValue("ke_dompet"),
 		"kategori":         r.FormValue("kategori"),
 		"nominal":          r.FormValue("nominal"),
@@ -532,13 +533,24 @@ func (a *App) readTx(r *http.Request, kind string) (Tx, map[string]string, error
 		return t, f, err
 	}
 
-	walletID, _ := strconv.ParseInt(f["dompet"], 10, 64)
-	from, err := a.store.Wallet(ctx, family(r), walletID)
-	if err != nil {
+	walletID, parseErr := strconv.ParseInt(f["dompet"], 10, 64)
+	if (f["dompet"] != "" && parseErr != nil) || walletID < 0 {
 		return t, f, errors.New("Dompet tidak valid.")
 	}
-	t.WalletID = from.ID
-	t.WalletCur = from.Currency
+	var from Wallet
+	if walletID == 0 && kindHutangPiutang[kind] {
+		if !knownCurrency(f["mata_uang"]) {
+			return t, f, errors.New("Pilih mata uang untuk catatan tanpa dompet.")
+		}
+		t.WalletCur = f["mata_uang"]
+	} else {
+		from, err = a.store.Wallet(ctx, family(r), walletID)
+		if err != nil {
+			return t, f, errors.New("Dompet tidak valid.")
+		}
+		t.WalletID = from.ID
+		t.WalletCur = from.Currency
+	}
 
 	if kind != "transfer" {
 		if kind == "expense" || kind == "income" {
@@ -552,7 +564,7 @@ func (a *App) readTx(r *http.Request, kind string) (Tx, map[string]string, error
 		} else {
 			t.Category = ""
 		}
-		amount, err := ParseAmount(f["nominal"], from.Currency)
+		amount, err := ParseAmount(f["nominal"], t.WalletCur)
 		if err != nil || amount <= 0 {
 			return t, f, errors.New("Nominal harus lebih dari nol.")
 		}
@@ -656,6 +668,9 @@ func slicesContains(list []string, v string) bool {
 // melainkan pagunya. Tanpa limit terisi, tidak ada yang bisa dijaga dan
 // pemakaian dibiarkan — menebak pagunya lebih berbahaya daripada diam.
 func (a *App) checkBalance(r *http.Request, t Tx, excludeTxID int64) error {
+	if kindHutangPiutang[t.Kind] && !t.HasWallet() {
+		return nil
+	}
 	wl, err := a.store.Wallet(r.Context(), family(r), t.WalletID)
 	if err != nil {
 		return err

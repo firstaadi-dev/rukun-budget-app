@@ -244,17 +244,17 @@ $$('input[inputmode="decimal"]').forEach((el) => {
 // mata uangnya mengikuti dompet itu — dua sumber kebenaran untuk hal yang sama
 // adalah cara paling mudah membuat nominal tersimpan dengan satuan yang salah.
 (function hutangForm() {
-  const form = $('#hutang-form');
+  const form = $('#hutang-form') || $('[data-debt-form]');
   if (!form) return;
   const wallet = $('[data-wallet-select]', form);
   const curField = $('[data-currency-field]', form);
   const curSelect = $('#mata_uang', form);
 
   function sync() {
-    const pakaiDompet = wallet.value !== '';
+    const pakaiDompet = wallet.value !== '' && wallet.value !== '0';
     curField.hidden = pakaiDompet;
     const cur = pakaiDompet ? curOf(wallet) : curSelect.value;
-    const sym = pakaiDompet ? symOf(wallet) : (cur === 'IDR' ? 'Rp' : cur);
+    const sym = pakaiDompet ? symOf(wallet) : (curSelect.selectedOptions[0]?.dataset.symbol || (cur === 'IDR' ? 'Rp' : cur));
     $$('[data-currency-symbol]', form).forEach((el) => (el.textContent = sym));
   }
   wallet.addEventListener('change', sync);

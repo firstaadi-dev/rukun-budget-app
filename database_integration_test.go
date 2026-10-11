@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -129,10 +128,9 @@ func TestDatabaseMoneyFlows(t *testing.T) {
 			defer s.DeleteTx(ctx, f.ID, txID)
 			values := url.Values{
 				"tanggal": {today.Format(formatTanggal)}, "dompet": {strconv.FormatInt(walletID, 10)},
-				"nominal": {"200"}, "catatan": {"Diperbarui"}, "party_id": {"999999"},
+				"nominal": {"2"}, "catatan": {"Diperbarui"}, "party_id": {"999999"},
 			}
-			r := httptest.NewRequest("POST", "/transaksi/"+strconv.FormatInt(txID, 10)+"/ubah", strings.NewReader(values.Encode()))
-			r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			r := transactionFormPost(t, "/transaksi/"+strconv.FormatInt(txID, 10)+"/ubah", values)
 			r.SetPathValue("id", strconv.FormatInt(txID, 10))
 			r = r.WithContext(context.WithValue(r.Context(), ctxKey{}, u))
 			w := httptest.NewRecorder()

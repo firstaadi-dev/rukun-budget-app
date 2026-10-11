@@ -103,16 +103,23 @@ $$('[data-receipt-input]').forEach(input => {
 });
 
 (() => {
- const form = $('.expense-form'); if (!form) return;
- const amount = $('#nominal', form), wallet = $('#dompet', form), toggle = $('[data-installment-toggle]', form), fields = $('.installment-fields', form);
- const mode = $('[data-installment-mode]', form), duration = $('[name="cicilan"]', form);
+ const form = $('.ledger-form'); if (!form) return;
  const footer = $('.save-footer', form), main = form.closest('main');
  if (footer && main) {
   const reserveFooter = () => { main.style.paddingBottom = `${Math.ceil(footer.getBoundingClientRect().height) + 24}px`; };
   reserveFooter();
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(reserveFooter).observe(footer);
  }
- const symbol = () => symOf(wallet), currency = () => curOf(wallet);
+ const recorder = () => { const selected = $('[name="pencatat"]:checked', form); const label = $('[data-recorder-label]', form); if (selected && label) label.textContent = $('strong', selected.closest('label')).textContent.replace(' (Saya)', ''); };
+ form.addEventListener('change', recorder); recorder();
+})();
+(() => {
+ const form = $('.expense-form'); if (!form) return;
+ const amount = $('#nominal', form), wallet = $('#dompet', form), toggle = $('[data-installment-toggle]', form), fields = $('.installment-fields', form);
+ const mode = $('[data-installment-mode]', form), duration = $('[name="cicilan"]', form), curSelect = $('#mata_uang', form);
+ const withoutWallet = () => curSelect && (wallet.value === '' || wallet.value === '0');
+ const symbol = () => withoutWallet() ? curSelect.selectedOptions[0]?.dataset.symbol || curSelect.value : symOf(wallet);
+ const currency = () => withoutWallet() ? curSelect.value : curOf(wallet);
  let timer, controller, revision = 0, budgetKey = "";
  const status = $('[data-budget-state]', form);
  const showBudget = (state, message) => { status.dataset.status = state; status.textContent = message; };
@@ -145,14 +152,14 @@ $$('[data-receipt-input]').forEach(input => {
  };
  toggle?.addEventListener('change', () => { fields.hidden = !toggle.checked; fields.closest('.installment-card').hidden = !toggle.checked; $$('input,select', fields).forEach(input => input.disabled = !toggle.checked); update(); });
  $$('[data-add-amount]', form).forEach(button => button.addEventListener('click', () => { amount.value = fmtPlain((parseNum(amount.value) || 0) + Number(button.dataset.addAmount), currency()); amount.dispatchEvent(new Event('input', { bubbles: true })); }));
- const recorder = () => { const selected = $('[name="pencatat"]:checked', form); const label = $('[data-recorder-label]', form); if (selected && label) label.textContent = $('strong', selected.closest('label')).textContent.replace(' (Saya)', ''); };
- form.addEventListener('input', update); form.addEventListener('change', () => { recorder(); update(); }); recorder(); update();
+ form.addEventListener('input', update); form.addEventListener('change', update); update();
 })();
 (() => {
  const form = $('#transfer-form'); if (!form) return;
  const from = $('[data-from]', form), to = $('[data-to]', form), amount = $('#nominal_keluar', form), received = $('#nominal_diterima', form);
  const update = () => requestAnimationFrame(() => {
   const out = parseNum(amount.value) || 0; const incoming = parseNum(received.value) || 0; const option = from.selectedOptions[0];
+  $('[data-live-amount]', form).textContent = `${symOf(from)} ${fmtPlain(out, curOf(from))}`;
   $('[data-transfer-out]', form).textContent = `−${symOf(from)} ${fmtPlain(out, curOf(from))}`;
   $('[data-transfer-in]', form).textContent = `+${symOf(to)} ${fmtPlain(incoming, curOf(to))}`;
   const balance = Number(option?.dataset.minor || 0) / (10 ** exp(curOf(from)));

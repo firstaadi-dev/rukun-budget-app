@@ -250,7 +250,7 @@ func TestPagesRender(t *testing.T) {
 			"ModeHint": modeHint("cicil"), "CicilanMaks": cicilanMaks,
 		}, "Pencatatan akan dibagi rata per bulan"},
 
-		{"transfer_form.html", map[string]any{
+		{"transaksi_form.html", map[string]any{
 			"Title": "Transfer Antar Dompet", "Nav": "transaksi", "Back": "/transaksi",
 			"Action": "/transaksi/baru?jenis=transfer", "Kind": "transfer", "KindLabel": "Transfer",
 			"Form": form, "Wallets": viewWallets(wallets),
